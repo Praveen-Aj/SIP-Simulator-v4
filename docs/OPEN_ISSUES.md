@@ -54,63 +54,53 @@ Each issue is classified with:
 
 ### ISSUE-003: Campaign Log Directory Disconnect in HTML Export
 - **Severity:** **P1 (High)**
-- **File:** `web-app/server.js` (Line 1029)
-- **Code:**
-  ```javascript
-  const logDir = path.join(TRUNK_DIR, 'logs', transport.toUpperCase());
-  ```
+- **Status:** **RESOLVED**
+- **File:** `web-app/server.js` (Lines 42–65, Lines 180–205, Lines 460–480, Lines 1130–1160)
 - **Root Cause:**
-  `TLSDebugLogger.java` and `SIPScenarioRunner.java` write runtime SIP trace logs to:
+  `TLSDebugLogger.java` and desktop scenario executions write runtime SIP trace logs to:
   `<UserHome>/Desktop/SIP Simulator logs/<TRANSPORT>/`
-  However, `web-app/server.js` in `/api/campaigns/export` expects logs to be located at `TRUNK_DIR/logs/<transport>` (which is empty in production).
-- **Impact:** Exported campaign HTML reports and PDF summaries have blank or missing SIP sequence diagrams, even though the tests executed successfully and logs were written to the desktop folder.
-- **Recommended Fix:**
-  Standardize log directory resolution in `server.js` to look in the user desktop path or make the log path configurable via `config/settings.properties`, with automatic fallback if the local workspace `logs/` directory is empty.
-- **Regression Risk:** Minimal. Affects only report generation file path resolution.
+  However, `web-app/server.js` in `/api/campaigns/export` previously expected logs to be located only at `TRUNK_DIR/logs/<transport>` (which is empty in production).
+- **Resolution:**
+  1. Updated `web-app/server.js` to utilize `resolveLogsDir(transport)` and `findLogFilePath(filename)` across all supported transport directories (`UDP`, `TCP`, `TLS`, `SIP`).
+  2. Aggregated candidate directories from standard user desktop, OneDrive desktop, and project root logs.
+  3. Deduplicated log files by normalized canonical path. Tested with `node -c web-app/server.js`.
 
 ---
 
 ### ISSUE-004: Swing EDT Blocking During Socket Connection
 - **Severity:** **P1 (High)**
-- **File:** `src/sipinspector/SIPInspectorMainFrame.java` (Lines 1450–1490)
+- **Status:** **RESOLVED**
+- **File:** `src/sipinspector/SIPInspectorMainFrame.java`, `src/sipinspector/Socket/TCPClientSocket.java`
 - **Root Cause:**
-  When the user clicks "Run" or "Next >>", `openSocket()` and DNS resolution (`InetAddress.getByName(...)`) are called directly from the Swing Event Dispatch Thread (EDT).
-  If the destination IP or domain is unreachable, or if a TLS handshake hangs, the Swing EDT freezes completely for 5 to 30 seconds. During this time, the desktop UI shows "(Not Responding)", mouse clicks buffer, and users suspect a crash.
-- **Impact:** UI freezes, white screens, and unresponsiveness during network delays or unreachable target PBXs.
-- **Recommended Fix:**
-  Execute `openSocket()` and network initialization inside a `SwingWorker` background thread, showing an indeterminate progress bar or status text ("Connecting to PBX...") while keeping the Swing EDT responsive.
-- **Regression Risk:** Low to Medium. Ensure state transitions (enabling/disabling Run button) are synchronized properly on the EDT.
+  When clicking "Next >>", `openSocket()` was called directly on the Event Dispatch Thread (EDT). Unreachable target IP addresses caused the OS TCP connect loop to hang for 20+ seconds, locking the UI.
+- **Resolution:**
+  1. Wrapped `openSocket()` invocation in `SIPInspectorMainFrame.java` within a `SwingWorker<Boolean, Void>`, keeping the Swing EDT responsive while updating cursor to `WAIT_CURSOR` and disabling button re-clicks.
+  2. Added a 5000ms explicit connection timeout on non-blocking `finishConnect()` in `TCPClientSocket.java`, preventing indefinite hanging during silent packet drops.
 
 ---
 
 ### ISSUE-005: Interactive `JOptionPane` in Headless TLS Execution
 - **Severity:** **P1 (High)**
-- **File:** `src/sipinspector/Sockets/TLSClientSocket_V6.java` (Line 169, Line 175)
-- **Code:**
-  ```java
-  int choice = JOptionPane.showConfirmDialog(null, 
-      "The server certificate is self-signed or untrusted. Do you want to accept it?",
-      "TLS Certificate Warning", JOptionPane.YES_NO_OPTION);
-  ```
+- **Status:** **RESOLVED**
+- **File:** `src/sipinspector/Socket/TLSClientSocket_V6.java`, `src/sipinspector/Socket/TLSClientSocket.java`, `src/sipinspector/Socket/TCPClientSocket.java`
 - **Root Cause:**
-  When executing a test campaign triggered from the Web Dashboard or CLI, the Java process runs headlessly. When an untrusted PBX certificate is encountered, `JOptionPane.showConfirmDialog` blocks the thread waiting for graphical user input that never renders on screen. The campaign hangs indefinitely.
-- **Impact:** Automated test campaigns stall permanently when encountering self-signed PBX certificates.
-- **Recommended Fix:**
-  Check `GraphicsEnvironment.isHeadless()` or inspect a configuration property `tls.trustAllCerts` or `tls.autoAcceptUntrusted`. If headless or configured to auto-accept, log a security warning and proceed without popping up modal dialogs.
-- **Regression Risk:** Very low. Preserves desktop interactive behavior when running with GUI, while unblocking web/CLI execution.
+  In headless mode (CLI test legs and web dashboard executions), `JOptionPane.showMessageDialog` threw `HeadlessException` or blocked waiting for user interaction when socket errors occurred.
+- **Resolution:**
+  1. Implemented safe error reporting checking `GraphicsEnvironment.isHeadless()` and `Boolean.getBoolean("sip.headless")`.
+  2. Headless execution outputs diagnostics to `TLSDebugLogger` and `System.err` without modal GUI interruptions.
 
 ---
 
 ### ISSUE-006: PKCS#1 RSA Private Key Parsing Limitation
 - **Severity:** **P2 (Medium)**
-- **File:** `src/sipinspector/SecurityManager.java` (Lines 200–240)
+- **Status:** **RESOLVED**
+- **File:** `src/sipinspector/Utils/SecurityManager.java`
 - **Root Cause:**
-  The custom key parser uses standard Java `PKCS8EncodedKeySpec` with `KeyFactory.getInstance("RSA")`.
-  If a user loads a legacy OpenSSL private key formatted as `-----BEGIN RSA PRIVATE KEY-----` (PKCS#1), standard Java throws `InvalidKeySpecException: Must use PKCS#8 format`.
-- **Impact:** Users importing traditional OpenSSL RSA private keys encounter TLS initialization failure.
-- **Recommended Fix:**
-  Use the pre-bundled BouncyCastle library (`lib/bcpkix-jdk15on-170.jar`), which includes `PEMParser` and `JcaPEMKeyConverter` to seamlessly parse both PKCS#1 and PKCS#8 keys.
-- **Regression Risk:** Very low. BouncyCastle is already on the classpath in `lib/`.
+  `SecurityManager.java` used standard Java `PKCS8EncodedKeySpec`, which fails with `InvalidKeySpecException` when loading OpenSSL `-----BEGIN RSA PRIVATE KEY-----` (PKCS#1) keys.
+- **Resolution:**
+  1. Implemented pure Java 8 ASN.1 DER parser `parsePkcs1PrivateKey` extracting the 9 RSA parameters (`modulus`, `publicExponent`, `privateExponent`, `primeP`, `primeQ`, `primeExponentP`, `primeExponentQ`, `crtCoefficient`) into `RSAPrivateCrtKeySpec`.
+  2. Transparently supports both PKCS#1 and PKCS#8 formats with zero external dependencies.
+  3. Created `test.SecurityManagerKeyParsingTest` (2/2 tests passed, verifying SHA256withRSA signature generation and verification).
 
 ---
 
@@ -135,18 +125,21 @@ Each issue is classified with:
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`
 - **Location:** `lib/jpcap.jar`, native `jpcap.dll` in system root / deployment.
+- **Status:** **MITIGATED & DOCUMENTED**
 - **Description:** `jpcap.dll` is compiled for 32-bit Windows x86. Running the application on a standard 64-bit JDK without the bundled 32-bit JRE produces `UnsatisfiedLinkError: %1 is not a valid Win32 application`.
-- **Mitigation:** The deployment scripts (`run.bat`, `deployment/jre`) currently point to the bundled 32-bit Temurin JRE. Ensure documentation clearly specifies that 32-bit JRE is mandatory for Jpcap capture features, or migrate packet inspection to pure Java PCAP parsing for offline files.
+- **Mitigation:** The deployment scripts (`run.bat`, `deployment/jre`) point to the bundled 32-bit Temurin JRE. For packet playback, `PurePcapRtpPlayer` provides 100% pure Java PCAP parsing independent of native DLLs.
 
 ### FRAGILE-002: RTP Jitter Buffer Memory Bounds Under Extreme Delay
-- **Location:** `src/sipinspector/Rtp/JitterBuffer.java`
-- **Description:** The jitter buffer queue does not have a strict hard cap on packet retention if an endpoint sends high-bandwidth RTP but playback stalls.
-- **Mitigation:** Introduce a maximum queue size (e.g. 50 packets / 1000ms equivalent) and drop oldest packets (tail-drop or head-drop) to prevent memory ballooning during prolonged network stalling.
+- **Location:** `src/sipinspector/Media/LiveAudioReceiverThread.java`
+- **Status:** **VERIFIED & SECURED**
+- **Description:** The jitter buffer queue requires a strict hard cap on packet retention if an endpoint sends high-bandwidth RTP but playback stalls.
+- **Resolution:** Verified that `LiveAudioReceiverThread.java` enforces `JITTER_BUFFER_SIZE = 10` (~200ms) with sequence-ordered oldest-packet drop via `jitterBuffer.poll()` and increments `packetsDropped`.
 
-### FRAGILE-003: Race Conditions on Rapid Abort in `SIPScenarioRunner_V2`
-- **Location:** `src/sipinspector/SIPScenarioRunner_V2.java`
-- **Description:** If a user clicks "Stop" while a scenario is in the middle of a `pause` step or socket read, the thread interruption may leave socket handles open for a few seconds until the underlying socket timeout fires.
-- **Mitigation:** Explicitly invoke `socket.close()` within the cancel/stop handler rather than relying solely on `thread.interrupt()`.
+### FRAGILE-003: Race Conditions on Rapid Abort in Scenario Threads
+- **Location:** `src/sipinspector/Threads/` (`CallGeneratorThread`, `CallMaintainerThread`, `PauseMaintainerThread`, `ReceiverThread`)
+- **Status:** **RESOLVED**
+- **Description:** Rapidly clicking "Stop" while threads were sleeping in `Thread.sleep()` or waiting on I/O could cause delays in shutting down runner loops.
+- **Resolution:** Added explicit `interrupt()` calls within `stopThread()` across `CallGeneratorThread.java`, `CallMaintainerThread.java`, `PauseMaintainerThread.java`, and `ReceiverThread.java` to instantly break sleep/wait states.
 
 ---
 

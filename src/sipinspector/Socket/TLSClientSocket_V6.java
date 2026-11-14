@@ -146,11 +146,10 @@ public class TLSClientSocket_V6 extends TCPClientSocket
         catch (java.net.SocketTimeoutException timeout)
         {
             TLSDebugLogger.log("=== TLS OPEN FAILED - TIMEOUT ===");
-            JOptionPane.showMessageDialog(null,
+            showErrorMessage(
                 "TLS connection timeout - Server may not support TLS on port " + remotePort + "\n" +
                 "Verify server TLS configuration and port.",
-                "TLS Timeout",
-                JOptionPane.ERROR_MESSAGE);
+                "TLS Timeout");
             tlsEnabled = false;
             close();
             return false;
@@ -162,15 +161,35 @@ public class TLSClientSocket_V6 extends TCPClientSocket
             TLSDebugLogger.log("Message: " + ioexcp.getMessage());
             TLSDebugLogger.logException("TLS Open Exception:", ioexcp);
             
-            JOptionPane.showMessageDialog(null,
+            showErrorMessage(
                 "TLS handshake failed: " + ioexcp.getMessage() + "\n" +
                 "Server may not support TLS or requires different configuration.\n" +
                 "Check security/README.txt for certificate setup.",
-                "TLS Error",
-                JOptionPane.ERROR_MESSAGE);
+                "TLS Error");
             tlsEnabled = false;
             close();
             return false;
+        }
+    }
+
+    private static void showErrorMessage(String message, String title)
+    {
+        if (java.awt.GraphicsEnvironment.isHeadless() || Boolean.getBoolean("sip.headless") || Boolean.getBoolean("tls.autoAcceptUntrusted"))
+        {
+            TLSDebugLogger.log("[" + title + "] " + message.replace('\n', ' '));
+            System.err.println("[" + title + "] " + message);
+        }
+        else
+        {
+            try
+            {
+                JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE);
+            }
+            catch (Throwable t)
+            {
+                TLSDebugLogger.log("[" + title + " - FALLBACK] " + message.replace('\n', ' '));
+                System.err.println("[" + title + "] " + message);
+            }
         }
     }
 

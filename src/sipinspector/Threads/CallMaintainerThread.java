@@ -125,6 +125,7 @@ public class CallMaintainerThread extends Thread
     public void stopThread()
     {
         threadStopped = true;
+        interrupt();
     }
 
     private ScenarioProgressDialog progressDialog;

@@ -115,6 +115,7 @@ public class PauseMaintainerThread extends Thread
     public void stopThread()
     {
         threadStopped = true;
+        interrupt();
     }
 
     private ScenarioProgressDialog progressDialog;

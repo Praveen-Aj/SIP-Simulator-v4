@@ -53,6 +53,21 @@ function resolveLogsDir(transport = 'UDP') {
 
 const LOGS_DIR = resolveLogsDir('UDP');
 
+// Helper to locate a log file across all supported transport log directories
+function findLogFilePath(filename) {
+    const transports = ['UDP', 'TCP', 'TLS', 'SIP'];
+    for (const t of transports) {
+        const dir = resolveLogsDir(t);
+        const p = path.join(dir, filename);
+        if (fs.existsSync(p)) return p;
+    }
+    for (const t of transports) {
+        const p = path.join(TRUNK_DIR, 'logs', t, filename);
+        if (fs.existsSync(p)) return p;
+    }
+    return path.join(LOGS_DIR, filename);
+}
+
 // Active child processes tracker - strictly manages processes spawned by this Express server
 const activeProcesses = new Set();
 
@@ -165,21 +180,29 @@ app.get('/api/status', async (req, res) => {
         const parser = new xml2js.Parser({ explicitArray: false });
         const result = await parser.parseStringPromise(xmlData);
         
-        // Add log files list
+        // Add log files list from all supported transport directories
         let logFiles = [];
-        if (fs.existsSync(LOGS_DIR)) {
-            logFiles = fs.readdirSync(LOGS_DIR)
-                .filter(file => file.endsWith('.log'))
-                .map(file => {
-                    const stats = fs.statSync(path.join(LOGS_DIR, file));
-                    return {
-                        name: file,
-                        size: stats.size,
-                        mtime: stats.mtime
-                    };
-                })
-                .sort((a, b) => b.mtime - a.mtime);
-        }
+        const seenFiles = new Set();
+        ['UDP', 'TCP', 'TLS', 'SIP'].forEach(t => {
+            const dir = resolveLogsDir(t);
+            if (fs.existsSync(dir)) {
+                fs.readdirSync(dir)
+                    .filter(file => file.endsWith('.log'))
+                    .forEach(file => {
+                        if (!seenFiles.has(file)) {
+                            seenFiles.add(file);
+                            const stats = fs.statSync(path.join(dir, file));
+                            logFiles.push({
+                                name: file,
+                                transport: t,
+                                size: stats.size,
+                                mtime: stats.mtime
+                            });
+                        }
+                    });
+            }
+        });
+        logFiles.sort((a, b) => b.mtime - a.mtime);
 
         res.json({
             settings: result.SIPInspector,
@@ -441,7 +464,7 @@ app.get('/api/logs/:filename', (req, res) => {
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
         return res.status(403).json({ error: 'Access denied' });
     }
-    const filePath = path.join(LOGS_DIR, filename);
+    const filePath = findLogFilePath(filename);
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Log file not found' });
     }
@@ -455,7 +478,7 @@ app.get('/api/logs/:filename/ladder', (req, res) => {
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
         return res.status(403).json({ error: 'Access denied' });
     }
-    const filePath = path.join(LOGS_DIR, filename);
+    const filePath = findLogFilePath(filename);
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'Log file not found' });
     }
@@ -1107,20 +1130,26 @@ app.get('/api/campaigns/export', (req, res) => {
             campaignsData = JSON.parse(fs.readFileSync(CAMPAIGNS_FILE_PATH, 'utf-8'));
         }
         
-        // Find and sort caller log files chronologically
+        // Find and sort caller log files chronologically across desktop and project logs
         const logFiles = [];
+        const seenLogPaths = new Set();
         const transports = ['UDP', 'TCP', 'TLS', 'SIP'];
         transports.forEach(t => {
-            const dir = path.join(TRUNK_DIR, 'logs', t);
-            if (fs.existsSync(dir)) {
-                fs.readdirSync(dir).forEach(f => {
-                    if (f.endsWith('.log') && f.includes('_caller')) {
-                        const filePath = path.join(dir, f);
-                        const stat = fs.statSync(filePath);
-                        logFiles.push({ path: filePath, mtime: stat.mtimeMs });
-                    }
-                });
-            }
+            const candidateDirs = [resolveLogsDir(t), path.join(TRUNK_DIR, 'logs', t)];
+            candidateDirs.forEach(dir => {
+                if (fs.existsSync(dir)) {
+                    fs.readdirSync(dir).forEach(f => {
+                        if (f.endsWith('.log') && f.includes('_caller')) {
+                            const filePath = path.join(dir, f);
+                            if (!seenLogPaths.has(filePath)) {
+                                seenLogPaths.add(filePath);
+                                const stat = fs.statSync(filePath);
+                                logFiles.push({ path: filePath, mtime: stat.mtimeMs });
+                            }
+                        }
+                    });
+                }
+            });
         });
         
         logFiles.sort((a, b) => a.mtime - b.mtime);

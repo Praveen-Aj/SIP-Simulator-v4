@@ -49,10 +49,18 @@ public class TCPClientSocket extends MySocketAbstract {
         try {
             selector = Selector.open();
         } catch (IOException ioexcp) {
-            JOptionPane.showMessageDialog(null,
-                    ioexcp,
-                    "Socket status",
-                    JOptionPane.ERROR_MESSAGE);
+            if (java.awt.GraphicsEnvironment.isHeadless() || Boolean.getBoolean("sip.headless")) {
+                System.err.println("[TCP Selector Error] " + ioexcp.getMessage());
+            } else {
+                try {
+                    JOptionPane.showMessageDialog(null,
+                            ioexcp,
+                            "Socket status",
+                            JOptionPane.ERROR_MESSAGE);
+                } catch (Throwable t) {
+                    System.err.println("[TCP Selector Error] " + ioexcp.getMessage());
+                }
+            }
         }
     }
 
@@ -88,9 +96,13 @@ public class TCPClientSocket extends MySocketAbstract {
             // Use channel's connect() for non-blocking mode, not socket().connect()
             initialChannel.connect(new InetSocketAddress(remoteAddress, remotePort));
 
-            // Wait for connection to complete (non-blocking)
+            // Wait for connection to complete (non-blocking with 5s timeout)
+            long connectStart = System.currentTimeMillis();
+            long maxWaitMs = 5000;
             while (!initialChannel.finishConnect()) {
-                // Connection in progress, keep trying
+                if (System.currentTimeMillis() - connectStart > maxWaitMs) {
+                    throw new java.net.SocketTimeoutException("TCP connection to " + remoteAddress + ":" + remotePort + " timed out after " + maxWaitMs + "ms");
+                }
                 try {
                     Thread.sleep(10);
                 } catch (InterruptedException e) {

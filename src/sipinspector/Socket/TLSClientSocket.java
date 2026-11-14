@@ -143,25 +143,42 @@ public class TLSClientSocket extends TCPClientSocket
         }
         catch (java.net.SocketTimeoutException timeout)
         {
-            JOptionPane.showMessageDialog(null,
+            showErrorMessage(
                 "TLS connection timeout - Server may not support TLS on port " + remotePort + "\n" +
                 "Check if server is configured for TLS and port is correct.",
-                "TLS Timeout",
-                JOptionPane.ERROR_MESSAGE);
+                "TLS Timeout");
             tlsEnabled = false;
             close(); // Clean up
             return false;
         }
         catch (Exception ioexcp)
         {
-            JOptionPane.showMessageDialog(null,
+            showErrorMessage(
                 "TLS handshake failed: " + ioexcp.getMessage() + "\n" +
                 "Server may not support TLS or requires different configuration.",
-                "TLS Error",
-                JOptionPane.ERROR_MESSAGE);
+                "TLS Error");
             tlsEnabled = false;
             close(); // Clean up
             return false;
+        }
+    }
+
+    private static void showErrorMessage(String message, String title)
+    {
+        if (java.awt.GraphicsEnvironment.isHeadless() || Boolean.getBoolean("sip.headless") || Boolean.getBoolean("tls.autoAcceptUntrusted"))
+        {
+            System.err.println("[" + title + "] " + message);
+        }
+        else
+        {
+            try
+            {
+                JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE);
+            }
+            catch (Throwable t)
+            {
+                System.err.println("[" + title + "] " + message);
+            }
         }
     }
 

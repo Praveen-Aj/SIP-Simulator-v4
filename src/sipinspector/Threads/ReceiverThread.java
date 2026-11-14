@@ -169,6 +169,7 @@ public class ReceiverThread extends Thread {
 
     public void stopThread() {
         threadStopped = true;
+        interrupt();
     }
 
     private void sendAuto200OK(MyPacket requestPacket) {

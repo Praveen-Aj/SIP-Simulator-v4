@@ -156,6 +156,7 @@ public class CallGeneratorThread extends Thread
     public void stopThread()
     {
         threadStopped = true;
+        interrupt();
     }
 
     private long numNewCalls(float cpcs,

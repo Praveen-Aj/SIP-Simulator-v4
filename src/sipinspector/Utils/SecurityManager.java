@@ -6,6 +6,7 @@ package sipinspector.Utils;
 
 import javax.net.ssl.*;
 import java.io.*;
+import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.*;
 import java.security.spec.*;
@@ -30,11 +31,19 @@ public class SecurityManager {
         ensureSecurityDirectory();
     }
     
+    private static File getSecurityDirFile() {
+        try {
+            return AppPaths.resolve(SECURITY_DIR);
+        } catch (Throwable t) {
+            return new File(SECURITY_DIR);
+        }
+    }
+
     /**
      * Ensure security directory exists
      */
     private void ensureSecurityDirectory() {
-        File secDir = new File(SECURITY_DIR);
+        File secDir = getSecurityDirFile();
         if (!secDir.exists()) {
             secDir.mkdirs();
         }
@@ -78,7 +87,7 @@ public class SecurityManager {
      */
     private KeyStore loadOrCreateKeyStore(String filename, String password) throws Exception {
         KeyStore ks = KeyStore.getInstance("JKS");
-        File ksFile = new File(SECURITY_DIR, filename);
+        File ksFile = new File(getSecurityDirFile(), filename);
         
         if (ksFile.exists()) {
             // Load existing keystore
@@ -160,24 +169,90 @@ public class SecurityManager {
     }
     
     /**
-     * Load private key from PEM file
+     * Load private key from PEM file (supports PKCS#1 and PKCS#8)
      */
     private PrivateKey loadPrivateKey(String keyPath) throws Exception {
         // Read PEM file
-        String keyPEM = readPEMFile(keyPath);
+        String rawPEM = readPEMFile(keyPath);
+        boolean isExplicitPkcs1 = rawPEM.contains("BEGIN RSA PRIVATE KEY");
         
         // Remove PEM headers/footers
-        keyPEM = keyPEM.replace("-----BEGIN PRIVATE KEY-----", "")
-                       .replace("-----END PRIVATE KEY-----", "")
-                       .replace("-----BEGIN RSA PRIVATE KEY-----", "")
-                       .replace("-----END RSA PRIVATE KEY-----", "")
-                       .replaceAll("\\s", "");
+        String keyPEM = rawPEM.replace("-----BEGIN PRIVATE KEY-----", "")
+                              .replace("-----END PRIVATE KEY-----", "")
+                              .replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                              .replace("-----END RSA PRIVATE KEY-----", "")
+                              .replaceAll("\\s", "");
         
         // Decode base64
         byte[] keyBytes = java.util.Base64.getDecoder().decode(keyPEM);
         
-        // Generate private key
-        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+        if (isExplicitPkcs1) {
+            try {
+                return parsePkcs1PrivateKey(keyBytes);
+            } catch (Exception ex) {
+                // fallback to PKCS8
+            }
+        }
+        
+        try {
+            PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            return kf.generatePrivate(keySpec);
+        } catch (Exception pkcs8Ex) {
+            // If PKCS#8 fails, attempt PKCS#1 parsing
+            return parsePkcs1PrivateKey(keyBytes);
+        }
+    }
+
+    /**
+     * Parses PKCS#1 RSAPrivateKey DER format into an RSA PrivateKey without external libraries.
+     */
+    private static PrivateKey parsePkcs1PrivateKey(byte[] der) throws Exception {
+        int offset = 0;
+        if (der == null || der.length < 10 || der[offset++] != 0x30) {
+            throw new IllegalArgumentException("Invalid PKCS#1 DER: expected SEQUENCE tag 0x30");
+        }
+        
+        int lenByte = der[offset++] & 0xFF;
+        if (lenByte > 0x80) {
+            int numBytes = lenByte & 0x7F;
+            offset += numBytes; // Skip sequence length bytes
+        }
+        
+        // PKCS#1 RSAPrivateKey contains 9 ASN.1 INTEGERs
+        BigInteger[] ints = new BigInteger[9];
+        for (int i = 0; i < 9; i++) {
+            if (offset >= der.length || der[offset++] != 0x02) {
+                throw new IllegalArgumentException("Invalid PKCS#1 DER: expected INTEGER tag 0x02 at index " + i);
+            }
+            int intLen = der[offset++] & 0xFF;
+            if (intLen > 0x80) {
+                int numBytes = intLen & 0x7F;
+                int actualLen = 0;
+                for (int b = 0; b < numBytes; b++) {
+                    actualLen = (actualLen << 8) | (der[offset++] & 0xFF);
+                }
+                intLen = actualLen;
+            }
+            if (offset + intLen > der.length) {
+                throw new IllegalArgumentException("Invalid PKCS#1 DER: integer overflows buffer at index " + i);
+            }
+            byte[] valBytes = new byte[intLen];
+            System.arraycopy(der, offset, valBytes, 0, intLen);
+            offset += intLen;
+            ints[i] = new BigInteger(valBytes);
+        }
+        
+        RSAPrivateCrtKeySpec keySpec = new RSAPrivateCrtKeySpec(
+            ints[1], // modulus
+            ints[2], // publicExponent
+            ints[3], // privateExponent
+            ints[4], // primeP
+            ints[5], // primeQ
+            ints[6], // primeExponentP
+            ints[7], // primeExponentQ
+            ints[8]  // crtCoefficient
+        );
         KeyFactory kf = KeyFactory.getInstance("RSA");
         return kf.generatePrivate(keySpec);
     }
@@ -200,7 +275,7 @@ public class SecurityManager {
      * Save keystore to file
      */
     private void saveKeyStore(KeyStore ks, String filename, String password) throws Exception {
-        File ksFile = new File(SECURITY_DIR, filename);
+        File ksFile = new File(getSecurityDirFile(), filename);
         try (FileOutputStream fos = new FileOutputStream(ksFile)) {
             ks.store(fos, password.toCharArray());
         }
@@ -231,6 +306,6 @@ public class SecurityManager {
      * Get security directory path
      */
     public static String getSecurityDirectory() {
-        return SECURITY_DIR;
+        return getSecurityDirFile().getAbsolutePath();
     }
 }

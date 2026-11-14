@@ -11,6 +11,7 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -1595,7 +1596,6 @@ public class SIPInspectorMainFrame
         if (this.accountTab != null) {
             this.accountTab.saveSettings();
         }
-        boolean ok = true;
         this.setLocalIPAddress();
         this.setLocalPort();
         this.setRemoteIPAdddress();
@@ -1607,37 +1607,79 @@ public class SIPInspectorMainFrame
                     JOptionPane.WARNING_MESSAGE);
         }
         this.createDefaultScenario();
-        if (this.mySocket == null) {
-            ok = this.openSocket();
-        } else {
-            this.mySocket.close();
-            ok = this.openSocket();
-        }
-        if (ok) {
-            if (statusBar != null) {
-                statusBar.setConnected(true);
-                statusBar.setTransport(GlobalSettings.getTransport());
-                statusBar.resetSession();
-            }
-            CardLayout cardLayout = (CardLayout) this.cardPanel.getLayout();
-            cardLayout.show(this.cardPanel, "program_card");
-            if (!this.mySocket.isDaemon()) {
-                this.cpsField.setVisible(true);
-                this.cpsLabel.setVisible(true);
-                this.totCalsField.setVisible(true);
-                this.totCalsLabel.setVisible(true);
-                this.MaxConcurrentCallsField.setVisible(true);
-                this.MaxConcurrentCallsLabel.setVisible(true);
+
+        if (java.awt.GraphicsEnvironment.isHeadless()) {
+            boolean ok;
+            if (this.mySocket == null) {
+                ok = this.openSocket();
             } else {
-                this.cpsField.setVisible(false);
-                this.cpsLabel.setVisible(false);
-                this.totCalsField.setVisible(false);
-                this.totCalsLabel.setVisible(false);
-                this.MaxConcurrentCallsField.setVisible(false);
-                this.MaxConcurrentCallsLabel.setVisible(false);
+                this.mySocket.close();
+                ok = this.openSocket();
             }
-            this.SaveScenMenuItem.setEnabled(true);
+            if (ok) {
+                transitionToProgramCard();
+            }
+            return;
         }
+
+        // Execute socket connection asynchronously to keep Swing EDT responsive
+        if (this.Next != null) {
+            this.Next.setEnabled(false);
+        }
+        this.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                if (mySocket != null) {
+                    mySocket.close();
+                }
+                return openSocket();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    boolean ok = get();
+                    if (ok) {
+                        transitionToProgramCard();
+                    }
+                } catch (Exception ignore) {
+                } finally {
+                    if (Next != null) {
+                        Next.setEnabled(true);
+                    }
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void transitionToProgramCard() {
+        if (statusBar != null) {
+            statusBar.setConnected(true);
+            statusBar.setTransport(GlobalSettings.getTransport());
+            statusBar.resetSession();
+        }
+        CardLayout cardLayout = (CardLayout) this.cardPanel.getLayout();
+        cardLayout.show(this.cardPanel, "program_card");
+        if (!this.mySocket.isDaemon()) {
+            this.cpsField.setVisible(true);
+            this.cpsLabel.setVisible(true);
+            this.totCalsField.setVisible(true);
+            this.totCalsLabel.setVisible(true);
+            this.MaxConcurrentCallsField.setVisible(true);
+            this.MaxConcurrentCallsLabel.setVisible(true);
+        } else {
+            this.cpsField.setVisible(false);
+            this.cpsLabel.setVisible(false);
+            this.totCalsField.setVisible(false);
+            this.totCalsLabel.setVisible(false);
+            this.MaxConcurrentCallsField.setVisible(false);
+            this.MaxConcurrentCallsLabel.setVisible(false);
+        }
+        this.SaveScenMenuItem.setEnabled(true);
     }
 
     private void RemoteServerEnabledActionPerformed(ActionEvent actionEvent) {
