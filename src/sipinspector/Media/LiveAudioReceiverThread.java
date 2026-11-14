@@ -121,12 +121,19 @@ public class LiveAudioReceiverThread extends Thread {
      * @param socket Shared UDP socket bound to media port
      * @param srtp SRTP context (nullable when SAVP disabled)
      */
+    private RtcpMonitor rtcpMonitor = null;
+
     public LiveAudioReceiverThread(int localPort, int ssrcFilter, DatagramSocket socket, SrtpContext srtp) {
+        this(localPort, ssrcFilter, socket, srtp, null);
+    }
+
+    public LiveAudioReceiverThread(int localPort, int ssrcFilter, DatagramSocket socket, SrtpContext srtp, RtcpMonitor rtcpMonitor) {
         this.localPort = localPort;
         this.ssrcFilter = ssrcFilter;
         this.socket = socket;
         this.srtp = srtp;
         this.useSrtp = (srtp != null);
+        this.rtcpMonitor = rtcpMonitor;
         
         setName("LiveAudioReceiver-:" + localPort);
         setDaemon(true);
@@ -317,6 +324,11 @@ public class LiveAudioReceiverThread extends Thread {
                     
                     packetsReceived++;
                     bytesReceived += len;
+                    if (rtcpMonitor != null) {
+                        try {
+                            rtcpMonitor.processRtpPacket(sequence, timestamp, 8000);
+                        } catch (Exception ignored) {}
+                    }
                     
                     // Record raw PCMA payload BEFORE jitter buffer (captures all packets)
                     if (recorder != null) {

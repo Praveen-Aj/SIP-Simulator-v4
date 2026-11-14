@@ -121,6 +121,35 @@ Each issue is classified with:
 
 ---
 
+### ISSUE-008: Missing Formal Call State Machine & Transition Rules
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 3**
+- **File:** `src/sipinspector/Media/CallState.java`
+- **Root Cause:**
+  Call sessions previously tracked states primarily via dialog count integers and ad-hoc string comparisons in `SIPStateTracker`, lacking explicit compile-time state definitions and transition enforcement per RFC 3261.
+- **Phase 3 Resolution:**
+  1. Created explicit `CallState` enum (`IDLE`, `CALLING`, `PROCEEDING`, `RINGING`, `EARLY_MEDIA`, `ESTABLISHED`, `TERMINATING`, `TERMINATED`, `FAILED`).
+  2. Implemented RFC 3261 state transition validation via `canTransitionTo(CallState)` and `isValidTransition(from, to)`.
+  3. Added `isActive()` and `isTerminal()` state queries.
+  4. Verified in automated test suite `test.CallFlowValidationTest`.
+
+---
+
+### ISSUE-009: Missing RTCP Quality Monitoring & RFC 3550 Telemetry
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 3**
+- **File:** `src/sipinspector/Media/RtcpMonitor.java`, `src/sipinspector/Media/LiveAudioController.java`, `src/sipinspector/Media/LiveAudioReceiverThread.java`
+- **Root Cause:**
+  While SDP advertised `a=rtcp:[media_port+1]`, no active RTCP background packet generator or receiver existed to capture network jitter, fraction lost, cumulative packet loss, or round-trip time.
+- **Phase 3 Resolution:**
+  1. Implemented `RtcpMonitor` running on `localMediaPort + 1` (UDP).
+  2. Implemented RFC 3550 Receiver Report (RR, PT=201) generation and Sender Report (SR, PT=200) parsing.
+  3. Implemented RFC 3550 Appendix A.8 interarrival jitter calculations and packet loss tracking.
+  4. Integrated telemetry seamlessly into `LiveAudioController` and `LiveAudioReceiverThread` without breaking changes.
+  5. Verified in automated test suite `test.CallFlowValidationTest`.
+
+---
+
 ## 3. Suspected Fragile Areas
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`

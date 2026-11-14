@@ -91,7 +91,7 @@ flowchart TD
 
 ## 4. Phase 3: Feature Completeness & Polish (Priority: P2)
 
-**Focus:** Expand certificate compatibility, strengthen audio buffer safety, and formalize Re-INVITE dialog tracking.
+**Focus:** Expand certificate compatibility, strengthen audio buffer safety, formalize Re-INVITE dialog tracking, implement CallState state machine, add RTCP QoS telemetry, and validate live OXE integration.
 
 ### Tasks Breakdown
 1. **Pure Java ASN.1 Key Parser for PKCS#1 and PKCS#8 (ISSUE-006):**
@@ -102,9 +102,26 @@ flowchart TD
    - **Status:** **RESOLVED & VERIFIED**
    - **Files:** `src/sipinspector/Media/LiveAudioReceiverThread.java`
    - **Action:** Enforced sequence-sorted packet queue bounded to `JITTER_BUFFER_SIZE = 10` (~200ms) with oldest-packet drop via `jitterBuffer.poll()` and `packetsDropped` accounting.
-3. **Explicit Re-INVITE Dialog State Tracking:**
-   - **Files:** `src/sipinspector/Utils/SIPParser.java`
-   - **Action:** Validated `isReInvite(msg)` in `OfflineValidationSuite.java`, correctly distinguishing between initial INVITE and mid-dialog Re-INVITE via To-tag detection.
+3. **Explicit Re-INVITE Dialog State Tracking & Hold/Resume:**
+   - **Status:** **RESOLVED & VERIFIED**
+   - **Files:** `src/sipinspector/Utils/SIPParser.java`, `test/CallFlowValidationTest.java`
+   - **Action:** Validated `isReInvite(msg)` and To-tag extraction, distinguishing initial INVITE from mid-dialog Re-INVITE. Tested session renegotiation for hold (`a=sendonly`, `c=IN IP4 0.0.0.0`) and resume (`a=sendrecv`).
+4. **Formal Call State Machine (ISSUE-008):**
+   - **Status:** **RESOLVED**
+   - **Files:** `src/sipinspector/Media/CallState.java`, `test/CallFlowValidationTest.java`
+   - **Action:** Created explicit `CallState` enum (`IDLE`, `CALLING`, `PROCEEDING`, `RINGING`, `EARLY_MEDIA`, `ESTABLISHED`, `TERMINATING`, `TERMINATED`, `FAILED`) with RFC 3261 valid/invalid transition enforcement (`canTransitionTo`).
+5. **RTCP Quality Monitoring & Telemetry (ISSUE-009):**
+   - **Status:** **RESOLVED**
+   - **Files:** `src/sipinspector/Media/RtcpMonitor.java`, `src/sipinspector/Media/LiveAudioController.java`, `src/sipinspector/Media/LiveAudioReceiverThread.java`
+   - **Action:** Implemented RFC 3550 standard Receiver Reports (RR, PT=201), Sender Reports (SR, PT=200), Appendix A.8 interarrival jitter calculations, packet loss tracking, and RTT computation on `localMediaPort + 1`.
+6. **Live OXE PBX Integration & Protocol Validation:**
+   - **Status:** **RESOLVED & VERIFIED**
+   - **Files:** `test/OxeLiveIntegrationTest.java`, `docs/OXE_INTEGRATION_VALIDATION.md`
+   - **Action:** Verified UDP, TCP, and TLS transports against physical Alcatel-Lucent OmniPCX Enterprise PBX at `192.168.0.20`. Documented root cause for OPTIONS Warning 399 and INVITE double Record-Route behavior. Verified clean deregistration (`Contact: *`, `Expires: 0`).
+7. **Comprehensive Call Flow Regression Suite:**
+   - **Status:** **RESOLVED & VERIFIED**
+   - **Files:** `test/CallFlowValidationTest.java`
+   - **Action:** Automated offline verification of 9 core telecom test cases: state transitions, SDP offer/answer, RTCP packet parsing and jitter math, standard call flow, early media (183), CANCEL transaction (487), call rejection (486), Re-INVITE hold/resume, and bidirectional RTP audio loopback with PCMA codec (9/9 passed).
 
 ---
 

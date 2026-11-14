@@ -30,6 +30,7 @@ public class LiveAudioController {
     
     private LiveAudioSenderThread senderThread = null;
     private LiveAudioReceiverThread receiverThread = null;
+    private RtcpMonitor rtcpMonitor = null;
 
     private DatagramSocket mediaSocket = null;
     private InetAddress remoteAddress = null;
@@ -200,12 +201,24 @@ public class LiveAudioController {
             );
             senderThread.start();
             
+            // Start RTCP Monitor on (localMediaPort + 1)
+            try {
+                rtcpMonitor = new RtcpMonitor(localAddress, localMediaPort, remoteAddress, remotePort);
+                rtcpMonitor.start();
+            } catch (Exception rtcpEx) {
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.log("[RTCP INIT WARN] Failed to start RTCP monitor: " + rtcpEx.getMessage());
+                }
+                rtcpMonitor = null;
+            }
+
             // Create receiver thread (remote → speakers)
             receiverThread = new LiveAudioReceiverThread(
                 localMediaPort,
                 -1, // Accept any SSRC
                 mediaSocket,
-                srtp
+                srtp,
+                rtcpMonitor
             );
             receiverThread.start();
             
@@ -477,11 +490,25 @@ public class LiveAudioController {
      * Cleanup resources
      */
     private void cleanup() {
+        if (rtcpMonitor != null) {
+            try {
+                rtcpMonitor.stop();
+            } catch (Exception ignored) {}
+            rtcpMonitor = null;
+        }
         stopDiagnosticsFileWriter();
         activeInstance = null;
         senderThread = null;
         receiverThread = null;
         closeMediaSocket();
+    }
+
+    public RtcpMonitor getRtcpMonitor() {
+        return rtcpMonitor;
+    }
+
+    public RtcpMonitor.RtcpStats getRtcpStats() {
+        return rtcpMonitor != null ? rtcpMonitor.getStats(8000) : null;
     }
 
     private void startDiagnosticsFileWriter() {

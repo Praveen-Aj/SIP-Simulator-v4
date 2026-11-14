@@ -16,7 +16,8 @@ This document establishes the official **Regression Baseline** for SIP Simulator
 - **Unit Assertion Tests (`AssertionUnitTest`):** 8/8 Passed (100%).
 - **Live Audio & SRTP Soak Test (`LiveAudioSoakValidationMain`):** 5/5 Rapid Stress Cycles Passed (0 thread leaks, 0 socket leaks, 0 audio line leaks).
 - **Offline Protocol Validation Suite (`OfflineValidationSuite`):** 6/6 Multi-codec & SIP Parsing Tests Passed (100%).
-- **React Web Dashboard Build (`npm run build`):** 100% Successful (Built in 501ms, 0 errors).
+- **Call Flow & Media Protocol Validation Suite (`CallFlowValidationTest`):** 9/9 Tests Passed (100%: RFC 3261 state machine, SDP offer/answer, RTCP RFC 3550 QoS/jitter, early media, CANCEL, rejection, Re-INVITE hold/resume, bidirectional PCMA loopback).
+- **React Web Dashboard Build (`npm run build`):** 100% Successful (Built in 674ms, 0 errors).
 
 ---
 
@@ -28,6 +29,7 @@ This document establishes the official **Regression Baseline** for SIP Simulator
 | **Assertion Unit Tests** | Automated Unit | `java -cp "build;lib/*" sipinspector.Utils.AssertionUnitTest` | **8/8 PASS** | SIP assertion engine: status code matching, header existence, regex validation, inverse checks |
 | **Live Audio & SRTP Soak** | Concurrency / Soak | `java -cp "build;lib/*" sipinspector.Media.LiveAudioSoakValidationMain` | **20/20 PASS** | `LiveAudioController`, `LiveAudioSender`, `LiveAudioReceiver`, JitterBuffer, SRTP auth tag rejection, socket lifecycle |
 | **Offline Protocol Suite** | Integration / Unit | `java -cp "build;lib/*" test.OfflineValidationSuite` | **6/6 PASS** | G.711 A-law & u-law, G.722 16kHz sub-band ADPCM, SRTP AES_CM_128 HMAC-SHA1-80, SIPParser Re-INVITE vs INVITE, ToneSynthesizer, ValuesLoader |
+| **Call Flow & Media Suite** | Protocol & Media Suite | `java -cp "build;SIP_Simulator_v4.jar;lib/*" test.CallFlowValidationTest` | **9/9 PASS** | RFC 3261 CallState transitions, SDP offer/answer & hold/resume, RFC 3550 RTCP RR/SR & jitter math, early media (183), CANCEL, decline, bidirectional RTP loopback |
 | **SecurityManager Key Parsing** | Crypto / Security Suite | `java -cp "build;lib/*" test.SecurityManagerKeyParsingTest` | **2/2 PASS** | Pure Java 8 ASN.1 DER PKCS#1 and PKCS#8 private key parsing, SHA256withRSA signature roundtrip |
 | **OXE PBX Live Integration** | Live Telecom PBX Suite | `java -cp "build;lib/*" test.OxeLiveIntegrationTest` | **PASS** | Live Alcatel-Lucent OmniPCX Enterprise PBX at `192.168.0.20`: UDP REGISTER 200 OK, TCP REGISTER 200 OK (SipStreamFramer), TLS 5061 SIPS REGISTER 200 OK |
 | **TCP SIP Message Framing** | Stream Reliability Suite | `java -cp "build;lib/*" test.TcpSipFramingValidationTest` | **11/11 PASS** | Split headers, split body, multi-message reads, trailing residue, Content-Length extraction, loopback TCP channel |

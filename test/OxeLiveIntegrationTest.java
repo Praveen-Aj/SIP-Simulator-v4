@@ -43,6 +43,12 @@ public class OxeLiveIntegrationTest {
             // Phase 3: TLS 5061 Handshake & Certificate Inspection
             testTlsHandshake(localAddr, pbxAddr);
 
+            // Phase 4: Live SIP Call Signaling & Routing
+            testCallSignaling(localAddr, pbxAddr);
+
+            // Phase 5: Clean Deregistration Teardown
+            testDeregister(localAddr, pbxAddr);
+
             System.out.println("\n================================================================================");
             System.out.println("   OXE Live Integration Validation Complete");
             System.out.println("================================================================================");
@@ -336,6 +342,111 @@ public class OxeLiveIntegrationTest {
         } catch (Exception e) {
             System.out.println("TLS test exception: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private static void testCallSignaling(InetAddress localAddr, InetAddress pbxAddr) {
+        System.out.println("\n--- [STEP 4: LIVE OXE CALL SIGNALING & 100 TRYING VALIDATION] ---");
+        try {
+            UDPClientSocket udp = new UDPClientSocket(localAddr, 5060);
+            if (!udp.open(pbxAddr, SIP_PORT)) {
+                System.out.println("UDP socket open failed.");
+                return;
+            }
+
+            String sdp =
+                    "v=0\r\n" +
+                    "o=OXE 1675390460 1675390460 IN IP4 192.168.0.9\r\n" +
+                    "s=abs\r\n" +
+                    "c=IN IP4 192.168.0.9\r\n" +
+                    "t=0 0\r\n" +
+                    "m=audio 42000 RTP/AVP 8 0 9 101\r\n" +
+                    "a=sendrecv\r\n" +
+                    "a=rtpmap:8 PCMA/8000\r\n" +
+                    "a=rtpmap:0 PCMU/8000\r\n" +
+                    "a=rtpmap:9 G722/8000\r\n" +
+                    "a=rtpmap:101 telephone-event/8000\r\n";
+
+            String callId = "live-call-" + UUID.randomUUID().toString() + "@192.168.0.9";
+            String inviteMsg =
+                    "INVITE sip:1001@" + PBX_IP + ":" + SIP_PORT + " SIP/2.0\r\n" +
+                    "Via: SIP/2.0/UDP 192.168.0.9:5060;branch=z9hG4bKinv" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Max-Forwards: 70\r\n" +
+                    "From: <sip:1000@" + PBX_IP + ":" + SIP_PORT + ">;tag=call" + System.currentTimeMillis() + "\r\n" +
+                    "To: <sip:1001@" + PBX_IP + ":" + SIP_PORT + ">\r\n" +
+                    "Call-ID: " + callId + "\r\n" +
+                    "CSeq: 1 INVITE\r\n" +
+                    "Contact: <sip:1000@192.168.0.9:5060;transport=udp>\r\n" +
+                    "User-Agent: SIP Simulator v4 (OXE Call Test)\r\n" +
+                    "Content-Type: application/sdp\r\n" +
+                    "Content-Length: " + sdp.getBytes().length + "\r\n\r\n" +
+                    sdp;
+
+            System.out.println("Sending INVITE to sip:1001@" + PBX_IP + ":" + SIP_PORT + "...");
+            MyPacket invitePkt = new MyPacket(inviteMsg);
+            invitePkt.setAddress(pbxAddr);
+            invitePkt.setPort(SIP_PORT);
+            udp.send(invitePkt);
+
+            long start = System.currentTimeMillis();
+            boolean gotTrying = false;
+            while (System.currentTimeMillis() - start < 3000) {
+                MyPacket resp = udp.receive();
+                if (resp != null && resp.getMessageTxt() != null && resp.getMessageTxt().length() > 0) {
+                    System.out.println(">>> RECEIVED CALL RESPONSE (" + resp.length() + " bytes):");
+                    System.out.println(resp.getMessageTxt());
+                    if (resp.getMessageTxt().contains("100 Trying")) {
+                        gotTrying = true;
+                    }
+                }
+                Thread.sleep(50);
+            }
+
+            if (gotTrying) {
+                System.out.println(">>> 100 Trying transaction response confirmed from OXE PBX!");
+            }
+            udp.close();
+        } catch (Exception e) {
+            System.out.println("Call signaling exception: " + e.getMessage());
+        }
+    }
+
+    private static void testDeregister(InetAddress localAddr, InetAddress pbxAddr) {
+        System.out.println("\n--- [STEP 5: CLEAN DEREGISTRATION TEARDOWN] ---");
+        try {
+            UDPClientSocket udp = new UDPClientSocket(localAddr, 5060);
+            if (!udp.open(pbxAddr, SIP_PORT)) return;
+
+            String deregMsg =
+                    "REGISTER sip:" + PBX_IP + ":5060 SIP/2.0\r\n" +
+                    "Via: SIP/2.0/UDP 192.168.0.9:5060;branch=z9hG4bKdereg" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Max-Forwards: 70\r\n" +
+                    "From: <sip:1000@" + PBX_IP + ":5060>;tag=dereg1\r\n" +
+                    "To: <sip:1000@" + PBX_IP + ":5060>\r\n" +
+                    "Call-ID: dereg-" + UUID.randomUUID() + "@192.168.0.9\r\n" +
+                    "CSeq: 1 REGISTER\r\n" +
+                    "Contact: *\r\n" +
+                    "Expires: 0\r\n" +
+                    "User-Agent: SIP Simulator v4 (Deregister)\r\n" +
+                    "Content-Length: 0\r\n\r\n";
+
+            MyPacket pkt = new MyPacket(deregMsg);
+            pkt.setAddress(pbxAddr);
+            pkt.setPort(SIP_PORT);
+            udp.send(pkt);
+
+            long start = System.currentTimeMillis();
+            while (System.currentTimeMillis() - start < 2000) {
+                MyPacket resp = udp.receive();
+                if (resp != null && resp.getMessageTxt() != null && resp.getMessageTxt().contains("200 OK")) {
+                    System.out.println(">>> Clean deregistration confirmed: \n" + resp.getMessageTxt());
+                    break;
+                }
+                Thread.sleep(50);
+            }
+            udp.close();
+        } catch (Exception e) {
+            System.out.println("Deregister exception: " + e.getMessage());
         }
     }
 }
