@@ -1143,6 +1143,17 @@ public class SIPInspectorMainFrame
             }
         });
         this.OptionsMenu.add(this.QoSMenuItem);
+        this.OptionsMenu.addSeparator();
+        JMenuItem fullScreenMenuItem = new JMenuItem("Toggle Full Screen");
+        fullScreenMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F11, 0));
+        fullScreenMenuItem.setToolTipText("Toggle Full Screen / Normal window mode (F11)");
+        fullScreenMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                toggleFullScreen();
+            }
+        });
+        this.OptionsMenu.add(fullScreenMenuItem);
         this.MainMenuBar.add(this.OptionsMenu);
         this.ToolsMenu.setText("Tools");
         this.ToolsMenu.setIcon(EmojiIcon.getToolsIcon());
@@ -1355,6 +1366,25 @@ public class SIPInspectorMainFrame
             this.setExtendedState(JFrame.MAXIMIZED_BOTH);
         }
 
+        // Track non-maximized window bounds dynamically as user moves/resizes
+        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                int state = getExtendedState();
+                if ((state & JFrame.MAXIMIZED_BOTH) == 0 && (state & JFrame.ICONIFIED) == 0) {
+                    lastNormalBounds = getBounds();
+                }
+            }
+
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e) {
+                int state = getExtendedState();
+                if ((state & JFrame.MAXIMIZED_BOTH) == 0 && (state & JFrame.ICONIFIED) == 0) {
+                    lastNormalBounds = getBounds();
+                }
+            }
+        });
+
         // Listen for window close to persist window dimensions
         this.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
@@ -1364,17 +1394,63 @@ public class SIPInspectorMainFrame
         });
     }
 
+    private Rectangle lastNormalBounds = null;
+    private boolean isFullScreen = false;
+    private Rectangle preFullScreenBounds = null;
+
+    /**
+     * Toggles exclusive full-screen mode on the monitor displaying the window,
+     * cleanly restoring previous dimensions and decorations on toggle off.
+     */
+    public void toggleFullScreen() {
+        java.awt.GraphicsDevice gd = this.getGraphicsConfiguration().getDevice();
+        if (gd == null) return;
+
+        if (!isFullScreen) {
+            preFullScreenBounds = this.getBounds();
+            this.dispose();
+            this.setUndecorated(true);
+            try {
+                if (gd.isFullScreenSupported()) {
+                    gd.setFullScreenWindow(this);
+                } else {
+                    this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+                    this.setVisible(true);
+                }
+                isFullScreen = true;
+            } catch (Exception e) {
+                this.setUndecorated(false);
+                this.setVisible(true);
+            }
+        } else {
+            try {
+                if (gd.getFullScreenWindow() == this) {
+                    gd.setFullScreenWindow(null);
+                }
+            } catch (Exception ignore) {}
+            this.dispose();
+            this.setUndecorated(false);
+            if (preFullScreenBounds != null) {
+                this.setBounds(preFullScreenBounds);
+            } else {
+                configureWindowBoundsAndPosition();
+            }
+            this.setVisible(true);
+            isFullScreen = false;
+        }
+    }
+
     private void saveWindowState() {
         try {
             int state = this.getExtendedState();
             boolean isMax = (state & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
             GlobalSettings.setSetting("window.maximized", String.valueOf(isMax));
-            if (!isMax) {
-                Rectangle bounds = this.getBounds();
-                GlobalSettings.setSetting("window.width", String.valueOf(bounds.width));
-                GlobalSettings.setSetting("window.height", String.valueOf(bounds.height));
-                GlobalSettings.setSetting("window.x", String.valueOf(bounds.x));
-                GlobalSettings.setSetting("window.y", String.valueOf(bounds.y));
+            Rectangle boundsToSave = !isMax ? this.getBounds() : (lastNormalBounds != null ? lastNormalBounds : null);
+            if (boundsToSave != null) {
+                GlobalSettings.setSetting("window.width", String.valueOf(boundsToSave.width));
+                GlobalSettings.setSetting("window.height", String.valueOf(boundsToSave.height));
+                GlobalSettings.setSetting("window.x", String.valueOf(boundsToSave.x));
+                GlobalSettings.setSetting("window.y", String.valueOf(boundsToSave.y));
             }
             GlobalSettings.saveSettings();
         } catch (Exception ignore) {}
@@ -1739,8 +1815,7 @@ public class SIPInspectorMainFrame
 
     private void showUserGuide() {
         JDialog dialog = new JDialog(this, "SIP Simulator Feature Guide", true);
-        dialog.setSize(800, 600);
-        dialog.setLocationRelativeTo(this);
+        sipinspector.UI.UIUtils.sizeAndCenterDialog(dialog, 850, 650, 600, 480, this);
         
         JEditorPane editor = new JEditorPane();
         editor.setEditable(false);

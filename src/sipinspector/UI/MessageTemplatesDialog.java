@@ -118,8 +118,7 @@ public class MessageTemplatesDialog extends JDialog {
         add(buttonPanel, "span, right");
 
         // Dialog settings
-        setSize(800, 600);
-        setLocationRelativeTo(getParent());
+        sipinspector.UI.UIUtils.sizeAndCenterDialog(this, 800, 600, 600, 450, getParent());
 
         // Select first template so the preview is populated on open
         if (TEMPLATE_NAMES.length > 0) {

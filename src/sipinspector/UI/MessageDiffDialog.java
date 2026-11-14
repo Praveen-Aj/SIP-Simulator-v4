@@ -111,8 +111,7 @@ public class MessageDiffDialog extends JDialog {
         summaryLabel.setFont(summaryLabel.getFont().deriveFont(Font.BOLD));
         add(summaryLabel, "span, growx");
 
-        setSize(1000, 700);
-        setLocationRelativeTo(getParent());
+        sipinspector.UI.UIUtils.sizeAndCenterDialog(this, 1000, 700, 750, 500, getParent());
     }
 
     private JTextArea buildInputArea() {

@@ -61,7 +61,8 @@ public class KeyboardShortcutsDialog extends JDialog {
 
         // Options
         tabbedPane.addTab("Options", createShortcutsPanel(new String[][] {
-                { "Ctrl+L", "Toggle SIP Logging", "Enable/disable SIP logging" }
+                { "Ctrl+L", "Toggle SIP Logging", "Enable/disable SIP logging" },
+                { "F11", "Toggle Full Screen", "Switch between Full Screen and Windowed mode" }
         }));
 
         // Help
@@ -86,8 +87,7 @@ public class KeyboardShortcutsDialog extends JDialog {
         add(buttonPanel, "align center");
 
         // Dialog settings
-        setSize(700, 600);
-        setLocationRelativeTo(getParent());
+        sipinspector.UI.UIUtils.sizeAndCenterDialog(this, 700, 600, 520, 450, getParent());
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
     }
 

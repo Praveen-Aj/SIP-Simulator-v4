@@ -139,3 +139,26 @@ When live audio is active, the JVM holds open DirectSound circular hardware buff
    - **The parent Java Swing Desktop application (`SIP_Simulator_v4.jar`) and unrelated Java instances are NEVER touched.**
 3. **Server Shutdown Lifecycle:**
    - Registered `SIGINT`, `SIGTERM`, and `exit` handlers to clean up all tracked child processes gracefully when Express terminates.
+
+
+---
+
+## 5. Phase 1C: Dialog Responsiveness and Full-Screen Mode
+
+In Phase 1C, desktop window management was extended to address secondary dialogs and multi-monitor display versatility:
+
+1. **Centralized Dialog Geometry (`UIUtils.java`):**
+   - Implemented `sizeAndCenterDialog()` to clamp dialog widths and heights against monitor-specific usable bounds (subtracting Windows taskbar insets).
+   - Applied to `KeyboardShortcutsDialog`, `MessageTemplatesDialog`, `MessageDiffDialog`, and `Feature User Guide`.
+   - Prevents buttons or bottom strips from overflowing the screen on 1366x768 laptop screens or high-DPI displays.
+
+2. **Normal Bounds Tracking (`SIPInspectorMainFrame.java`):**
+   - Added a `ComponentListener` tracking `componentResized` and `componentMoved` events in normal windowed mode.
+   - When closing the application in maximized mode, `lastNormalBounds` is persisted, allowing seamless un-maximizing on subsequent launches.
+
+3. **Full-Screen Support (F11):**
+   - Added `toggleFullScreen()` with F11 accelerator and Options menu action.
+   - Restores window decorations and previous bounds upon exiting full-screen mode.
+
+4. **Off-Screen Visual Layout Validation (`GuiScreenCaptureTest.java`):**
+   - Added automated tests rendering frames and dialogs into `docs/screenshots/` to verify visual component alignment without clipping.
