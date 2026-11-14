@@ -122,6 +122,10 @@ flowchart TD
    - **Status:** **RESOLVED & VERIFIED**
    - **Files:** `test/CallFlowValidationTest.java`
    - **Action:** Automated offline verification of 9 core telecom test cases: state transitions, SDP offer/answer, RTCP packet parsing and jitter math, standard call flow, early media (183), CANCEL transaction (487), call rejection (486), Re-INVITE hold/resume, and bidirectional RTP audio loopback with PCMA codec (9/9 passed).
+8. **Two-Endpoint Live OXE Call & Media Integration (MicroSIP):**
+   - **Status:** **RESOLVED & VERIFIED**
+   - **Files:** `test/OxeLiveEndpointTest.java`, `docs/OXE_INTEGRATION_VALIDATION.md`
+   - **Action:** Implemented automated two-endpoint live testing with MicroSIP 3.22.16 (extension 90001) and Simulator (extension 90008) via Windows Named Pipe JSON-RPC control (`\\.\pipe\microsip_ipc`). Validated Test A (outbound call to MicroSIP), Test B (inbound call from MicroSIP), Test C (bidirectional RTP PCMA streaming), and Test D (graceful call teardown via BYE). MicroSIP registration preserved without disturbance.
 
 ---
 

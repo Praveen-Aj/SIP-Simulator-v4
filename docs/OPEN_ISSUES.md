@@ -150,6 +150,22 @@ Each issue is classified with:
 
 ---
 
+### ISSUE-010: Two-Endpoint Live Call Integration & Bidirectional RTP Audio Validation
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 3 (OXE Integration)**
+- **File:** `test/OxeLiveEndpointTest.java`, `src/sipinspector/Media/LiveAudioCodec.java`, `src/sipinspector/Media/CallState.java`
+- **Root Cause:**
+  Prior live testing against OXE lacked a second registered subscriber endpoint to answer calls and generate audio, resulting in call forwarding failure due to unprovisioned test extensions.
+- **Resolution:**
+  1. Discovered and integrated provisioned subscriber extensions: Endpoint A (Simulator `90008`) and Endpoint B (MicroSIP 3.22.16 `90001`).
+  2. Developed automated two-endpoint test harness `test.OxeLiveEndpointTest` controlling MicroSIP via Windows Named Pipe JSON-RPC interface (`\\.\pipe\microsip_ipc`).
+  3. Executed Test A (Outbound Call: Simulator `90008` -> MicroSIP `90001`): `INVITE` -> `100 Trying` -> `180 Ringing` -> `200 OK` -> `ACK` -> Bidirectional RTP (144 packets TX, 201 packets RX) -> `BYE` -> `200 OK`.
+  4. Executed Test B (Inbound Call: MicroSIP `90001` -> Simulator `90008`): `INVITE` -> `180 Ringing` -> `200 OK` -> `ACK` -> Bidirectional RTP (147 packets TX, 201 packets RX) -> `BYE` -> `200 OK`.
+  5. Verified Test C (Bidirectional RTP PCMA PT=8, 20ms frames) and Test D (Graceful teardown via `BYE` -> `200 OK`) in both directions.
+  6. Preserved MicroSIP `90001` registration and configuration intact throughout execution.
+
+---
+
 ## 3. Suspected Fragile Areas
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`
