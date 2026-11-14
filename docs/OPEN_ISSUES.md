@@ -24,24 +24,17 @@ Each issue is classified with:
 
 ### ISSUE-001: Force-Killing `java.exe` Freezes Windows Audio Service (System Lockup)
 - **Severity:** **P0 (Critical)**
+- **Status:** **RESOLVED in Phase 1A**
 - **File:** `web-app/server.js` (Line 56, Line 442)
-- **Code:**
-  ```javascript
-  exec('taskkill /F /IM java.exe', (err, stdout, stderr) => { ... });
-  ```
 - **Root Cause:**
-  When a user stops a test or starts an SSE log stream from the web dashboard, Express runs Windows `taskkill /F /IM java.exe`. 
-  `taskkill /F` issues a kernel-level `TerminateProcess()` call. This immediately terminates the JVM without:
-  1. Invoking JVM shutdown hooks.
-  2. Executing Java `finally` cleanup blocks.
-  3. Releasing open DirectSound / WASAPI audio streams (`TargetDataLine` and `SourceDataLine` held by `LiveAudioController` via `jsound.dll`).
-  On Windows 10/11, leaving native audio endpoints abruptly unclosed causes the Windows Audio Service (`audiosrv`) and sound drivers (Realtek / Intel Smart Sound) to deadlock. Audio output fails system-wide, media playback buffers endlessly, and the PC must be restarted.
-- **Impact:** System-wide audio failure requiring hard machine reboot.
-- **Recommended Fix:**
-  1. Cease using global `taskkill /F /IM java.exe`.
-  2. Implement a graceful socket/HTTP shutdown trigger or store the specific spawned Java child process PID (`child.pid`) and send `taskkill /PID <pid>` (without `/F` initially, allowing graceful shutdown).
-  3. In `LiveAudioController.java`, register a robust JVM shutdown hook (`Runtime.getRuntime().addShutdownHook(...)`) that explicitly calls `line.stop()` and `line.close()` if not already closed.
-- **Regression Risk:** Low. Replacing blind process termination with targeted PID termination will make the system substantially more stable without affecting SIP execution.
+  When a user stops a test or starts an SSE log stream from the web dashboard, Express previously executed `taskkill /F /IM java.exe`. 
+  `taskkill /F` issued a kernel-level `TerminateProcess()` call, immediately terminating the JVM without shutdown hooks or `finally` blocks, leaving native DirectSound endpoints (`TargetDataLine` / `SourceDataLine`) open. On Windows, this deadlocked `audiosrv` and required a PC reboot.
+- **Phase 1A Resolution:**
+  1. Completely removed `taskkill /F /IM java.exe`.
+  2. Implemented strict child process tracking via `activeProcesses` `Set` and `trackChildProcess(proc)`.
+  3. Replaced global process termination with targeted PID tree termination: `taskkill /T /F /PID ${proc.pid}`.
+  4. Registered graceful shutdown listeners on `SIGINT`, `SIGTERM`, and `exit`.
+  5. The parent Swing Desktop application (`SIP_Simulator_v4.jar`) and unrelated Java applications are now completely protected.
 
 ---
 
@@ -131,15 +124,18 @@ Each issue is classified with:
 
 ### ISSUE-007: Window Sizing & Display Scaling Cutoffs on High-DPI & Ultrawide Displays
 - **Severity:** **P2 (Medium)**
-- **File:** `src/sipinspector/SIPInspectorMainFrame.java` (Lines 1268–1271), `IPAddressPanel.java`
+- **Status:** **RESOLVED in Phase 1A**
+- **File:** `src/sipinspector/SIPInspectorMainFrame.java`, `src/sipinspector/GlobalSettings.java`
 - **Root Cause:**
-  1. In `SIPInspectorMainFrame.java`, window size is fixed at `1200x750` without checking screen working area or insets. On 1366x768 screens or 1080p with 150% DPI scaling (virtual height ~720px), the window overflows by 30-50px, clipping bottom action buttons (`Next >>`, `Run`, `Apply Edits`) and the status bar.
-  2. On ultrawide displays (21:9 / 32:9), `MigLayout("[grow 1] [] [grow 3] []")` combined with `MsgScrollPane` locked at `"width 200:200:"` crushes the SIP message tree into a narrow 200px strip while the text editor stretches across thousands of pixels.
-  3. Rigid constraints (`w 50!`, `w 100!`, `h 90!`) in `IPAddressPanel` cause port and IP digit clipping under Windows 125%-175% scaling.
-- **Impact:** Visual distortion, clipped buttons, poor layout on laptops and ultrawide screens.
-- **Recommended Fix:**
-  Compute initial window dimensions using `GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds()`. Default to 85% of available screen width and height. Replace hardcoded `w 50!` and `width 200:200:` with responsive MigLayout constraints (`min 220, grow 1`). Save and restore window geometry in `settings.properties`.
-- **Regression Risk:** Low. Purely visual layout adjustments.
+  1. Window size was fixed at `1200x750` without checking screen working area or insets, causing bottom action buttons and status bar to be pushed off-screen on 1366x768 and 1080p @ 150% scaling.
+  2. Ultrawide displays locked the message tree to a narrow 200px strip via `width 200:200:`.
+  3. Rigid pixel constraints (`w 50!`, `w 100!`, `w 40!`) caused text clipping on scaled displays.
+- **Phase 1A Resolution:**
+  1. Implemented dynamic screen-aware bounds via `GraphicsEnvironment.getMaximumWindowBounds()`, reserving clearance for the Windows taskbar.
+  2. Bounded minimum dimensions dynamically to never exceed available screen working area.
+  3. Relaxed MigLayout constraints on `MsgScrollPane` (`"wmin 220, pref 260, hmin 120"`), allowing proportional expansion across ultrawide monitors.
+  4. Relaxed IP and port constraints (`"grow, hmin 80, wmin 130"` and `"wmin 65, pref 80, growx"`), eliminating high-DPI digit clipping.
+  5. Implemented window bounds and maximized state persistence in `config/settings.properties`. Verified across 6 resolution profiles (1366x768 to 4K 200%).
 
 ---
 

@@ -14,6 +14,8 @@ import java.awt.Component;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -243,13 +245,13 @@ public class SIPInspectorMainFrame
         this.LocalPort.setInputVerifier(new PortValidator());
         this.RemoteServerPort.setInputVerifier(new PortValidator());
         this.applyStartupSettings();
+        this.configureWindowBoundsAndPosition();
         this.initializeMsgTree();
         this.sipScenario = new SIPScenario();
         this.MsgTree.addTreeSelectionListener(new MyTreeSelectionListener(this));
         this.mySocket = null;
         this.SaveScenMenuItem.setEnabled(false);
         this.LoadScenMenuItem.setEnabled(true);
-        this.setLocationRelativeTo(null);
         this.updateTreeFlag = false;
         object2 = GlobalSettings.getSetting("scenarioPath");
         if (object2 != null && !((File) (object = new File((String) object2))).exists()) {
@@ -679,15 +681,15 @@ public class SIPInspectorMainFrame
         this.StartingPanel.add((Component) this.SettingsTabbedPane, "growx, wrap");
         this.LocalInfoPanel = new JPanel(new MigLayout("fillx"));
         this.LocalInfoPanel.setBorder(BorderFactory.createTitledBorder("Local Info"));
-        this.IPAddressPanel = new JPanel(new MigLayout(""));
+        this.IPAddressPanel = new JPanel(new MigLayout("fill"));
         this.IPAddressPanel.setBorder(BorderFactory.createTitledBorder("Select local IP address"));
         this.IPAddressPanel.setToolTipText("Select local IP address");
         this.IPList = new JList();
         this.IPList.setBorder(BorderFactory.createEtchedBorder());
         this.IPList.setToolTipText("Available IP addresses");
-        this.IPAddressPanel.add((Component) this.IPList, "h 90!, w 100!");
-        this.LocalInfoPanel.add((Component) this.IPAddressPanel, "w 50%!, spany 2");
-        this.IPPortPanel = new JPanel(new MigLayout(""));
+        this.IPAddressPanel.add((Component) this.IPList, "grow, hmin 80, wmin 130");
+        this.LocalInfoPanel.add((Component) this.IPAddressPanel, "w 50%!, spany 2, grow");
+        this.IPPortPanel = new JPanel(new MigLayout("fillx"));
         this.IPPortPanel.setBorder(BorderFactory.createTitledBorder("Bind to port"));
         this.LocalPort = new JTextField();
         this.LocalPort.setToolTipText("Set local SIP port");
@@ -696,7 +698,7 @@ public class SIPInspectorMainFrame
         } else {
             this.LocalPort.setText("5060");
         }
-        this.IPPortPanel.add((Component) this.LocalPort, "w 50!");
+        this.IPPortPanel.add((Component) this.LocalPort, "wmin 65, pref 80, growx");
         this.LocalInfoPanel.add((Component) this.IPPortPanel, "w 50%, wrap");
         this.StartingPanel.add((Component) this.LocalInfoPanel, "grow, wrap");
         this.IPConnType = new JPanel(new MigLayout(""));
@@ -760,7 +762,7 @@ public class SIPInspectorMainFrame
             }
         });
         this.RemoteServerInfoPanel.add((Component) this.RemoteServerEnabled, "spanx 2, wrap");
-        this.RemoteIPAddressPanel = new JPanel(new MigLayout(""));
+        this.RemoteIPAddressPanel = new JPanel(new MigLayout("fillx"));
         this.RemoteIPAddressPanel.setBorder(BorderFactory.createTitledBorder("Remote IP Address"));
         this.RemoteIPAddress = new JTextField();
         this.RemoteIPAddress.setToolTipText("Remote Server IP address");
@@ -772,9 +774,9 @@ public class SIPInspectorMainFrame
         } else {
             this.RemoteIPAddress.setEnabled(false);
         }
-        this.RemoteIPAddressPanel.add((Component) this.RemoteIPAddress, "w 100!");
+        this.RemoteIPAddressPanel.add((Component) this.RemoteIPAddress, "growx, wmin 130");
         this.RemoteServerInfoPanel.add((Component) this.RemoteIPAddressPanel, "w 50%!");
-        this.RemoteServerPortPanel = new JPanel(new MigLayout(""));
+        this.RemoteServerPortPanel = new JPanel(new MigLayout("fillx"));
         this.RemoteServerPortPanel.setBorder(BorderFactory.createTitledBorder("Remote Server Port"));
         this.RemoteServerPort = new JTextField();
         this.RemoteServerPort.setToolTipText("Remote Server port");
@@ -788,7 +790,7 @@ public class SIPInspectorMainFrame
         } else {
             this.RemoteServerPort.setEnabled(false);
         }
-        this.RemoteServerPortPanel.add((Component) this.RemoteServerPort, "w 50!");
+        this.RemoteServerPortPanel.add((Component) this.RemoteServerPort, "wmin 65, pref 80, growx");
         this.RemoteServerInfoPanel.add((Component) this.RemoteServerPortPanel, "w 50%");
         JPanel jPanel = new JPanel(new MigLayout("fill, insets 0", "[grow][]", "[]"));
         this.statisticsButton = new JButton("Statistics", EmojiIcon.getStatsIcon());
@@ -827,7 +829,7 @@ public class SIPInspectorMainFrame
         jPanel3.add((Component) this.ScenarioScreenLabel, "center");
         jPanel3.add((Component) new JLabel("Remote"), "right");
         jPanel2.add((Component) jPanel3, "grow, wrap");
-        jPanel2.add((Component) this.MsgScrollPane, "spany 2, grow, width 200:200:, height 100:220:");
+        jPanel2.add((Component) this.MsgScrollPane, "spany 2, grow, wmin 220, pref 260, hmin 120");
         this.upArrowButton = new JButton();
         this.upArrowButton.setIcon(EmojiIcon.getArrowUpIcon());
         this.upArrowButton.setBorder(null);
@@ -958,7 +960,7 @@ public class SIPInspectorMainFrame
                 SIPInspectorMainFrame.this.cpsFieldFocusLost(focusEvent);
             }
         });
-        jPanel4.add((Component) this.cpsField, "left, w 40!");
+        jPanel4.add((Component) this.cpsField, "left, wmin 50, pref 60");
         this.MaxConcurrentCallsLabel = new JLabel("Max Concurrent");
         jPanel4.add((Component) this.MaxConcurrentCallsLabel, "right");
         this.MaxConcurrentCallsField = new JTextField();
@@ -975,7 +977,7 @@ public class SIPInspectorMainFrame
             GlobalSettings.setSetting("maxConcurrCalls", "1");
         }
         this.MaxConcurrentCallsField.setText(GlobalSettings.getSetting("maxConcurrCalls"));
-        jPanel4.add((Component) this.MaxConcurrentCallsField, "left, w 40!");
+        jPanel4.add((Component) this.MaxConcurrentCallsField, "left, wmin 50, pref 60");
         this.totCalsLabel = new JLabel("Total Calls");
         jPanel4.add((Component) this.totCalsLabel, "right");
         this.totCalsField = new JTextField();
@@ -992,7 +994,7 @@ public class SIPInspectorMainFrame
             GlobalSettings.setSetting("totalCalls", "1");
         }
         this.totCalsField.setText(GlobalSettings.getSetting("totalCalls"));
-        jPanel4.add((Component) this.totCalsField, "left, w 40!");
+        jPanel4.add((Component) this.totCalsField, "left, wmin 50, pref 60");
         this.RunButton = new JButton("Run", EmojiIcon.getRunIcon());
         this.RunButton.addActionListener(new ActionListener() {
 
@@ -1266,12 +1268,116 @@ public class SIPInspectorMainFrame
         statusBar.setLogsEnabled(GlobalSettings.logsEnabled);
         this.getContentPane().add((Component) statusBar, "cell 0 1, growx");
         this.pack();
-        this.setSize(new Dimension(1200, 750));
-        this.setMinimumSize(new Dimension(1000, 650));
-        this.setLocationRelativeTo(null);
         this.applyCurrentThemeToTabs();
         this.applyThemeToButtons();
         this.resetMessageAreaColors();
+    }
+
+    /**
+     * Dynamically configures window bounds, minimum size, position, and restoration state
+     * based on available screen bounds (respecting Windows taskbar insets) and saved preferences.
+     */
+    private void configureWindowBoundsAndPosition() {
+        this.setResizable(true);
+
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        Rectangle maxBounds = ge.getMaximumWindowBounds();
+        if (maxBounds == null || maxBounds.width <= 0 || maxBounds.height <= 0) {
+            maxBounds = new Rectangle(0, 0, 1280, 720);
+        }
+
+        // Safe minimum size: ensure it never exceeds the usable screen size
+        int minWidth = Math.min(960, Math.max(700, maxBounds.width - 40));
+        int minHeight = Math.min(620, Math.max(500, maxBounds.height - 40));
+        this.setMinimumSize(new Dimension(minWidth, minHeight));
+
+        int targetWidth = -1;
+        int targetHeight = -1;
+        int targetX = -1;
+        int targetY = -1;
+        boolean isMaximized = false;
+
+        try {
+            String savedW = GlobalSettings.getSetting("window.width");
+            String savedH = GlobalSettings.getSetting("window.height");
+            String savedX = GlobalSettings.getSetting("window.x");
+            String savedY = GlobalSettings.getSetting("window.y");
+            String savedMax = GlobalSettings.getSetting("window.maximized");
+
+            if (savedW != null && savedH != null) {
+                targetWidth = Integer.parseInt(savedW.trim());
+                targetHeight = Integer.parseInt(savedH.trim());
+            }
+            if (savedX != null && savedY != null) {
+                targetX = Integer.parseInt(savedX.trim());
+                targetY = Integer.parseInt(savedY.trim());
+            }
+            if ("true".equalsIgnoreCase(savedMax)) {
+                isMaximized = true;
+            }
+        } catch (Exception ignore) {}
+
+        // Validate whether saved coordinates are sensible and within the current monitor's working area
+        boolean validSaved = (targetWidth >= minWidth && targetHeight >= minHeight
+                && targetWidth <= maxBounds.width && targetHeight <= maxBounds.height
+                && targetX >= maxBounds.x - 40 && targetY >= maxBounds.y - 40
+                && targetX <= maxBounds.x + maxBounds.width - 100
+                && targetY <= maxBounds.y + maxBounds.height - 100);
+
+        if (!validSaved) {
+            // Sensible responsive default:
+            // Width: 82% of usable screen width, clamped between minWidth and 1380px (prevents ultrawide over-stretch)
+            targetWidth = (int) Math.round(maxBounds.width * 0.82);
+            if (targetWidth > 1380) {
+                targetWidth = 1380;
+            }
+            if (targetWidth < minWidth) {
+                targetWidth = minWidth;
+            }
+
+            // Height: 88% of usable screen height, clamped between minHeight and 840px
+            targetHeight = (int) Math.round(maxBounds.height * 0.88);
+            if (targetHeight > 840) {
+                targetHeight = 840;
+            }
+            if (targetHeight < minHeight) {
+                targetHeight = minHeight;
+            }
+
+            // Center within the maximum usable bounds (never underneath the Windows taskbar)
+            targetX = maxBounds.x + (maxBounds.width - targetWidth) / 2;
+            targetY = maxBounds.y + (maxBounds.height - targetHeight) / 2;
+        }
+
+        this.setBounds(targetX, targetY, targetWidth, targetHeight);
+
+        if (isMaximized) {
+            this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        }
+
+        // Listen for window close to persist window dimensions
+        this.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                saveWindowState();
+            }
+        });
+    }
+
+    private void saveWindowState() {
+        try {
+            int state = this.getExtendedState();
+            boolean isMax = (state & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
+            GlobalSettings.setSetting("window.maximized", String.valueOf(isMax));
+            if (!isMax) {
+                Rectangle bounds = this.getBounds();
+                GlobalSettings.setSetting("window.width", String.valueOf(bounds.width));
+                GlobalSettings.setSetting("window.height", String.valueOf(bounds.height));
+                GlobalSettings.setSetting("window.x", String.valueOf(bounds.x));
+                GlobalSettings.setSetting("window.y", String.valueOf(bounds.y));
+            }
+            GlobalSettings.saveSettings();
+        } catch (Exception ignore) {}
     }
 
     private void applyStartupSettings() {

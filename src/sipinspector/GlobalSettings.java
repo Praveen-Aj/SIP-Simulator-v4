@@ -332,6 +332,13 @@ public class GlobalSettings {
             props.setProperty("sim.loss", getSetting("sim.loss") == null ? "0" : getSetting("sim.loss"));
             props.setProperty("sim.malformed", getSetting("sim.malformed") == null ? "None" : getSetting("sim.malformed"));
 
+            // Save window geometry settings
+            if (getSetting("window.width") != null) props.setProperty("window.width", getSetting("window.width"));
+            if (getSetting("window.height") != null) props.setProperty("window.height", getSetting("window.height"));
+            if (getSetting("window.x") != null) props.setProperty("window.x", getSetting("window.x"));
+            if (getSetting("window.y") != null) props.setProperty("window.y", getSetting("window.y"));
+            if (getSetting("window.maximized") != null) props.setProperty("window.maximized", getSetting("window.maximized"));
+
             FileOutputStream fos = new FileOutputStream(SETTINGS_FILE);
             props.store(fos, "SIP Simulator Settings");
             fos.close();
@@ -386,6 +393,13 @@ public class GlobalSettings {
             setSetting("sim.delay", props.getProperty("sim.delay", "0"));
             setSetting("sim.loss", props.getProperty("sim.loss", "0"));
             setSetting("sim.malformed", props.getProperty("sim.malformed", "None"));
+
+            // Load window geometry settings
+            if (props.containsKey("window.width")) setSetting("window.width", props.getProperty("window.width"));
+            if (props.containsKey("window.height")) setSetting("window.height", props.getProperty("window.height"));
+            if (props.containsKey("window.x")) setSetting("window.x", props.getProperty("window.x"));
+            if (props.containsKey("window.y")) setSetting("window.y", props.getProperty("window.y"));
+            if (props.containsKey("window.maximized")) setSetting("window.maximized", props.getProperty("window.maximized"));
         } catch (IOException e) {
             System.err.println("Failed to load settings: " + e.getMessage());
         }

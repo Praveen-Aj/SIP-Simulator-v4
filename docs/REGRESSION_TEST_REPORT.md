@@ -26,10 +26,11 @@ This document establishes the official **Regression Baseline** for SIP Simulator
 |---|---|---|---|---|
 | **Core Java Build** | Clean Build | `cmd /c build.bat` | **PASS** | Complete Java source tree (Swing UI, Sockets, RTP, Codecs, TLS, Scenario, Parser) |
 | **Assertion Unit Tests** | Automated Unit | `java -cp "build;lib/*" sipinspector.Utils.AssertionUnitTest` | **8/8 PASS** | SIP assertion engine: status code matching, header existence, regex validation, inverse checks |
-| **Live Audio & SRTP Soak** | Concurrency / Soak | `java -cp "build;lib/*" sipinspector.Rtp.LiveAudioSoakValidationMain` | **5/5 PASS** | `LiveAudioController`, `LiveAudioSender`, `LiveAudioReceiver`, JitterBuffer, SRTP auth tag rejection, socket lifecycle |
+| **Live Audio & SRTP Soak** | Concurrency / Soak | `java -cp "build;lib/*" sipinspector.Media.LiveAudioSoakValidationMain` | **20/20 PASS** | `LiveAudioController`, `LiveAudioSender`, `LiveAudioReceiver`, JitterBuffer, SRTP auth tag rejection, socket lifecycle |
 | **Offline Protocol Suite** | Integration / Unit | `java -cp "build;lib/*" test.OfflineValidationSuite` | **6/6 PASS** | G.711 A-law & u-law, G.722 16kHz sub-band ADPCM, SRTP AES_CM_128 HMAC-SHA1-80, SIPParser Re-INVITE vs INVITE, ToneSynthesizer, ValuesLoader |
+| **Display Bounds & Scaling** | Geometry & DPI Suite | `java -cp "build;lib/*" test.DisplayScalingValidationTest` | **6/6 PASS** | Screen-aware bounds, taskbar clearance, ultrawide clamp, high-DPI scaling across 6 resolution profiles |
 | **React Web Client Build** | Frontend Static Build | `npm --prefix web-app/client run build` | **PASS** | React 18, Vite, TypeScript/JSX compilation, SequenceLadder, ScenarioEditor, CampaignManager, LogsExplorer |
-| **Node.js Express Backend** | Syntax & Import Verification | `node -c web-app/server.js` | **PASS** | Express REST API syntax, CORS, SSE streams, route definitions |
+| **Node.js Express Backend** | Syntax & Import Verification | `node -c web-app/server.js` | **PASS** | Express REST API syntax, targeted PID child process management, graceful shutdown handlers |
 
 ---
 

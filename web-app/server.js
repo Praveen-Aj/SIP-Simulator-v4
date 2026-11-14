@@ -39,25 +39,96 @@ function javaCp() {
 }
 const LOGS_DIR = path.join(os.homedir(), 'Desktop', 'SIP Simulator logs', 'UDP');
 
-// Active child processes tracker
-let activeProcesses = [];
+// Active child processes tracker - strictly manages processes spawned by this Express server
+const activeProcesses = new Set();
 
-// Helper to kill all java.exe processes spawned by us
-function killActiveProcesses() {
-    activeProcesses.forEach(proc => {
-        try {
-            proc.kill('SIGTERM');
-        } catch (e) {}
-    });
-    activeProcesses = [];
-    
-    // Windows process kill helper
+function trackChildProcess(proc) {
+    if (!proc || !proc.pid) return;
+    activeProcesses.add(proc);
+
+    const cleanup = () => {
+        activeProcesses.delete(proc);
+    };
+
+    proc.once('exit', cleanup);
+    proc.once('close', cleanup);
+    proc.once('error', cleanup);
+}
+
+// Terminate a single child process and its child tree without affecting unrelated Java instances
+function terminateChildProcess(proc) {
     return new Promise((resolve) => {
-        exec('taskkill /F /IM java.exe', (err, stdout, stderr) => {
-            resolve();
-        });
+        if (!proc || !proc.pid) {
+            return resolve();
+        }
+
+        activeProcesses.delete(proc);
+
+        // Check if process has already exited
+        if (proc.killed || proc.exitCode !== null) {
+            return resolve();
+        }
+
+        const pid = proc.pid;
+
+        if (process.platform === 'win32') {
+            // On Windows, child_process with shell:true spawns cmd.exe which in turn spawns java.exe.
+            // Using "taskkill /T /F /PID <pid>" terminates ONLY that specific PID and its child process tree (/T).
+            // It NEVER touches unrelated java.exe processes or the parent Swing desktop application.
+            exec(`taskkill /T /F /PID ${pid}`, (err) => {
+                // Ignore errors if process already exited
+                resolve();
+            });
+        } else {
+            try {
+                proc.kill('SIGTERM');
+                setTimeout(() => {
+                    try {
+                        if (!proc.killed) proc.kill('SIGKILL');
+                    } catch (e) {}
+                    resolve();
+                }, 500);
+            } catch (e) {
+                resolve();
+            }
+        }
     });
 }
+
+// Helper to kill only the child processes spawned by this Express server instance
+async function killActiveProcesses() {
+    const procs = Array.from(activeProcesses);
+    activeProcesses.clear();
+    await Promise.all(procs.map(p => terminateChildProcess(p)));
+}
+
+// Register graceful process cleanup on Express server exit
+function registerShutdownHandlers() {
+    const handleShutdown = async (signal) => {
+        try {
+            await killActiveProcesses();
+        } catch (e) {}
+        process.exit(0);
+    };
+
+    process.once('SIGINT', () => handleShutdown('SIGINT'));
+    process.once('SIGTERM', () => handleShutdown('SIGTERM'));
+
+    process.on('exit', () => {
+        for (const proc of activeProcesses) {
+            if (proc && proc.pid && !proc.killed) {
+                try {
+                    if (process.platform === 'win32') {
+                        require('child_process').execSync(`taskkill /T /F /PID ${proc.pid}`, { stdio: 'ignore' });
+                    } else {
+                        proc.kill('SIGKILL');
+                    }
+                } catch (e) {}
+            }
+        }
+    });
+}
+registerShutdownHandlers();
 
 // Helper to load settings from XML dynamically
 async function loadSettings() {
@@ -159,7 +230,7 @@ app.get('/api/stream/register', async (req, res) => {
     const args = ['-cp', javaCp(), 'sipinspector.Media.CliSipRegisterTest'];
 
     const child = spawn(command, args, { cwd: TRUNK_DIR, shell: true });
-    activeProcesses.push(child);
+    trackChildProcess(child);
 
     child.stdout.on('data', (data) => {
         const lines = data.toString().split('\n');
@@ -186,7 +257,7 @@ app.get('/api/stream/register', async (req, res) => {
     });
 
     req.on('close', () => {
-        child.kill();
+        terminateChildProcess(child);
     });
 });
 
@@ -229,7 +300,7 @@ app.get('/api/stream/call', async (req, res) => {
         }
         calleeArgs.push('-Dlogs.unique.id=callee', '-cp', javaCp(), 'sipinspector.Media.CliSipLegTest', 'callee', calleePort, calleeUser);
         const calleeProcess = spawn(javaBin(), calleeArgs, { cwd: TRUNK_DIR, shell: true });
-        activeProcesses.push(calleeProcess);
+        trackChildProcess(calleeProcess);
 
         calleeProcess.stdout.on('data', (data) => {
             data.toString().split('\n').forEach(line => {
@@ -252,7 +323,7 @@ app.get('/api/stream/call', async (req, res) => {
             }
             callerArgs.push('-Dlogs.unique.id=caller', '-cp', javaCp(), 'sipinspector.Media.CliSipLegTest', 'caller', callerPort, callerUser, calleeUser);
             const callerProcess = spawn(javaBin(), callerArgs, { cwd: TRUNK_DIR, shell: true });
-            activeProcesses.push(callerProcess);
+            trackChildProcess(callerProcess);
 
             callerProcess.stdout.on('data', (data) => {
                 data.toString().split('\n').forEach(line => {
@@ -271,7 +342,7 @@ app.get('/api/stream/call', async (req, res) => {
 
             callerProcess.on('close', (code) => {
                 res.write(`data: [SYSTEM] Caller completed with code ${code}. Stopping Callee...\n\n`);
-                calleeProcess.kill();
+                terminateChildProcess(calleeProcess);
                 res.write(`data: [SYSTEM] End-to-end call test completed.\n\n`);
                 res.end();
             });
@@ -1171,6 +1242,7 @@ app.post('/api/files/import-pcap', express.raw({ type: '*/*', limit: '50mb' }), 
         ];
 
         const javaProc = spawn(javaBin(), javaArgs, { cwd: TRUNK_DIR, shell: true });
+        trackChildProcess(javaProc);
         
         let stdout = '';
         let stderr = '';
