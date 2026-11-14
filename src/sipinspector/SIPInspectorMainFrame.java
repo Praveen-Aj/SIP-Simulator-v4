@@ -698,7 +698,7 @@ public class SIPInspectorMainFrame
         } else {
             this.LocalPort.setText("5060");
         }
-        this.IPPortPanel.add((Component) this.LocalPort, "wmin 65, pref 80, growx");
+        this.IPPortPanel.add((Component) this.LocalPort, "w 65:80:, growx");
         this.LocalInfoPanel.add((Component) this.IPPortPanel, "w 50%, wrap");
         this.StartingPanel.add((Component) this.LocalInfoPanel, "grow, wrap");
         this.IPConnType = new JPanel(new MigLayout(""));
@@ -790,7 +790,7 @@ public class SIPInspectorMainFrame
         } else {
             this.RemoteServerPort.setEnabled(false);
         }
-        this.RemoteServerPortPanel.add((Component) this.RemoteServerPort, "wmin 65, pref 80, growx");
+        this.RemoteServerPortPanel.add((Component) this.RemoteServerPort, "w 65:80:, growx");
         this.RemoteServerInfoPanel.add((Component) this.RemoteServerPortPanel, "w 50%");
         JPanel jPanel = new JPanel(new MigLayout("fill, insets 0", "[grow][]", "[]"));
         this.statisticsButton = new JButton("Statistics", EmojiIcon.getStatsIcon());
@@ -829,7 +829,7 @@ public class SIPInspectorMainFrame
         jPanel3.add((Component) this.ScenarioScreenLabel, "center");
         jPanel3.add((Component) new JLabel("Remote"), "right");
         jPanel2.add((Component) jPanel3, "grow, wrap");
-        jPanel2.add((Component) this.MsgScrollPane, "spany 2, grow, wmin 220, pref 260, hmin 120");
+        jPanel2.add((Component) this.MsgScrollPane, "spany 2, grow, w 220:260:, h 120:220:");
         this.upArrowButton = new JButton();
         this.upArrowButton.setIcon(EmojiIcon.getArrowUpIcon());
         this.upArrowButton.setBorder(null);
@@ -960,7 +960,7 @@ public class SIPInspectorMainFrame
                 SIPInspectorMainFrame.this.cpsFieldFocusLost(focusEvent);
             }
         });
-        jPanel4.add((Component) this.cpsField, "left, wmin 50, pref 60");
+        jPanel4.add((Component) this.cpsField, "left, w 50:60:");
         this.MaxConcurrentCallsLabel = new JLabel("Max Concurrent");
         jPanel4.add((Component) this.MaxConcurrentCallsLabel, "right");
         this.MaxConcurrentCallsField = new JTextField();
@@ -977,7 +977,7 @@ public class SIPInspectorMainFrame
             GlobalSettings.setSetting("maxConcurrCalls", "1");
         }
         this.MaxConcurrentCallsField.setText(GlobalSettings.getSetting("maxConcurrCalls"));
-        jPanel4.add((Component) this.MaxConcurrentCallsField, "left, wmin 50, pref 60");
+        jPanel4.add((Component) this.MaxConcurrentCallsField, "left, w 50:60:");
         this.totCalsLabel = new JLabel("Total Calls");
         jPanel4.add((Component) this.totCalsLabel, "right");
         this.totCalsField = new JTextField();
@@ -994,7 +994,7 @@ public class SIPInspectorMainFrame
             GlobalSettings.setSetting("totalCalls", "1");
         }
         this.totCalsField.setText(GlobalSettings.getSetting("totalCalls"));
-        jPanel4.add((Component) this.totCalsField, "left, wmin 50, pref 60");
+        jPanel4.add((Component) this.totCalsField, "left, w 50:60:");
         this.RunButton = new JButton("Run", EmojiIcon.getRunIcon());
         this.RunButton.addActionListener(new ActionListener() {
 
