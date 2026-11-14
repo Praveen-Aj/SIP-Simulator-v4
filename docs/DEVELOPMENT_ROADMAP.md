@@ -67,11 +67,13 @@ flowchart TD
 
 ### Tasks Breakdown
 1. **TCP & TLS Stream Framing and Message Accumulation (ISSUE-002):**
-   - **Files:** `src/sipinspector/Utils/MyPacket.java`, `src/sipinspector/Sockets/TCPClientSocket.java`, `src/sipinspector/Sockets/TLSClientSocket_V6.java`
+   - **Status:** **RESOLVED in Phase 2**
+   - **Files:** `src/sipinspector/Utils/SipStreamFramer.java`, `src/sipinspector/Socket/TCPClientSocket.java`, `src/sipinspector/MyPacket.java`, `test/TcpSipFramingValidationTest.java`
    - **Action:**
-     - Fix `MyPacket.java` line 114 so that `complete` is NOT set to `true` when `headerEnd == -1`.
-     - In TCP and TLS socket reader loops, implement a dynamic accumulator buffer. Only dispatch packets when a complete SIP header (`\r\n\r\n`) AND the full body specified by `Content-Length` have arrived.
-     - Retain leftover bytes in the stream buffer when multiple SIP packets arrive in a single TCP frame.
+     - Created dedicated `SipStreamFramer` utility adhering strictly to RFC 3261 Section 18.1.1 stream accumulation and Content-Length framing.
+     - Integrated framer into `TCPClientSocket.receive()` to queue multi-message reads and retain trailing bytes across socket calls.
+     - Fixed `MyPacket.java` line 119 so that `complete` is NOT set to `true` when headers are incomplete (`pos == -1`).
+     - Added 11-test automated suite in `TcpSipFramingValidationTest.java` (11/11 tests passed).
 2. **Headless Mode Support in TLS Socket (ISSUE-005):**
    - **Files:** `src/sipinspector/Sockets/TLSClientSocket_V6.java`
    - **Action:**

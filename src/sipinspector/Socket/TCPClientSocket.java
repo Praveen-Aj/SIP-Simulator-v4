@@ -141,6 +141,7 @@ public class TCPClientSocket extends MySocketAbstract {
         } catch (IOException exc) {
         }
         selector = null;
+        streamFramer.reset();
     }
 
     public InetAddress getLocalAddress() {
@@ -169,44 +170,56 @@ public class TCPClientSocket extends MySocketAbstract {
         return sc.socket().getPort();
     }
 
+    protected final sipinspector.Utils.SipStreamFramer streamFramer = new sipinspector.Utils.SipStreamFramer();
+
     public MyPacket receive() throws IOException {
         if (initialChannel == null || !initialChannel.isConnected()) {
             throw new IOException("TCP socket not connected");
         }
 
-        MyPacket myPacket = new MyPacket();
+        // 1. If we already have a complete framed message buffered from a previous multi-message read, return it immediately
+        byte[] readyMsg = streamFramer.pollNextMessage();
+        if (readyMsg != null) {
+            return buildAndLogPacket(readyMsg);
+        }
+
         ByteBuffer buffer = ByteBuffer.allocate(4096);
         byte[] byteArray = new byte[4096];
-        int numRcvdBytes = 0;
 
-        // Read data from the channel
-        while (myPacket.isComplete() == false) {
-            buffer.clear();
-            numRcvdBytes = initialChannel.read(buffer);
+        // 2. Read from channel until at least one complete message is framed
+        while (!streamFramer.hasNextMessage()) {
+            ((java.nio.Buffer) buffer).clear();
+            int numRcvdBytes = initialChannel.read(buffer);
 
-            if (numRcvdBytes <= 0) {
-                // No data available or connection closed
+            if (numRcvdBytes < 0) {
+                // Remote peer cleanly closed connection (EOF)
+                return null;
+            }
+            if (numRcvdBytes == 0) {
+                // Non-blocking channel has no data available at this instant
                 return null;
             }
 
-            // Convert ByteBuffer to byte array
-            buffer.flip();
+            ((java.nio.Buffer) buffer).flip();
             buffer.get(byteArray, 0, numRcvdBytes);
-
-            // Create a properly sized byte array for parsing
-            byte[] actualBytes = new byte[numRcvdBytes];
-            System.arraycopy(byteArray, 0, actualBytes, 0, numRcvdBytes);
-
-            // Parse the received bytes into SIP message
-            myPacket.parseBytesIntoSIPMsg(actualBytes);
+            streamFramer.feed(byteArray, 0, numRcvdBytes);
         }
 
-        // Set remote address and port
+        byte[] assembled = streamFramer.pollNextMessage();
+        if (assembled == null) {
+            return null;
+        }
+
+        return buildAndLogPacket(assembled);
+    }
+
+    private MyPacket buildAndLogPacket(byte[] msgBytes) {
+        MyPacket myPacket = new MyPacket(msgBytes, msgBytes.length);
         myPacket.setAddress(initialChannel.socket().getInetAddress());
         myPacket.setPort(initialChannel.socket().getPort());
 
         if (TLSDebugLogger.isEnabled()) {
-            String receivedMessage = new String(myPacket.getBytes(), 0, myPacket.getLength());
+            String receivedMessage = myPacket.getMessageTxt();
             TLSDebugLogger.log("=== TCP RECV DEBUG ===");
             TLSDebugLogger.log(
                     "Socket: " + initialChannel.socket().getInetAddress() + ":" + initialChannel.socket().getPort());

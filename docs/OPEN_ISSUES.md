@@ -40,23 +40,15 @@ Each issue is classified with:
 
 ### ISSUE-002: TCP Stream Framing & Packet Truncation Defect
 - **Severity:** **P1 (High)**
-- **File:** `src/sipinspector/Utils/MyPacket.java` (Line 114, Line 137)
-- **Code:**
-  ```java
-  // Line 114:
-  if (headerEnd == -1) {
-      complete = true; // Incorrectly marks packet as complete when CRLF CRLF is not yet received
-  }
-  // Line 137:
-  byte[] truncated = Arrays.copyOf(data, expectedLength); // Drops trailing segment bytes
-  ```
+- **Status:** **RESOLVED in Phase 2**
+- **File:** `src/sipinspector/Utils/MyPacket.java` (Line 114, Line 137), `src/sipinspector/Socket/TCPClientSocket.java`
 - **Root Cause:**
-  1. In stream-oriented protocols (TCP/TLS), packets may arrive fragmented across multiple TCP segments. When an incomplete header arrives without `\r\n\r\n`, `headerEnd == -1`. Setting `complete = true` causes `SIPScenarioRunner` to attempt parsing a broken, half-formed SIP message.
-  2. When multiple SIP messages are coalesced into a single TCP segment, `Arrays.copyOf(data, expectedLength)` consumes only the first message and discards all remaining bytes from the stream buffer, causing subsequent SIP transactions (such as `200 OK` followed immediately by `ACK` or `BYE`) to be lost.
-- **Impact:** Scenarios using TCP or TLS transport intermittently fail, time out, or throw parse errors under heavy load or packet fragmentation.
-- **Recommended Fix:**
-  Introduce a stream accumulation buffer (`ByteArrayOutputStream` or sliding byte queue) in `TCPClientSocket` and `TLSClientSocket_V6`. Retain bytes until `headerEnd != -1` AND `availableBytes >= headerEnd + 4 + contentLength`. Do not discard leftover stream bytes.
-- **Regression Risk:** Medium. Must ensure UDP transport (which is datagram-oriented and not streamed) continues to treat each datagram as an independent packet without buffering.
+  When a TCP read delivered a partial header, `MyPacket.parseBytesIntoSIPMsg` previously set `complete = true` prematurely before `\r\n\r\n` was received. Furthermore, when multiple messages arrived in a single socket read, trailing bytes were discarded.
+- **Phase 2 Resolution:**
+  1. Implemented dedicated `sipinspector.Utils.SipStreamFramer` to accumulate raw bytes, detect double-CRLF boundaries, and extract byte-accurate `Content-Length` payloads.
+  2. Integrated `SipStreamFramer` into `TCPClientSocket.receive()` to queue multiple messages and maintain residual stream buffers across reads.
+  3. Fixed `MyPacket.java` legacy parsing so `complete = false` is maintained on partial headers.
+  4. Created `test.TcpSipFramingValidationTest` (11/11 tests passed).
 
 ---
 

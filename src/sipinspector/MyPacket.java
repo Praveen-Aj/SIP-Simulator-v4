@@ -30,6 +30,17 @@ import java.net.InetAddress;
 public class MyPacket
 {
 
+    public MyPacket(byte[] rawBytes, int length)
+    {
+        messageTxt = new String(rawBytes, 0, length, java.nio.charset.StandardCharsets.UTF_8);
+        bytes = new byte[length];
+        System.arraycopy(rawBytes, 0, bytes, 0, length);
+        len = length;
+        remoteIP = null;
+        remotePort = 0;
+        complete = true;
+    }
+
     public MyPacket(String msgText)
     {
         messageTxt = msgText;
@@ -111,8 +122,8 @@ public class MyPacket
             messageTxt = tmpByteHolder;
             bytes = messageTxt.getBytes();
             len = bytes.length;
-            complete = true;
-            return rcvdBytes.length;
+            complete = false; // Incomplete headers: must remain false
+            return 0; // 0 complete message bytes processed yet
         }
         else
         {
