@@ -22,15 +22,42 @@ import sipinspector.Utils.TLSDebugLogger;
 public class LiveAudioController {
     
     private static volatile LiveAudioController activeInstance = null;
+    private static final Map<String, LiveAudioController> activeSessions = new java.util.concurrent.ConcurrentHashMap<>();
     private java.util.Timer fileWriteTimer = null;
     
     public static LiveAudioController getActiveInstance() {
         return activeInstance;
     }
+
+    public static LiveAudioController getSession(String callId) {
+        if (callId == null) return activeInstance;
+        LiveAudioController c = activeSessions.get(callId);
+        return c != null ? c : activeInstance;
+    }
+
+    public static void registerSession(String callId, LiveAudioController controller) {
+        if (callId != null && controller != null) {
+            activeSessions.put(callId, controller);
+        }
+        activeInstance = controller;
+    }
+
+    public static void removeSession(String callId) {
+        if (callId != null) {
+            activeSessions.remove(callId);
+        }
+    }
+
+    public static Map<String, LiveAudioController> getAllSessions() {
+        return new HashMap<>(activeSessions);
+    }
     
     private LiveAudioSenderThread senderThread = null;
     private LiveAudioReceiverThread receiverThread = null;
     private RtcpMonitor rtcpMonitor = null;
+    private volatile RtpWavRecorder txRecorder = null;
+    private volatile RtpWavRecorder rxRecorder = null;
+    private String currentCallId = null;
 
     private DatagramSocket mediaSocket = null;
     private InetAddress remoteAddress = null;
@@ -62,6 +89,33 @@ public class LiveAudioController {
         void onAudioError(String error);
     }
     
+    /**
+     * Explicit per-call initialization for multi-call and API orchestration.
+     */
+    public void initializeForCall(String callId, String remoteIp, int remoteRtpPort, String localIp, int localRtpPort, int payloadType, boolean savp, String cryptoLine) {
+        try {
+            this.currentCallId = callId;
+            this.remoteAddress = InetAddress.getByName(remoteIp.trim());
+            this.remotePort = remoteRtpPort;
+            this.localAddress = InetAddress.getByName(localIp.trim());
+            this.localMediaPort = localRtpPort;
+            
+            AudioDeviceManager.initializeFromGlobalSettings();
+            
+            if (savp && cryptoLine != null && !cryptoLine.trim().isEmpty()) {
+                this.srtp = SrtpContext.fromSdesCryptoLine(cryptoLine);
+            } else {
+                this.srtp = null;
+            }
+            
+            registerSession(callId, this);
+            initialized = true;
+        } catch (Exception e) {
+            initialized = false;
+            throw new IllegalStateException("Failed to initialize LiveAudioController for call " + callId + ": " + e.getMessage(), e);
+        }
+    }
+
     /**
      * Initialize from {@link GlobalSettings} (mandatory integration rule).
      * Sender target:
@@ -199,6 +253,9 @@ public class LiveAudioController {
                 mediaSocket,
                 srtp
             );
+            if (txRecorder != null) {
+                senderThread.setTxRecorder(txRecorder);
+            }
             senderThread.start();
             
             // Start RTCP Monitor on (localMediaPort + 1)
@@ -220,6 +277,9 @@ public class LiveAudioController {
                 srtp,
                 rtcpMonitor
             );
+            if (rxRecorder != null) {
+                receiverThread.setRecorder(rxRecorder);
+            }
             receiverThread.start();
             
             audioRunning = true;
@@ -256,6 +316,10 @@ public class LiveAudioController {
         }
         
         audioRunning = false;
+        stopRecording();
+        if (currentCallId != null) {
+            removeSession(currentCallId);
+        }
         
         try {
             LiveAudioSenderThread sender = senderThread;
@@ -317,6 +381,139 @@ public class LiveAudioController {
         if (receiverThread != null) {
             receiverThread.startAudio();
         }
+    }
+
+    /**
+     * Start dual WAV recording for this session.
+     */
+    public synchronized boolean startRecording(String callId) {
+        try {
+            if (callId == null || callId.trim().isEmpty()) {
+                callId = "call_" + System.currentTimeMillis();
+            }
+            this.currentCallId = callId;
+            java.io.File recDir = sipinspector.Utils.AppPaths.getRecordingsDir();
+            if (!recDir.exists()) {
+                recDir.mkdirs();
+            }
+            String safeId = sanitizeFilename(callId);
+            java.io.File txFile = new java.io.File(recDir, "tx_" + safeId + ".wav");
+            java.io.File rxFile = new java.io.File(recDir, "rx_" + safeId + ".wav");
+
+            txRecorder = new RtpWavRecorder(txFile.getAbsolutePath());
+            rxRecorder = new RtpWavRecorder(rxFile.getAbsolutePath());
+
+            if (senderThread != null) {
+                senderThread.setTxRecorder(txRecorder);
+            }
+            if (receiverThread != null) {
+                receiverThread.setRecorder(rxRecorder);
+            }
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.logf("[AUDIO RECORD] Started dual recording for call %s: TX=%s, RX=%s",
+                        callId, txFile.getName(), rxFile.getName());
+            }
+            return true;
+        } catch (Exception e) {
+            System.err.println("LiveAudioController: failed to start recording: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Stop dual WAV recording and flush headers.
+     */
+    public synchronized void stopRecording() {
+        if (txRecorder != null) {
+            try {
+                txRecorder.close();
+            } catch (Exception ignore) {}
+        }
+        if (rxRecorder != null) {
+            try {
+                rxRecorder.close();
+            } catch (Exception ignore) {}
+        }
+    }
+
+    private static String sanitizeFilename(String s) {
+        if (s == null) return "unknown";
+        return s.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    public void setMicrophoneMuted(boolean muted) {
+        if (senderThread != null) {
+            senderThread.setMuted(muted);
+        }
+    }
+
+    public boolean isMicrophoneMuted() {
+        return senderThread != null && senderThread.isMuted();
+    }
+
+    public void setSpeakerMuted(boolean muted) {
+        if (receiverThread != null) {
+            receiverThread.setSpeakerMuted(muted);
+        }
+    }
+
+    public boolean isSpeakerMuted() {
+        return receiverThread != null && receiverThread.isSpeakerMuted();
+    }
+
+    public void setAudioSourceMode(LiveAudioSenderThread.AudioSourceMode mode) {
+        if (senderThread != null) {
+            senderThread.setAudioSourceMode(mode);
+        }
+    }
+
+    public RtpWavRecorder getTxRecorder() {
+        return txRecorder;
+    }
+
+    public RtpWavRecorder getRxRecorder() {
+        return rxRecorder;
+    }
+
+    public Map<String, Object> getMediaHealthSummary() {
+        Map<String, Object> summary = new HashMap<>();
+        Map<String, Object> stats = getStats();
+        summary.putAll(stats);
+        
+        long txPkts = senderThread != null ? senderThread.getPacketsSent() : lastPacketsSent;
+        long rxPkts = receiverThread != null ? receiverThread.getPacketsReceived() : lastPacketsReceived;
+        
+        boolean bidirectional = txPkts > 5 && rxPkts > 5;
+        boolean oneWay = (txPkts > 5 && rxPkts == 0) || (rxPkts > 5 && txPkts == 0);
+        boolean dead = txPkts == 0 && rxPkts == 0 && audioRunning;
+        
+        summary.put("is_bidirectional", bidirectional);
+        summary.put("is_one_way", oneWay);
+        summary.put("is_dead_media", dead);
+        
+        if (rxRecorder != null) {
+            summary.put("rx_wav_rms", rxRecorder.getRmsEnergy());
+            summary.put("rx_wav_peak", rxRecorder.getPeakAmplitude());
+            summary.put("rx_wav_duration_sec", rxRecorder.getDurationSeconds());
+            summary.put("rx_wav_path", rxRecorder.getWavPath());
+        }
+        if (txRecorder != null) {
+            summary.put("tx_wav_rms", txRecorder.getRmsEnergy());
+            summary.put("tx_wav_peak", txRecorder.getPeakAmplitude());
+            summary.put("tx_wav_duration_sec", txRecorder.getDurationSeconds());
+            summary.put("tx_wav_path", txRecorder.getWavPath());
+        }
+        if (rtcpMonitor != null) {
+            RtcpMonitor.RtcpStats qos = rtcpMonitor.getStats(8000);
+            if (qos != null) {
+                summary.put("rtcp_qos", qos.toString());
+                summary.put("rtcp_jitter_ms", qos.jitterMs);
+                summary.put("rtcp_rtt_ms", qos.roundTripTimeMs);
+                summary.put("rtcp_fraction_lost", qos.fractionLost);
+                summary.put("rtcp_cumulative_lost", qos.cumulativeLost);
+            }
+        }
+        return summary;
     }
     
     /**

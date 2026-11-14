@@ -270,24 +270,34 @@ public class AudioDeviceManager {
      * Open a microphone input line at a specific sample rate (16000 for G.722).
      */
     public static TargetDataLine openMicrophoneInput(int sampleRateHz) throws LineUnavailableException {
-        AudioDevice device = getInputDevice();
-        if (device == null) {
-            throw new LineUnavailableException("No input device available");
-        }
-
-        Mixer mixer = AudioSystem.getMixer(device.mixerInfo);
         AudioFormat format = getAudioFormat(sampleRateHz);
+        AudioDevice device = getInputDevice();
 
-        Line.Info[] lineInfos = mixer.getTargetLineInfo();
-        for (Line.Info info : lineInfos) {
-            if (info.getLineClass() == TargetDataLine.class) {
-                TargetDataLine line = (TargetDataLine) mixer.getLine(info);
-                line.open(format, getBufferSize(sampleRateHz));
-                return line;
+        if (device != null && device.mixerInfo != null) {
+            try {
+                Mixer mixer = AudioSystem.getMixer(device.mixerInfo);
+                Line.Info[] lineInfos = mixer.getTargetLineInfo();
+                for (Line.Info info : lineInfos) {
+                    if (info.getLineClass() == TargetDataLine.class) {
+                        TargetDataLine line = (TargetDataLine) mixer.getLine(info);
+                        line.open(format, getBufferSize(sampleRateHz));
+                        return line;
+                    }
+                }
+            } catch (Exception e) {
+                // Fall back to AudioSystem default TargetDataLine
             }
         }
 
-        throw new LineUnavailableException("TargetDataLine not available on mixer: " + device.name);
+        // Fallback to standard AudioSystem default input line
+        DataLine.Info fallbackInfo = new DataLine.Info(TargetDataLine.class, format);
+        if (AudioSystem.isLineSupported(fallbackInfo)) {
+            TargetDataLine line = (TargetDataLine) AudioSystem.getLine(fallbackInfo);
+            line.open(format, getBufferSize(sampleRateHz));
+            return line;
+        }
+
+        throw new LineUnavailableException("Microphone input line not available for " + sampleRateHz + "Hz");
     }
     
     /**
@@ -304,24 +314,34 @@ public class AudioDeviceManager {
      * Open a speaker output line at a specific sample rate (16000 for G.722).
      */
     public static SourceDataLine openSpeakerOutput(int sampleRateHz) throws LineUnavailableException {
-        AudioDevice device = getOutputDevice();
-        if (device == null) {
-            throw new LineUnavailableException("No output device available");
-        }
-
-        Mixer mixer = AudioSystem.getMixer(device.mixerInfo);
         AudioFormat format = getAudioFormat(sampleRateHz);
+        AudioDevice device = getOutputDevice();
 
-        Line.Info[] lineInfos = mixer.getSourceLineInfo();
-        for (Line.Info info : lineInfos) {
-            if (info.getLineClass() == SourceDataLine.class) {
-                SourceDataLine line = (SourceDataLine) mixer.getLine(info);
-                line.open(format, getBufferSize(sampleRateHz));
-                return line;
+        if (device != null && device.mixerInfo != null) {
+            try {
+                Mixer mixer = AudioSystem.getMixer(device.mixerInfo);
+                Line.Info[] lineInfos = mixer.getSourceLineInfo();
+                for (Line.Info info : lineInfos) {
+                    if (info.getLineClass() == SourceDataLine.class) {
+                        SourceDataLine line = (SourceDataLine) mixer.getLine(info);
+                        line.open(format, getBufferSize(sampleRateHz));
+                        return line;
+                    }
+                }
+            } catch (Exception e) {
+                // Fall back to AudioSystem default SourceDataLine
             }
         }
 
-        throw new LineUnavailableException("SourceDataLine not available on mixer: " + device.name);
+        // Fallback to standard AudioSystem default output line
+        DataLine.Info fallbackInfo = new DataLine.Info(SourceDataLine.class, format);
+        if (AudioSystem.isLineSupported(fallbackInfo)) {
+            SourceDataLine line = (SourceDataLine) AudioSystem.getLine(fallbackInfo);
+            line.open(format, getBufferSize(sampleRateHz));
+            return line;
+        }
+
+        throw new LineUnavailableException("Speaker output line not available for " + sampleRateHz + "Hz");
     }
 
     private static AudioDevice findByName(List<AudioDevice> list, String name) {
@@ -331,6 +351,32 @@ public class AudioDeviceManager {
             }
         }
         return null;
+    }
+
+    /**
+     * Select active microphone input device by friendly name.
+     */
+    public static boolean selectInputDeviceByName(String name) {
+        if (name == null) return false;
+        AudioDevice d = findByName(getInputDevices(), name);
+        if (d != null) {
+            setInputDevice(d);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Select active speaker output device by friendly name.
+     */
+    public static boolean selectOutputDeviceByName(String name) {
+        if (name == null) return false;
+        AudioDevice d = findByName(getOutputDevices(), name);
+        if (d != null) {
+            setOutputDevice(d);
+            return true;
+        }
+        return false;
     }
     
     /**

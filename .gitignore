@@ -14,3 +14,5 @@ deployment/webapp_dist/public/
 # Temporary / Scratch
 *.tmp
 config/uploaded_temp.pcap
+recordings/tx_*.wav
+recordings/rx_*.wav

@@ -372,8 +372,39 @@ Before executing call tests, Simulator registered subscriber extension `90008` w
 
 ---
 
-## 6. Architectural Conclusions & Verification
-1. **End-to-End Interoperability:** SIP Simulator v4 is verified to function as a production-grade SIP UA against Alcatel-Lucent OmniPCX Enterprise PBX for both caller and callee roles.
-2. **Media Pipeline Integrity:** Bidirectional RTP audio streaming operates at 20ms frame intervals using RFC 3551 standard PCMA payload format (PT=8), with zero media thread deadlocks or port collisions.
-3. **MicroSIP Endpoint Preservation:** MicroSIP 3.22.16 extension `90001` remained continuously registered, intact, and undisturbed throughout testing.
-4. **Automated Inter-Process Control:** The integration test harness provides automated, deterministic execution across both endpoints via standard Java SE Named Pipe I/O.
+## 7. Phase 4 Production Call Engine & Audio Management Verification
+
+In Phase 4, the test scaffolding was formalized into a permanent, production-grade call engine (`SipCallEngine.java`, `CliCallEngine.java`, and `LiveAudioController.java`) and verified with an automated 8-test validation suite (`test/OxeProductionCallEngineTest.java`).
+
+### 7.1 Phase 4 Architecture & Capabilities
+1. **Centralized Dialog & State Machine:**
+   `SipCallEngine` acts as a thread-safe singleton managing concurrent call dialogs, routing SIP messages, auto-dispatching incoming calls, and strictly enforcing RFC 3261 state transitions.
+2. **Multi-Codec Audio Pipeline:**
+   Full support for PCMA (PT=8), PCMU (PT=0), and wideband G.722 (PT=9) with dynamic sample rate adaptation (8kHz for G.711, 16kHz for G.722).
+3. **Dual WAV Audio Recording:**
+   Per-call independent recording of both TX (transmitted) and RX (received) audio streams into `<APP_ROOT>/recordings/tx_<callId>.wav` and `rx_<callId>.wav`. Includes RMS power and peak amplitude telemetry.
+4. **Graceful Fallback & Comfort Silence:**
+   If a host has no physical microphone or audio hardware is busy, `LiveAudioSenderThread` automatically falls back to tone synthesis without failing the call. Microphone mute generates standard comfort silence payloads.
+5. **Mid-Dialog Session Renegotiation:**
+   Seamless Call Hold (`a=sendonly`) and Call Resume (`a=sendrecv`) via RFC 3261 Re-INVITE sequences with OXE.
+6. **REST API & Management Daemon:**
+   `CliCallEngine daemon 5065` exposes embedded HTTP REST endpoints integrated with `web-app/server.js` (`/api/call/active`, `/api/call/dial`, `/api/call/answer`, `/api/call/reject`, `/api/call/hangup`, `/api/call/hold`, `/api/call/mute`, `/api/audio/devices`).
+
+### 7.2 Phase 4 Validation Results (`test.OxeProductionCallEngineTest`)
+```text
+================================================================================
+   SIP Simulator v4 - PHASE 4 PRODUCTION CALL ENGINE VALIDATION SUITE
+   Target PBX: 192.168.0.20:5060 | Host: 192.168.0.9:5060
+   Simulator Ext: 90008 | MicroSIP Ext: 90001
+================================================================================
+[TEST 1] Registration of Extension 90008 on OXE PBX: PASSED (200 OK)
+[TEST 2 & 3] Outbound Call Setup, 2-Way Audio & Dual WAV Recording (PCMA PT=8): PASSED (TX=73KB, RX=79KB)
+[TEST 4] Call Hold (a=sendonly) and Resume (a=sendrecv) via Re-INVITE: PASSED (200 OK renegotiated)
+[TEST 5] Inbound Call Setup (MicroSIP 90001 -> Simulator 90008) & Auto-Answer: PASSED (200 OK answered)
+[TEST 6] Multi-Codec Negotiation (G.722 PT=9 & PCMA PT=8): PASSED (Dialog active)
+[TEST 7] Call Rejection (486 Busy Here): PASSED (Inbound call rejected cleanly)
+[TEST 8] Clean Deregistration of Extension 90008: PASSED (Expires: 0 -> 200 OK)
+================================================================================
+   PHASE 4 PRODUCTION ENGINE VALIDATION RESULTS: 8 / 8 PASSED (100%)
+================================================================================
+```

@@ -38,6 +38,15 @@ public class LiveAudioSenderThread extends Thread {
     
     private volatile boolean running = false;
     private volatile boolean paused = false;
+    private volatile boolean muted = false;
+    private volatile AudioSourceMode audioSourceMode = AudioSourceMode.MICROPHONE;
+    private volatile RtpWavRecorder txRecorder = null;
+
+    public enum AudioSourceMode {
+        MICROPHONE,
+        TONE_SYNTHESIZER,
+        MIXED
+    }
     
     private TargetDataLine micLine = null;
     
@@ -94,11 +103,28 @@ public class LiveAudioSenderThread extends Thread {
             // Resolve the negotiated codec for this call.
             resolveCodec();
             final int frameBytes = codec.frameBytesPcm();
+            final int sampleRate = codec.sampleRateHz();
+            final int samplesPerFrame = codec.frameSamples();
 
-            // Open microphone at the codec's sample rate (16kHz for G.722).
-            micLine = AudioDeviceManager.openMicrophoneInput(codec.sampleRateHz());
-            micLine.start();
-            LiveAudioRuntimeDiagnostics.onMicLineOpened();
+            // Try to open microphone at the codec's sample rate (16kHz for G.722, 8kHz for G.711).
+            // If mic is unavailable or in use, fall back gracefully to tone synthesizer.
+            try {
+                micLine = AudioDeviceManager.openMicrophoneInput(sampleRate);
+                if (micLine != null) {
+                    micLine.start();
+                    LiveAudioRuntimeDiagnostics.onMicLineOpened();
+                }
+            } catch (LineUnavailableException le) {
+                System.err.println("LiveAudioSenderThread: no microphone available (" + le.getMessage()
+                        + ") - falling back to tone synthesizer.");
+                micLine = null;
+                audioSourceMode = AudioSourceMode.TONE_SYNTHESIZER;
+            } catch (Exception e) {
+                System.err.println("LiveAudioSenderThread: could not open microphone (" + e.getMessage()
+                        + ") - falling back to tone synthesizer.");
+                micLine = null;
+                audioSourceMode = AudioSourceMode.TONE_SYNTHESIZER;
+            }
 
             // Audio buffer for one 20ms frame
             byte[] pcmBuffer = new byte[frameBytes];
@@ -106,21 +132,65 @@ public class LiveAudioSenderThread extends Thread {
 
             long frameCount = 0;
             long nextFrameNanos = System.nanoTime();
+            double tonePhase = 0.0;
+            double toneFreq = 440.0; // 440Hz standard reference tone
+            double phaseIncrement = (2.0 * Math.PI * toneFreq) / sampleRate;
             
             while (running) {
                 if (paused) {
-                    Thread.sleep(100);
+                    Thread.sleep(50);
                     nextFrameNanos = System.nanoTime();
                     continue;
                 }
                 
-                // Read PCM data from microphone (blocking)
-                int bytesRead = micLine.read(pcmBuffer, 0, frameBytes);
+                int bytesRead = 0;
+                if (audioSourceMode == AudioSourceMode.MICROPHONE && micLine != null) {
+                    bytesRead = micLine.read(pcmBuffer, 0, frameBytes);
+                } else if (audioSourceMode == AudioSourceMode.TONE_SYNTHESIZER || micLine == null) {
+                    // Generate synthetic sine tone
+                    for (int i = 0; i < samplesPerFrame; i++) {
+                        short sample = (short) (8000.0 * Math.sin(tonePhase));
+                        tonePhase += phaseIncrement;
+                        if (tonePhase > 2.0 * Math.PI) tonePhase -= 2.0 * Math.PI;
+                        pcmBuffer[2 * i] = (byte) (sample & 0xFF);
+                        pcmBuffer[2 * i + 1] = (byte) ((sample >> 8) & 0xFF);
+                    }
+                    bytesRead = frameBytes;
+                } else if (audioSourceMode == AudioSourceMode.MIXED && micLine != null) {
+                    bytesRead = micLine.read(pcmBuffer, 0, frameBytes);
+                    // Mix tone with microphone input
+                    for (int i = 0; i < samplesPerFrame && (2 * i + 1) < bytesRead; i++) {
+                        short micSample = (short) ((pcmBuffer[2 * i] & 0xFF) | (pcmBuffer[2 * i + 1] << 8));
+                        short toneSample = (short) (4000.0 * Math.sin(tonePhase));
+                        tonePhase += phaseIncrement;
+                        if (tonePhase > 2.0 * Math.PI) tonePhase -= 2.0 * Math.PI;
+                        int mixed = micSample + toneSample;
+                        if (mixed > Short.MAX_VALUE) mixed = Short.MAX_VALUE;
+                        else if (mixed < Short.MIN_VALUE) mixed = Short.MIN_VALUE;
+                        pcmBuffer[2 * i] = (byte) (mixed & 0xFF);
+                        pcmBuffer[2 * i + 1] = (byte) ((mixed >> 8) & 0xFF);
+                    }
+                }
+
+                if (muted && bytesRead > 0) {
+                    // Send comfort silence (zero linear PCM)
+                    Arrays.fill(pcmBuffer, 0, bytesRead, (byte) 0);
+                }
+
                 refreshRtpTargetFromNegotiatedSettings();
 
                 if (bytesRead > 0) {
                     // Encode PCM to the negotiated codec (PCMA/PCMU/G722)
                     encodedBuffer = codec.encode(pcmBuffer, bytesRead);
+
+                    // If TX recorder attached, capture encoded RTP payload
+                    if (txRecorder != null) {
+                        try {
+                            txRecorder.feedPayload(encodedBuffer, payloadType);
+                        } catch (Exception ex) {
+                            // Don't let recording issues affect transmission
+                        }
+                    }
 
                     // Update timestamp and sequence
                     sequence = (sequence + 1) & 0xFFFF;
@@ -180,13 +250,6 @@ public class LiveAudioSenderThread extends Thread {
             if (running && (socket == null || !socket.isClosed())) {
                 System.err.println("LiveAudioSenderThread socket error: " + se.getMessage());
             }
-        } catch (LineUnavailableException le) {
-            // Expected/common on a machine with no microphone, or one already in
-            // use by another app - not a real crash, so don't spam a stack trace.
-            // The rest of the call (signaling, RTP receive) is unaffected; we
-            // simply won't be sending outbound live audio for this call.
-            System.err.println("LiveAudioSenderThread: no microphone available (" + le.getMessage()
-                    + ") - outbound live audio disabled for this call, everything else continues normally.");
         } catch (Exception e) {
             System.err.println("LiveAudioSenderThread error: " + e.getMessage());
             e.printStackTrace();
@@ -268,6 +331,30 @@ public class LiveAudioSenderThread extends Thread {
      */
     public boolean isRunning() {
         return running && !paused;
+    }
+
+    public void setMuted(boolean muted) {
+        this.muted = muted;
+    }
+
+    public boolean isMuted() {
+        return muted;
+    }
+
+    public void setAudioSourceMode(AudioSourceMode mode) {
+        this.audioSourceMode = mode != null ? mode : AudioSourceMode.MICROPHONE;
+    }
+
+    public AudioSourceMode getAudioSourceMode() {
+        return audioSourceMode;
+    }
+
+    public void setTxRecorder(RtpWavRecorder recorder) {
+        this.txRecorder = recorder;
+    }
+
+    public RtpWavRecorder getTxRecorder() {
+        return txRecorder;
     }
     
     /**

@@ -32,6 +32,7 @@ public class LiveAudioReceiverThread extends Thread {
     private volatile boolean paused = false;
     
     private SourceDataLine speakerLine = null;
+    private volatile boolean speakerMuted = false;
     private volatile RtpWavRecorder recorder = null; // Optional: records received audio to WAV
     
     private static final int RTP_HEADER_SIZE = 12;
@@ -151,9 +152,17 @@ public class LiveAudioReceiverThread extends Thread {
             resolveCodec();
 
             // Open speaker output
-            speakerLine = AudioDeviceManager.openSpeakerOutput(codec.sampleRateHz());
-            speakerLine.start();
-            LiveAudioRuntimeDiagnostics.onSpeakerLineOpened();
+            try {
+                speakerLine = AudioDeviceManager.openSpeakerOutput(codec.sampleRateHz());
+                if (speakerLine != null) {
+                    speakerLine.start();
+                    LiveAudioRuntimeDiagnostics.onSpeakerLineOpened();
+                }
+            } catch (Exception se) {
+                System.err.println("LiveAudioReceiverThread: could not open speaker (" + se.getMessage()
+                        + ") - audio playback disabled, RTP reception and recording continues.");
+                speakerLine = null;
+            }
             
             byte[] buffer = new byte[RTP_BUFFER_SIZE];
             int lastPlayedSequence = -1;
@@ -330,10 +339,10 @@ public class LiveAudioReceiverThread extends Thread {
                         } catch (Exception ignored) {}
                     }
                     
-                    // Record raw PCMA payload BEFORE jitter buffer (captures all packets)
+                    // Record raw PCMA/PCMU/G722 payload BEFORE jitter buffer (captures all packets)
                     if (recorder != null) {
                         try {
-                            recorder.feedPayload(payload);
+                            recorder.feedPayload(payload, payloadType);
                         } catch (Exception recEx) {
                             // Don't let recording errors affect reception
                         }
@@ -399,6 +408,10 @@ public class LiveAudioReceiverThread extends Thread {
      * Play packets from jitter buffer to speaker
      */
     private synchronized void playFromJitterBuffer(SourceDataLine speakerLine) {
+        if (speakerLine == null) {
+            jitterBuffer.clear();
+            return;
+        }
         while (!jitterBuffer.isEmpty() && speakerLine.available() > 160) {
             RTPPacketData packet = jitterBuffer.poll();
             
@@ -406,8 +419,10 @@ public class LiveAudioReceiverThread extends Thread {
                 // Decode the negotiated codec (PCMA/PCMU/G722) to PCM16
                 byte[] pcmData = codec.decode(packet.payload, packet.payload.length);
 
-                // Write to speaker
-                speakerLine.write(pcmData, 0, pcmData.length);
+                // Write to speaker if not muted
+                if (!speakerMuted) {
+                    speakerLine.write(pcmData, 0, pcmData.length);
+                }
             }
         }
     }
@@ -440,6 +455,18 @@ public class LiveAudioReceiverThread extends Thread {
      */
     public void setRecorder(RtpWavRecorder recorder) {
         this.recorder = recorder;
+    }
+
+    public RtpWavRecorder getRecorder() {
+        return recorder;
+    }
+
+    public void setSpeakerMuted(boolean muted) {
+        this.speakerMuted = muted;
+    }
+
+    public boolean isSpeakerMuted() {
+        return speakerMuted;
     }
     
     /**

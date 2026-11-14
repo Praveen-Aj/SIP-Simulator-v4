@@ -26,6 +26,15 @@ Version 4 achieves full feature parity between the primary Java Desktop Client a
    * Stream live standard outputs and errors into an integrated terminal view in real-time.
    * Auto-evaluate success/failure checks comparing actual results to your expected outcomes (`PASS`/`FAIL`).
 
+4. **📞 Production Call Engine & Audio Management (Phase 4)**
+   * Centralized `SipCallEngine` managing concurrent dialogs with strict RFC 3261 `CallState` enforcement.
+   * Multi-codec negotiation: PCMA (PT=8), PCMU (PT=0), wideband G.722 (PT=9).
+   * Dual WAV audio recording (`tx_<callId>.wav` & `rx_<callId>.wav`) per dialog with RMS energy and peak amplitude analysis.
+   * Mid-dialog session renegotiation: Call Hold (`a=sendonly`) and Resume (`a=sendrecv`) via Re-INVITE sequences.
+   * Media controls: Microphone mute with comfort silence, speaker mute, graceful tone synthesis fallback.
+   * Embedded REST API daemon and Express proxy endpoints (`/api/call/*`, `/api/audio/devices`).
+   * Validated against live Alcatel-Lucent OmniPCX Enterprise (OXE) PBX and MicroSIP (8/8 tests passed).
+
 ---
 
 ## 📂 Project Structure

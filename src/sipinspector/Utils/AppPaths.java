@@ -158,6 +158,17 @@ public final class AppPaths {
     }
 
     /**
+     * Returns the recordings directory: <APP_ROOT>/recordings
+     */
+    public static File getRecordingsDir() {
+        File dir = resolve("recordings");
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+    /**
      * Returns the web application directory: <APP_ROOT>/web-app
      */
     public static File getWebAppDir() {

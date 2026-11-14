@@ -166,6 +166,23 @@ Each issue is classified with:
 
 ---
 
+### ISSUE-011: Production Call Engine, Dual WAV Audio Recording & REST Management
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 4**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`, `src/sipinspector/Call/CliCallEngine.java`, `src/sipinspector/Media/RtpWavRecorder.java`, `web-app/server.js`, `test/OxeProductionCallEngineTest.java`
+- **Root Cause:**
+  Prior architecture relied on test scaffolding scripts (`CliSipLegTest`, `OxeLiveEndpointTest`) to establish calls, lacking a centralized production-grade call orchestrator, multi-codec audio capture, dual WAV recording, mid-dialog hold/resume, and interactive REST management endpoints.
+- **Phase 4 Resolution:**
+  1. Implemented centralized `SipCallEngine.java` managing concurrent dialogs, RFC 3261 state machine, automatic incoming call dispatching, media attachment, and dual WAV recording.
+  2. Implemented multi-codec PCM recording in `RtpWavRecorder.java` (PCMA PT=8, PCMU PT=0, G.722 PT=9) with RMS power calculation and peak amplitude analysis.
+  3. Added mid-dialog session renegotiation for Call Hold (`a=sendonly`) and Call Resume (`a=sendrecv`) via Re-INVITE sequences with OXE.
+  4. Added graceful fallback to tone synthesis when physical microphones are unavailable, and comfort silence generation when muted.
+  5. Implemented `CliCallEngine.java` with lightweight embedded HTTP management daemon (`daemon 5065`).
+  6. Added Express REST endpoints in `web-app/server.js` (`/api/call/*`, `/api/audio/devices`).
+  7. Validated 100% passing across all 8 live test cases against OXE PBX and MicroSIP in `test.OxeProductionCallEngineTest`.
+
+---
+
 ## 3. Suspected Fragile Areas
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`

@@ -203,6 +203,7 @@ public class SIPCall {
             dialog.updateStats(getScenarioPos());
         } else {
             lastRcvdExpectedMsg = rcvdMsg;
+            updateCallStateFromMsg(rcvdMsg, true);
             setRemoteRTPClient(lastRcvdExpectedMsg);
             getScenarioPos().increaseExpectedCnt();
             dialog.updateStats(getScenarioPos());
@@ -597,6 +598,7 @@ public class SIPCall {
         lastMsgOut.setAddress(remoteAddress);
         lastMsgOut.setPort(remotePort);
         socket.send(lastMsgOut);
+        updateCallStateFromMsg(msg, false);
 
         // Record the media port THIS endpoint just advertised in its own SDP.
         // In SDP, the m=audio port you SEND is the port you expect to RECEIVE
@@ -882,6 +884,73 @@ public class SIPCall {
 
     public void storeCallID(String callId) {
 
+    }
+
+    private sipinspector.Media.CallState callState = sipinspector.Media.CallState.IDLE;
+
+    public sipinspector.Media.CallState getCallState() {
+        return callState;
+    }
+
+    public synchronized boolean setCallState(sipinspector.Media.CallState nextState) {
+        if (nextState == null) return false;
+        if (callState == nextState) return true;
+        if (callState.canTransitionTo(nextState)) {
+            sipinspector.Media.CallState old = callState;
+            callState = nextState;
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.logf("[CALL STATE] Call %s state: %s -> %s", getCallID(), old, nextState);
+            }
+            return true;
+        } else {
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.logf("[CALL STATE WARN] Invalid transition for Call %s: %s -> %s rejected", getCallID(), callState, nextState);
+            }
+            return false;
+        }
+    }
+
+    private void updateCallStateFromMsg(String msg, boolean isIncoming) {
+        if (msg == null || msg.trim().isEmpty()) return;
+        try {
+            boolean isRequest = SIPParser.isMsgRequest(msg);
+            if (isRequest) {
+                String method = SIPParser.getRequestMethod(msg);
+                if (method != null) {
+                    method = method.toUpperCase();
+                    if ("INVITE".equals(method)) {
+                        if (!isIncoming) {
+                            setCallState(sipinspector.Media.CallState.CALLING);
+                        } else {
+                            setCallState(sipinspector.Media.CallState.RINGING);
+                        }
+                    } else if ("ACK".equals(method)) {
+                        setCallState(sipinspector.Media.CallState.ESTABLISHED);
+                    } else if ("BYE".equals(method)) {
+                        setCallState(sipinspector.Media.CallState.TERMINATING);
+                    }
+                }
+            } else {
+                String code = SIPParser.getResponseCode(msg);
+                if ("100".equals(code)) {
+                    setCallState(sipinspector.Media.CallState.PROCEEDING);
+                } else if ("180".equals(code)) {
+                    setCallState(sipinspector.Media.CallState.RINGING);
+                } else if ("183".equals(code)) {
+                    setCallState(sipinspector.Media.CallState.EARLY_MEDIA);
+                } else if ("200".equals(code)) {
+                    String cseq = SIPParser.getHeaderValue(msg, "CSeq");
+                    if (cseq != null && cseq.toUpperCase().contains("INVITE")) {
+                        setCallState(sipinspector.Media.CallState.ESTABLISHED);
+                    } else if (cseq != null && cseq.toUpperCase().contains("BYE")) {
+                        setCallState(sipinspector.Media.CallState.TERMINATED);
+                    }
+                } else if (code.startsWith("4") || code.startsWith("5") || code.startsWith("6")) {
+                    setCallState(sipinspector.Media.CallState.FAILED);
+                }
+            }
+        } catch (Exception ignore) {
+        }
     }
 
     private int entryPos;

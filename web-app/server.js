@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawn, exec } = require('child_process');
+const http = require('http');
 const xml2js = require('xml2js');
 
 const app = express();
@@ -1321,6 +1322,216 @@ app.post('/api/files/import-pcap', express.raw({ type: '*/*', limit: '50mb' }), 
                 });
             }
         });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =========================================================================
+// Production Call Engine & Audio Management Endpoints (Phase 4)
+// =========================================================================
+const CALL_ENGINE_PORT = 5065;
+let daemonProcess = null;
+let daemonStarting = null;
+
+function requestDaemon(method, reqPath, body = null) {
+    return new Promise((resolve, reject) => {
+        const payload = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : null;
+        const options = {
+            hostname: '127.0.0.1',
+            port: CALL_ENGINE_PORT,
+            path: reqPath,
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
+            },
+            timeout: 5000
+        };
+
+        const req = http.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    const parsed = JSON.parse(data);
+                    resolve({ status: res.statusCode, data: parsed });
+                } catch (e) {
+                    resolve({ status: res.statusCode, data });
+                }
+            });
+        });
+
+        req.on('error', (err) => reject(err));
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error('Call Engine daemon request timed out'));
+        });
+
+        if (payload) {
+            req.write(payload);
+        }
+        req.end();
+    });
+}
+
+async function isDaemonAlive() {
+    try {
+        const res = await requestDaemon('GET', '/api/engine/status');
+        return res.status === 200;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function ensureCallEngineDaemon() {
+    if (await isDaemonAlive()) {
+        return true;
+    }
+
+    if (daemonStarting) {
+        return daemonStarting;
+    }
+
+    daemonStarting = (async () => {
+        const java = javaBin();
+        const args = ['-cp', javaCp(), 'sipinspector.Call.CliCallEngine', 'daemon', String(CALL_ENGINE_PORT)];
+        daemonProcess = spawn(java, args, { cwd: TRUNK_DIR, shell: true });
+        trackChildProcess(daemonProcess);
+
+        daemonProcess.stdout.on('data', (d) => {
+            const line = d.toString().trim();
+            if (line) console.log(`[DAEMON] ${line}`);
+        });
+        daemonProcess.stderr.on('data', (d) => {
+            const line = d.toString().trim();
+            if (line) console.error(`[DAEMON-ERR] ${line}`);
+        });
+
+        // Wait up to 6 seconds for daemon to start and respond
+        const start = Date.now();
+        while (Date.now() - start < 6000) {
+            await new Promise(r => setTimeout(r, 250));
+            if (await isDaemonAlive()) {
+                daemonStarting = null;
+                return true;
+            }
+        }
+        daemonStarting = null;
+        throw new Error('Timed out waiting for Call Engine daemon to start on port ' + CALL_ENGINE_PORT);
+    })();
+
+    return daemonStarting;
+}
+
+// 1. Query call engine status
+app.get('/api/call/engine/status', async (req, res) => {
+    try {
+        const alive = await isDaemonAlive();
+        if (!alive) {
+            return res.json({ running: false, daemon: false });
+        }
+        const resp = await requestDaemon('GET', '/api/engine/status');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 2. Query active calls
+app.get('/api/call/active', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('GET', '/api/call/active');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 3. Make outbound call
+app.post('/api/call/dial', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/dial', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 4. Answer incoming call
+app.post('/api/call/answer', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/answer', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 5. Reject incoming call
+app.post('/api/call/reject', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/reject', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 6. Terminate call (BYE)
+app.post('/api/call/hangup', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/hangup', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 7. Hold / Resume call (Re-INVITE)
+app.post('/api/call/hold', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/hold', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 8. Mute / Unmute microphone
+app.post('/api/call/mute', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/mute', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 9. Enumerate audio devices
+app.get('/api/audio/devices', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('GET', '/api/audio/devices');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 10. Select active audio devices
+app.post('/api/audio/devices', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/audio/devices', req.body);
+        res.status(resp.status).json(resp.data);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
