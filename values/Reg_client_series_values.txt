@@ -1,0 +1,8 @@
+// Values for Reg_client_series.txt scenario
+// Multiple registration attempts
+// field0 = Registration username
+// field1 = Registration domain
+// field2 = Contact port
+1000;192.168.1.100;5060
+1001;192.168.1.100;5061
+1002;192.168.1.100;5062

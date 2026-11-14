@@ -1,0 +1,6 @@
+// Values for Reg_server.txt scenario
+// Server-side registration handling
+// field0 = Server username
+// field1 = Server domain
+// field2 = Server port
+1000;192.168.1.100;5060

@@ -1,0 +1,183 @@
+# Attended Transfer Referee (Bob / Transferee)
+# Bob receives call from Alice (leg 1)
+u<-
+INVITE sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+
+u->
+SIP/2.0 100 Trying
+Via: [Via]
+From: [From]
+To: [To]
+Call-ID: [call_id]-leg1
+CSeq: [CSeq]
+Content-Length: 0
+
+u->
+SIP/2.0 180 Ringing
+Via: [Via]
+From: [From]
+To: [To]
+Call-ID: [call_id]-leg1
+CSeq: [CSeq]
+Content-Length: 0
+
+u->
+SIP/2.0 200 OK
+Via: [Via]
+From: [From]
+To: [To];tag=bob-tag
+Call-ID: [call_id]-leg1
+CSeq: [CSeq]
+Contact: <sip:[field0]@[local_ip]:[local_port]>
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=bob 12345 67890 IN IP4 [local_ip]
+s=SIP Call
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [media_port] RTP/AVP 8 0 9
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+
+u<-
+ACK sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+
+# Receive hold INVITE
+u<-
+INVITE sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+
+u->
+SIP/2.0 200 OK
+Via: [Via]
+From: [From]
+To: [To]
+Call-ID: [call_id]-leg1
+CSeq: [CSeq]
+Contact: <sip:[field0]@[local_ip]:[local_port]>
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=bob 12345 67890 IN IP4 [local_ip]
+s=SIP Call
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [media_port] RTP/AVP 8 0 9
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=recvonly
+
+u<-
+ACK sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+
+# Receive REFER
+u<-
+REFER sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+
+u->
+SIP/2.0 202 Accepted
+Via: [Via]
+From: [From]
+To: [To]
+Call-ID: [call_id]-leg1
+CSeq: [CSeq]
+Content-Length: 0
+
+# Send NOTIFY Trying to Alice
+u->
+NOTIFY sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];branch=z9hG4bK-not1
+From: <sip:[field0]@[local_ip]>;tag=bob-tag
+To: <sip:[field1]@[remote_ip]>;tag=alice-tag
+Call-ID: [call_id]-leg1
+CSeq: 101 NOTIFY
+Event: refer
+Subscription-State: active
+Content-Type: message/sipfrag
+Content-Length: 20
+
+SIP/2.0 100 Trying
+
+u<-
+SIP/2.0 200 OK
+Call-ID: [call_id]-leg1
+
+# Send INVITE to Charlie (leg 3) with Replaces header
+# Charlie is at [remote_ip]:5080
+u->
+INVITE sip:70202@[remote_ip]:5080 SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];branch=z9hG4bK-leg3
+From: <sip:[field0]@[local_ip]>;tag=bob-tag-3
+To: <sip:70202@[remote_ip]>
+Call-ID: [call_id]-leg3
+CSeq: 1 INVITE
+Replaces: [call_id]-leg2;to-tag=charlie-tag;from-tag=alice-tag-2
+Contact: <sip:[field0]@[local_ip]:[local_port]>
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=bob 12345 67890 IN IP4 [local_ip]
+s=SIP Call
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [media_port] RTP/AVP 8 0 9
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+
+u<-
+SIP/2.0 200 OK
+Call-ID: [call_id]-leg3
+
+u->
+ACK sip:70202@[remote_ip]:5080 SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];branch=z9hG4bK-ack4
+From: <sip:[field0]@[local_ip]>;tag=bob-tag-3
+To: <sip:70202@[remote_ip]>;tag=charlie-tag-3
+Call-ID: [call_id]-leg3
+CSeq: 1 ACK
+Content-Length: 0
+
+# Send NOTIFY Success to Alice
+u->
+NOTIFY sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];branch=z9hG4bK-not2
+From: <sip:[field0]@[local_ip]>;tag=bob-tag
+To: <sip:[field1]@[remote_ip]>;tag=alice-tag
+Call-ID: [call_id]-leg1
+CSeq: 102 NOTIFY
+Event: refer
+Subscription-State: terminated;reason=noresource
+Content-Type: message/sipfrag
+Content-Length: 16
+
+SIP/2.0 200 OK
+
+u<-
+SIP/2.0 200 OK
+Call-ID: [call_id]-leg1
+
+# Clean up Bob-Alice leg
+u<-
+BYE sip:[field0]@[local_ip]:[local_port] SIP/2.0
+Call-ID: [call_id]-leg1
+u->
+SIP/2.0 200 OK
+
+# Clean up Bob-Charlie leg later
+delay 3000
+u->
+BYE sip:70202@[remote_ip]:5080 SIP/2.0
+Call-ID: [call_id]-leg3
+u<-
+SIP/2.0 200 OK

@@ -1,0 +1,114 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 6 – Incoming simple REFER (single-step transfer)
+// Values file: values/incoming_simple_refer_values.txt
+//
+// field0 -> Local response tag value applied to all responses
+// field1 -> SDP audio media port advertised in 200 OK
+// field2 -> Pause duration (ms) after ACK before REFER
+////////////////////////////////////////////////////////////////////////////////
+
+<----------
+INVITE
+
+---------->
+SIP/2.0 100 Trying
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 180 Ringing
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=- 0 1 IN IP4 [local_ip]
+s=-
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [field1] RTP/AVP 8 0 9 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=ptime:20
+a=maxptime:40
+
+
+<----------
+ACK
+
+----------
+cmd_Pause=[field2]
+
+
+<----------
+REFER
+
+---------->
+SIP/2.0 202 Accepted
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+<----------
+NOTIFY
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+<----------
+BYE
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0

@@ -1,0 +1,286 @@
+================================================================================
+                    GPL v3 LICENSING COMPLIANCE CHECKLIST
+                SIP Simulator v4 (Based on SIPInspector)
+================================================================================
+
+⚠️  CRITICAL FINDING: Your app uses GPL v3-licensed code
+    This has MAJOR implications for distribution and IP ownership
+
+================================================================================
+KEY FACTS (MUST KNOW)
+================================================================================
+
+✓ SIPInspector is GPL v3 licensed (open-source project)
+✓ Your modifications are "derivative works" of GPL v3 code
+✓ Your app MUST follow GPL v3 rules if you distribute it
+✓ Failure to comply = potential copyright infringement lawsuit
+
+================================================================================
+WHAT DOES GPL v3 REQUIRE?
+================================================================================
+
+If you DISTRIBUTE/DEPLOY your app to customers:
+
+  MUST DO:
+  ✓ Provide source code to customers
+  ✓ License modifications under GPL v3
+  ✓ Include GPL v3 license file
+  ✓ Credit original author (Zarko Coklin)
+  ✓ Document all your modifications
+  ✓ Let customers modify & redistribute
+
+  CANNOT DO:
+  ✗ Keep code proprietary/closed
+  ✗ Claim exclusive ownership
+  ✗ Restrict customer modifications
+  ✗ Use only in commercial closed-source products
+
+================================================================================
+THREE SCENARIOS
+================================================================================
+
+SCENARIO 1: INTERNAL USE ONLY
+├─ Status: ✅ SAFE & COMPLIANT
+├─ Use case: Internal testing/development tool
+├─ Requirement: NOT shipped to external customers
+└─ Action: Get legal confirmation it's "internal only"
+
+SCENARIO 2: SHIP TO CUSTOMERS (MUST COMPLY WITH GPL v3)
+├─ Status: ⚠️ REQUIRES COMPLIANCE
+├─ Use case: Deploy as product to customers
+├─ Requirements:
+│   ├─ Provide source code
+│   ├─ License under GPL v3
+│   ├─ Credit original author
+│   └─ Document modifications
+└─ Best Option: Release as OPEN-SOURCE under GPL v3
+
+SCENARIO 3: COMMERCIAL CLOSED-SOURCE PRODUCT
+├─ Status: ❌ NOT POSSIBLE without alternative license
+├─ Use case: Want proprietary version
+├─ Options:
+│   ├─ Negotiate dual-license with author (Zarko Coklin)
+│   ├─ Rewrite from scratch (expensive)
+│   └─ Find different base code (MIT/Apache 2.0 licensed)
+└─ Cost/Timeline: High effort, 2-4+ weeks
+
+================================================================================
+WHAT YOU MUST DO RIGHT NOW
+================================================================================
+
+URGENT (THIS WEEK):
+
+  [ ] Contact TCS Legal/Compliance Team
+      Email template:
+
+      Subject: URGENT - GPL v3 Licensing Review Required
+
+      Body:
+      Hi [Legal Team],
+
+      Our SIP Simulator project is based on SIPInspector (GPL v3 code).
+      We're planning customer deployment and need licensing compliance review.
+
+      Questions:
+      1. Can we deploy to customers under GPL v3?
+      2. Does this conflict with TCS IP policy?
+      3. What documentation is required?
+
+      Please advise on compliance path.
+
+      Attached: LICENSING_COMPLIANCE_ANALYSIS.md
+
+  [ ] Prepare documentation for legal review
+      - List all modifications made by TCS
+      - Deployment plan (internal / single customer / product)
+      - Customer licensing model (free / paid)
+
+  [ ] PAUSE customer deployments until approval
+      - Do NOT ship without legal sign-off
+      - Do NOT promise delivery dates
+
+================================================================================
+RECOMMENDED PATH (IF DEPLOYING TO CUSTOMERS)
+================================================================================
+
+OPTION A: Release as Open-Source (RECOMMENDED) ✅
+├─ Timeline: 1-2 weeks
+├─ Effort: Low
+├─ Compliance: ✅ FULL COMPLIANCE
+├─ Benefits:
+│   ├─ Legally compliant
+│   ├─ No licensing issues
+│   ├─ Community contributions possible
+│   ├─ TCS gets credit/reputation
+│   └─ Faster time to market
+├─ Steps:
+│   ├─ Update copyright headers
+│   ├─ Create LICENSE.txt (GPL v3)
+│   ├─ Document modifications in CHANGES.md
+│   ├─ Publish on GitHub under GPL v3
+│   └─ Ship source + binary to customers
+└─ Result: ✅ LEGALLY SAFE
+
+OPTION B: Internal Use Only ✅
+├─ Timeline: Immediate
+├─ Effort: None
+├─ Compliance: ✅ FULL COMPLIANCE (if truly internal)
+├─ Steps:
+│   ├─ Get written legal confirmation
+│   ├─ Document "internal use only" policy
+│   └─ Continue development
+└─ Limitation: Cannot ship to external customers
+
+OPTION C: Negotiate Dual-License (COMPLEX) ⚠️
+├─ Timeline: 2-4 weeks
+├─ Effort: High (legal + negotiation)
+├─ Compliance: ✅ YES (if approved)
+├─ Steps:
+│   ├─ Contact Zarko Coklin (original author)
+│   ├─ Negotiate alternative license
+│   ├─ Likely requires payment
+│   └─ Both GPL v3 + commercial licenses
+└─ Benefit: Can offer both open & closed versions
+
+================================================================================
+IF YOU DON'T COMPLY (RISKS)
+================================================================================
+
+Legal Risks:
+  ❌ Copyright infringement lawsuit
+  ❌ Forced open-source of entire codebase
+  ❌ Damages + attorney fees
+  ❌ Cease & desist orders
+
+Business Risks:
+  ❌ Project stoppage
+  ❌ Reputational damage to TCS
+  ❌ Customer disputes
+  ❌ Loss of competitive advantage
+
+Risk Level: 🔴 CRITICAL
+
+================================================================================
+DOCUMENTATION NEEDED FOR LEGAL REVIEW
+================================================================================
+
+Prepare these documents for TCS Legal:
+
+1. Licensing Analysis (already created)
+   File: LICENSING_COMPLIANCE_ANALYSIS.md
+
+2. Deployment Plan
+   - Internal only? Or customer deployment?
+   - How many customers?
+   - Commercial model (free/paid)?
+
+3. Modification List
+   - What did TCS add/change?
+   - List all new features
+   - List all bug fixes
+
+4. Questions for Legal
+   - Is internal-only use compliant? (likely yes)
+   - Can we deploy to customers under GPL v3? (likely yes with conditions)
+   - Does GPL v3 conflict with TCS IP policy? (clarify)
+   - What's our liability if non-compliant? (risk assessment)
+
+================================================================================
+QUICK ANSWERS TO COMMON QUESTIONS
+================================================================================
+
+Q: Can we use GPL v3 code in a commercial product?
+A: YES, but you must provide source code and use GPL v3 license
+
+Q: Can we keep our modifications proprietary?
+A: NO, GPL v3 requires all modifications to be open-source too
+
+Q: Do we need to pay royalties?
+A: NO, GPL v3 is free (but requires compliance)
+
+Q: Can we sell GPL v3 software?
+A: YES, but you must still provide source code at same/lower cost
+
+Q: What if we just keep it internal?
+A: SAFE, internal use has no obligations under GPL v3
+
+Q: Can we use it in a proprietary product?
+A: ONLY if you open-source your modifications or get alternative license
+
+Q: Is GPL v3 really enforceable?
+A: YES, multiple lawsuits have been won on GPL violations
+
+Q: Do we need customer permission to use GPL v3?
+A: You need to DISCLOSE the GPL v3 license in contracts
+
+================================================================================
+FILES TO REVIEW
+================================================================================
+
+In your security_reports folder:
+
+1. LICENSING_COMPLIANCE_ANALYSIS.md (detailed analysis)
+   → Full compliance guide with all options explained
+
+2. LICENSING_QUICK_CHECKLIST.txt (this file)
+   → Quick reference for decision-makers
+
+3. README.md (index)
+   → Navigation guide for all reports
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+TODAY/TOMORROW:
+  ☐ Read this checklist
+  ☐ Review LICENSING_COMPLIANCE_ANALYSIS.md
+  ☐ Identify if app is "internal-only" or "for customers"
+
+THIS WEEK (CRITICAL):
+  ☐ Contact TCS Legal/Compliance Team
+  ☐ Send email with licensing review request
+  ☐ Provide documents for legal review
+  ☐ PAUSE customer deployments
+
+NEXT WEEK:
+  ☐ Get legal team's written approval
+  ☐ Implement recommended compliance path
+  ☐ Update license headers in code
+  ☐ Create required documentation
+
+================================================================================
+FINAL RECOMMENDATION
+================================================================================
+
+For fastest compliance + best outcome:
+
+  → Release as open-source under GPL v3 (OPTION A)
+
+  Why?
+  ✓ Fully compliant with GPL v3
+  ✓ No licensing conflicts
+  ✓ Fast implementation (1-2 weeks)
+  ✓ Community can contribute
+  ✓ TCS gets positive reputation
+  ✓ No ongoing legal burden
+  ✓ Can still offer support/services
+
+Timeline: 1-2 weeks to full compliance
+Effort: Low to moderate
+
+================================================================================
+CONTACT INFORMATION
+================================================================================
+
+For questions about:
+
+Legal/Licensing:   Contact your TCS Legal team
+Compliance:        Contact TCS Compliance Officer
+Open-Source:       Contact your TCS Open Source program office
+GitHub/Publishing: Standard TCS process (get approvals first)
+
+Document created: August 1, 2026
+Classification: Internal Use - Legal Review Required
+
+================================================================================

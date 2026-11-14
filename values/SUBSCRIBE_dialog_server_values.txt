@@ -1,0 +1,6 @@
+// Values for SUBSCRIBE_dialog_server.txt scenario
+// SUBSCRIBE dialog server example
+// field0 = Server user
+// field1 = Client user
+// field2 = Event package
+server;client;presence

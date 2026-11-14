@@ -1,0 +1,5 @@
+// Values for Incoming_cancel_retry_generic.txt
+// field0 = Local response tag value for first call leg
+// field1 = Local response tag value for second call leg
+// field2 = SDP audio media port advertised in final 200 OK
+firstlegtag111;secondlegtag222;42000

@@ -1,0 +1,5 @@
+// Values for Caller
+// field0 = Caller user
+// field1 = Callee user
+// field2 = SDP media port
+70200;70201;42002

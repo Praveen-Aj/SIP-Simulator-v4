@@ -1,0 +1,6 @@
+// Values for Reg_client.txt scenario
+// Registration with authentication
+// field0 = Registration username (default: 1000)
+// field1 = Registration domain/IP
+// field2 = Contact port
+1000;192.168.1.100;5060

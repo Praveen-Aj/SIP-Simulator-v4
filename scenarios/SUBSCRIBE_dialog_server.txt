@@ -1,0 +1,205 @@
+////////////////////////////////////////////////////////////////////////////////
+// SUBSCRIBE server scenario - subscribes for dialog event (BLF)
+// Subscriber username: any
+// Subscribing to: any
+// Scenario simulates subscription, and a full cycle state changing:
+// terminated->early->connected->terminated.
+//
+// SIP Messages
+//  <--- SUBSCRIBE
+//  ---- set from=("From:","*")         // store From header value
+//  ---- set to=("To:","*")             // store To header value
+//  ---- set to_user=("To:","sip:*@")   // store To username
+//  ---- set callId=("Call-ID:","*")    // store Call-ID header value
+//  ---- set contact=("Contact:","<*>") // store subscriber's contact
+//  ---- set event=("Event:","*")       // store event
+//  ---- set accept=("Accept:","*")     // store Accept header value
+//  ---> 200
+//  ---> NOTIFY
+//  <--- 200
+//  ---- Pause[ms]=2000
+//  ---> NOTIFY
+//  <--- 200
+//  ---- Pause[ms]=2000
+//  ---> NOTIFY
+//  <--- 200
+//  ---- Pause[ms]=2000
+//  ---> NOTIFY
+//  <--- 200
+// 
+//
+// NOTE: Change From and To usernames as required. Comments are
+// allowed anywhere in a scenario file as long as they start with "//"
+////////////////////////////////////////////////////////////////////////////////
+
+
+<----------
+SUBSCRIBE
+
+----------
+set_Variable=from "From:" "*"
+
+----------
+set_Variable=to "To:" "*"
+
+----------
+set_Variable=to_user "To:" "sip:*@"
+
+----------
+set_Variable=callId "Call-ID:" "*"
+
+----------
+set_Variable=contact "Contact:" "<*>"
+
+----------
+set_Variable=event "Event:" "*"
+
+----------
+set_Variable=accept "Accept:" "*"
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:];tag=[call_number]
+[last_Call-ID:]
+[last_CSeq:]
+Expires: 3600
+Event: dialog
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+NOTIFY sip:[$contact] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: [$to];tag=[call_number]
+To: [$from]
+Call-ID: [$callId]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Contact: <sip:[$to_user]@[local_ip]:[local_port];transport=[transport]>
+Event: [$event]
+Subscription-State: active; expires=3600
+Content-Type: [$accept]
+User-Agent: SIPInspector_v_[ver]
+Content-Length: [len]
+
+<?xml version="1.0" encoding="UTF-8"?>
+<dialog-info xmlns="urn:ietf:params:xml:ns:dialog-info" version="1" state="partial" entity="sip:e115@[local_ip]:5060">
+<dialog id="e115" call-id="a84b4c76e66710" local-tag="1928301774" remote-tag="07346y131" direction="initiator">
+<state>terminated</state>
+<local>
+<target uri="sip:e115@[local_ip]:[local_port]"/>
+</local>
+<remote>
+<target uri="sip:[local_ip]:[local_port]"/>
+</remote>
+</dialog>
+</dialog-info>
+
+<----------
+200 OK
+
+----------
+cmd_Pause=2000
+
+---------->
+NOTIFY sip:[$contact] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: [$to];tag=[call_number]
+To: [$from]
+Call-ID: [$callId]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Contact: <sip:[$to_user]@[local_ip]:[local_port];transport=[transport]>
+Event: [$event]
+Subscription-State: active; expires=3600
+Content-Type: [$accept]
+User-Agent: SIPInspector_v_[ver]
+Content-Length: [len]
+
+<?xml version="1.0" encoding="UTF-8"?>
+<dialog-info xmlns="urn:ietf:params:xml:ns:dialog-info" version="1" state="partial" entity="sip:e115@[local_ip]:5060">
+<dialog id="e115" call-id="a84b4c76e66710" local-tag="1928301774" remote-tag="07346y131" direction="initiator">
+<state>early</state>
+<local>
+<target uri="sip:e115@[local_ip]:[local_port]"/>
+</local>
+<remote>
+<target uri="sip:[local_ip]:[local_port]"/>
+</remote>
+</dialog>
+</dialog-info>
+
+<----------
+200 OK
+
+----------
+cmd_Pause=2000
+
+---------->
+NOTIFY sip:[$contact] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: [$to];tag=[call_number]
+To: [$from]
+Call-ID: [$callId]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Contact: <sip:[$to_user]@[local_ip]:[local_port];transport=[transport]>
+Event: [$event]
+Subscription-State: active; expires=3600
+Content-Type: [$accept]
+User-Agent: SIPInspector_v_[ver]
+Content-Length: [len]
+
+<?xml version="1.0" encoding="UTF-8"?>
+<dialog-info xmlns="urn:ietf:params:xml:ns:dialog-info" version="1" state="partial" entity="sip:e115@[local_ip]:5060">
+<dialog id="e115" call-id="a84b4c76e66710" local-tag="1928301774" remote-tag="07346y131" direction="initiator">
+<state>connected</state>
+<local>
+<target uri="sip:e115@[local_ip]:[local_port]"/>
+</local>
+<remote>
+<target uri="sip:[local_ip]:[local_port]"/>
+</remote>
+</dialog>
+</dialog-info>
+
+<----------
+200 OK
+
+----------
+cmd_Pause=2000
+
+---------->
+NOTIFY sip:[$contact] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: [$to];tag=[call_number]
+To: [$from]
+Call-ID: [$callId]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Contact: <sip:[$to_user]@[local_ip]:[local_port];transport=[transport]>
+Event: [$event]
+Subscription-State: active; expires=3600
+Content-Type: [$accept]
+User-Agent: SIPInspector_v_[ver]
+Content-Length: [len]
+
+<?xml version="1.0" encoding="UTF-8"?>
+<dialog-info xmlns="urn:ietf:params:xml:ns:dialog-info" version="1" state="partial" entity="sip:e115@[local_ip]:5060">
+<dialog id="e115" call-id="a84b4c76e66710" local-tag="1928301774" remote-tag="07346y131" direction="initiator">
+<state>terminated</state>
+<local>
+<target uri="sip:e115@[local_ip]:[local_port]"/>
+</local>
+<remote>
+<target uri="sip:[local_ip]:[local_port]"/>
+</remote>
+</dialog>
+</dialog-info>
+
+<----------
+200 OK

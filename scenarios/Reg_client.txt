@@ -1,0 +1,55 @@
+////////////////////////////////////////////////////////////////////////////////
+// Registration with authentication scenario.
+// REGISTER can be challenged or not. If challenged, response with
+// authentication parameters. If not challenged jump to the end of
+// scenario. 
+//
+// SIP Messages
+// ---> REGISTER
+// <--- 100*
+// <--- 407*
+// ---> REGISTER*
+// <--- 200
+// end:
+//
+// NOTE: Username and password are: "dead" and "beef", repectively.
+//       Change them accordingly. Comments are allowed anywhere in a
+//       scenario file, as long as they start with "//"
+////////////////////////////////////////////////////////////////////////////////
+
+---------->
+REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[remote_ip]:[remote_port]>;tag=24de4a5dbe4ef
+To: <sip:[field0]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq] REGISTER
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------*
+100 Trying
+
+<----------*
+407 Proxy Authorization Required
+
+---------->*
+REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[remote_ip]:[remote_port]>;tag=24417923471779367133
+To: <sip:[field0]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] REGISTER
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Proxy-Authorization: [authentication username=[username]; password=[password];]
+Content-Length: 0
+
+
+<----------
+200 OK
+

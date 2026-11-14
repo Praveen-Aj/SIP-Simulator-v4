@@ -1,0 +1,50 @@
+////////////////////////////////////////////////////////////////////////////////
+// SUBSCRIBE client scenario - subscribes for dialog event (BLF)
+// Subscribing party: 155
+// Subscribed entity: e111
+//
+// SIP Messages
+//  <--- NOTIFY*
+//  ---> 200*
+//  ---> SUBSCRIBE
+//  <--- 200
+//
+// NOTE: Change From and To usernames as required. Comments are
+// allowed anywhere in a scenrio file as long as they start with "//"
+////////////////////////////////////////////////////////////////////////////////
+<----------*
+NOTIFY
+
+---------->*
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+Supported: replaces
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+---------->
+SUBSCRIBE sip:e111@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:155@[local_ip]:[local_port]>;tag=24417923471779367133
+To: <sip:e111@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] SUBSCRIBE
+Max-Forwards: 70
+Supported: timer
+Expires: 3600
+Event: dialog
+Supported: replaces
+Accept: application/dialog-info+xml
+Contact: <sip:155@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+200 OK
+

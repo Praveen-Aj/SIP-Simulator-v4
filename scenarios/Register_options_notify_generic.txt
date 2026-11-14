@@ -1,0 +1,81 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 20 – REGISTER / OPTIONS / NOTIFY utilities
+// Values file: values/register_options_notify_values.txt
+//
+// field0 -> Registrar user (From/Contact)
+// field1 -> OPTIONS target user
+// field2 -> Subscriber user for NOTIFY
+////////////////////////////////////////////////////////////////////////////////
+
+// REGISTER
+
+---------->
+REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field0]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] REGISTER
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+200 OK
+
+----------
+cmd_Pause=1000
+
+// OPTIONS probe
+
+---------->
+OPTIONS sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=222222
+To: <sip:[field1]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]-opt@[local_ip]
+CSeq: [cseq+1] OPTIONS
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Accept: application/sdp
+Content-Length: 0
+
+
+<----------
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS
+Accept: application/sdp
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+----------
+cmd_Pause=1000
+
+// NOTIFY utility (e.g. simple event)
+
+---------->
+NOTIFY sip:[field2]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:server@[local_ip]:[local_port]>;tag=333333
+To: <sip:[field2]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]-notify@[local_ip]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Event: keep-alive
+Subscription-State: active
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+SIP/2.0 200 OK

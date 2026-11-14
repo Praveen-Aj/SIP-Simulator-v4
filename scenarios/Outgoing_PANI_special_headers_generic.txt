@@ -1,0 +1,78 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 15 – Outgoing P-ANI and special headers
+// Values file: values/outgoing_PANI_special_headers_values.txt
+//
+// field0 -> Caller user (From/Contact)
+// field1 -> Callee user (Request-URI/To)
+// field2 -> P-Access-Network-Info value
+////////////////////////////////////////////////////////////////////////////////
+
+---------->
+INVITE sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field1]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] INVITE
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+P-Access-Network-Info: [field2]
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=- 0 1 IN IP4 [local_ip]
+s=-
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [media_port] RTP/AVP 8 0 9 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:0 PCMU/8000
+a=rtpmap:9 G722/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+a=ptime:20
+
+
+<----------*
+100 Trying
+
+<----------
+180 Ringing
+
+<----------
+200 OK
+
+---------->
+ACK sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field1]@[remote_ip]:[remote_port]>;[peer_tag_param]
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq] ACK
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+----------
+cmd_Pause=5000
+
+---------->
+BYE sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field1]@[remote_ip]:[remote_port]>;[peer_tag_param]
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] BYE
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+200 OK

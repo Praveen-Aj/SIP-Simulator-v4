@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<SIPInspector>
+    <version>2.1</version>
+    <serversInfo>
+        <localIPAddress>192.168.0.10</localIPAddress>
+        <localPort>5060</localPort>
+        <remoteServerFlag>enabled</remoteServerFlag>
+        <remoteIPAddress>192.168.0.70</remoteIPAddress>
+        <remotePort>5060</remotePort>
+    </serversInfo>
+    <account>
+        <username>70201</username>
+        <authUsername>dead</authUsername>
+        <authPassword>beef</authPassword>
+        <RTPPort>6000</RTPPort>
+    </account>
+    <callGeneration>
+        <callsPerSec>1</callsPerSec>
+        <totalCalls>1</totalCalls>
+        <maxConcurrCalls>0</maxConcurrCalls>
+    </callGeneration>
+    <scenarioPath>scenarios\Outgoing_basic_call.txt</scenarioPath>
+    <valuesPath>values\Outgoing_basic_call_values.txt</valuesPath>
+    <settings/>
+</SIPInspector>

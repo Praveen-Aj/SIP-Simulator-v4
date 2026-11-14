@@ -1,0 +1,6 @@
+// Values for SUBSCRIBE_dialog_client.txt scenario
+// SUBSCRIBE dialog client example
+// field0 = Subscriber user
+// field1 = Notifier user
+// field2 = Event package (e.g., presence)
+alice;bob;presence

@@ -1,0 +1,10 @@
+// Values for Enterprise_Outgoing_basic_call.txt
+// field0 = Caller user (From/Contact)
+// field1 = Callee user (Request-URI/To)
+// field2 = SDP audio media port
+// Outgoing_5.10_invite (caller 10005, callee 10017, media 32514)
+10005;10017;32514
+// CROXES-39026_jay_working (caller 50001, callee 60001, media 32760)
+50001;60001;32760
+// Outgoing_call_Working_Jay (caller 30014, callee 70555, media 32760)
+30014;70555;32760

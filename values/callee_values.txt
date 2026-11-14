@@ -1,0 +1,5 @@
+// Values for Callee
+// field0 = response tag
+// field1 = SDP media port
+// field2 = pause duration
+calleetag123;42000;8000

@@ -1,0 +1,1688 @@
+﻿/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  com.formdev.flatlaf.FlatDarkLaf
+ *  com.formdev.flatlaf.FlatLightLaf
+ */
+package sipinspector;
+
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Desktop;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.Vector;
+
+import javax.imageio.ImageIO;
+import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.JTree;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLightLaf;
+
+import net.miginfocom.swing.MigLayout;
+import sipinspector.ControlTabs.CommandsPanel;
+import sipinspector.ControlTabs.ConditionsPanel;
+import sipinspector.ControlTabs.EntryTab;
+import sipinspector.ControlTabs.SDPPanel;
+import sipinspector.ControlTabs.SIPPanel;
+import sipinspector.ControlTabs.VariablesPanel;
+import sipinspector.OperationTabs.AccountTab;
+import sipinspector.OperationTabs.EditValuesTab;
+import sipinspector.OperationTabs.LogsTab;
+import sipinspector.OperationTabs.ScenarioValuesPanel;
+import sipinspector.OperationTabs.SettingsTab;
+import sipinspector.Socket.MySocketAbstract;
+import sipinspector.Socket.TCPClientSocket;
+import sipinspector.Socket.TCPServerSocket;
+import sipinspector.Socket.TLSClientSocket_V6;
+import sipinspector.Socket.UDPClientSocket;
+import sipinspector.Socket.UDPServerSocket;
+import sipinspector.Statistics.StatisticsPanel;
+import sipinspector.UI.EnhancedStatusBar;
+import sipinspector.UI.KeyboardShortcutsDialog;
+import sipinspector.Utils.CustomThemes;
+import sipinspector.Utils.EmojiIcon;
+import sipinspector.Utils.ExportUtils;
+import sipinspector.Utils.FloatValidator;
+import sipinspector.Utils.IntegerValidator;
+import sipinspector.Utils.LoadScenario;
+import sipinspector.Utils.LogManager;
+import sipinspector.Utils.PortValidator;
+import sipinspector.Utils.TLSDebugLogger;
+import sipinspector.Utils.UserSettingsHandler;
+import sipinspector.Utils.ValuesLoader;
+import sipinspector.Utils.WriteSettings;
+
+public class SIPInspectorMainFrame
+        extends JFrame {
+    public static final int MAX_CONNECTIONS = 256;
+    private static EnhancedStatusBar statusBar;
+    private JMenuItem AboutMenuItem;
+    private JTabbedPane ControlTabbedPane;
+    private ButtonGroup ConnType;
+    private JMenuItem Exit;
+    private JMenu FileMenu;
+    private JMenu EditMenu;
+    private JMenuItem FindReplaceMenuItem;
+    private JMenu HelpMenu;
+    private JPanel IPAddressPanel;
+    private JPanel IPConnType;
+    private JList IPList;
+    private JPanel IPPortPanel;
+    private JMenuItem LoadScenMenuItem;
+    private JMenuItem LoadVariablesItem;
+    private JPanel LocalInfoPanel;
+    private JTextField LocalPort;
+    private JMenuBar MainMenuBar;
+    private JTextField MaxConcurrentCallsField;
+    private JLabel MaxConcurrentCallsLabel;
+    private JTextArea MessageTextArea;
+    private JLabel MessageTextAreaLabel;
+    private Color defaultMessageBg;
+    private Color defaultMessageFg;
+    private JScrollPane MsgScrollPane;
+    private JScrollPane MsgTextScrollPane;
+    private JTree MsgTree;
+    private JButton AddButton;
+    private JButton Next;
+    private JMenu OptionsMenu;
+    private JMenuItem NewScenMenuItem;
+    private JTextField RemoteIPAddress;
+    private JPanel RemoteIPAddressPanel;
+    private JMenuItem RemoteRTPMenuItem;
+    private JMenuItem QoSMenuItem;
+    private JCheckBox RemoteServerEnabled;
+    private JPanel RemoteServerInfoPanel;
+    private JTextField RemoteServerPort;
+    private JPanel RemoteServerPortPanel;
+    private JButton RemoveButton;
+    private JButton RunButton;
+    private JButton statisticsButton;
+    private JButton BackButton;
+    private JMenuItem SDPCalculator;
+    private JCheckBoxMenuItem LoggingCheckBoxMenuItem;
+    private JMenuItem SaveScenMenuItem;
+    private JMenuItem SaveScenAsMenuItem;
+    private JLabel ScenarioScreenLabel;
+    private JTabbedPane SettingsTabbedPane;
+    private SettingsTab settingsTab;
+    private JPanel StartingPanel;
+    private JRadioButton TCPRadioButton;
+    private JRadioButton TLSRadioButton;
+    private JMenu ToolsMenu;
+    private JRadioButton UDPRadioButton;
+    private JPanel cardPanel;
+    private JLabel cpsLabel;
+    private JTextField cpsField;
+    private JButton downArrowButton;
+    private JLabel totCalsLabel;
+    private JTextField totCalsField;
+    private JButton upArrowButton;
+    private MySocketAbstract mySocket;
+    private InetAddress localIPAddress;
+    private int localPort;
+    private InetAddress remoteIPAddress;
+    private int remotePort;
+    private InetAddress remoteRTPAddress;
+    private int remoteRTPPort;
+    private SIPScenario sipScenario;
+    private GlobalSettings settings = new GlobalSettings();
+    boolean updateTreeFlag;
+    private ValuesLoader valuesLoader;
+
+    public static EnhancedStatusBar getStatusBar() {
+        return statusBar;
+    }
+
+    public SIPInspectorMainFrame() {
+        File file;
+        Object object;
+        Object object2;
+        File file2 = new File("userSettings.xml");
+        UserSettingsHandler userSettingsHandler = new UserSettingsHandler(this.settings);
+        SAXParserFactory sAXParserFactory = SAXParserFactory.newInstance();
+        try {
+            object2 = sAXParserFactory.newSAXParser();
+            ((SAXParser) object2).parse(file2, (DefaultHandler) userSettingsHandler);
+        } catch (ParserConfigurationException parserConfigurationException) {
+        } catch (SAXException sAXException) {
+        } catch (IOException iOException) {
+            // empty catch block
+        }
+        try {
+            this.GetIPs();
+        } catch (SocketException socketException) {
+            JOptionPane.showMessageDialog(this.StartingPanel, "Trouble discovering local IP addresses",
+                    "Local IP address discovery", 2);
+        }
+        this.initComponents();
+        SIPInspectorMainFrame.setIcon(this);
+        this.IPList.setCellRenderer(new IPListRenderer());
+        this.LocalPort.setInputVerifier(new PortValidator());
+        this.RemoteServerPort.setInputVerifier(new PortValidator());
+        this.applyStartupSettings();
+        this.initializeMsgTree();
+        this.sipScenario = new SIPScenario();
+        this.MsgTree.addTreeSelectionListener(new MyTreeSelectionListener(this));
+        this.mySocket = null;
+        this.SaveScenMenuItem.setEnabled(false);
+        this.LoadScenMenuItem.setEnabled(true);
+        this.setLocationRelativeTo(null);
+        this.updateTreeFlag = false;
+        object2 = GlobalSettings.getSetting("scenarioPath");
+        if (object2 != null && !((File) (object = new File((String) object2))).exists()) {
+            object2 = null;
+        }
+        if (object2 == null
+                && ((File) (object = new File("scenarios" + File.separatorChar + "Outgoing_basic_call.txt")))
+                        .exists()) {
+            object2 = ((File) object).getPath();
+            GlobalSettings.setSetting("scenarioPath", (String) object2);
+        }
+        TLSDebugLogger.log("INIT SCENARIO PATH: " + (String) object2);
+        object = new LoadScenario(this, (String) object2);
+        ((SwingWorker) object).execute();
+        this.valuesLoader = new ValuesLoader();
+        String string = GlobalSettings.getSetting("valuesPath");
+        if (string != null && !(file = new File(string)).exists()) {
+            string = null;
+        }
+        if (string == null
+                && (file = new File("values" + File.separatorChar + "Outgoing_basic_call_values.txt")).exists()) {
+            string = file.getPath();
+            GlobalSettings.setSetting("valuesPath", string);
+        }
+        TLSDebugLogger.log("INIT VALUES PATH: " + string);
+        this.valuesLoader.loadValuesFromFile(string);
+        GlobalSettings.setSetting("numRTPPackets", "1");
+        this.remoteRTPAddress = null;
+        this.remoteRTPPort = 0;
+    }
+
+    public void initializeMsgTree() {
+        this.MsgTree.getSelectionModel().setSelectionMode(4);
+        this.MsgTree.setCellRenderer(new MyTreeCellRenderer());
+    }
+
+    public void GetIPs() throws SocketException {
+        SwingWorker<Vector, InetAddress> swingWorker = new SwingWorker<Vector, InetAddress>() {
+
+            @Override
+            protected Vector doInBackground() throws Exception {
+                Vector<InetAddress> vector = new Vector<InetAddress>();
+                NetworkInterface networkInterface = null;
+                Enumeration<NetworkInterface> enumeration = NetworkInterface.getNetworkInterfaces();
+                while (enumeration.hasMoreElements()) {
+                    networkInterface = enumeration.nextElement();
+                    InetAddress inetAddress = null;
+                    Enumeration<InetAddress> enumeration2 = networkInterface.getInetAddresses();
+                    while (enumeration2.hasMoreElements()) {
+                        inetAddress = enumeration2.nextElement();
+                        if (inetAddress.isLoopbackAddress() || inetAddress.getHostAddress().indexOf(":") != -1)
+                            continue;
+                        vector.add(inetAddress);
+                    }
+                }
+                return vector;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Vector vector = (Vector) this.get();
+                    SIPInspectorMainFrame.this.IPList.setListData(vector);
+                    if (!vector.isEmpty()) {
+                        int n = vector.size();
+                        String string = GlobalSettings.getLocalIP();
+                        SIPInspectorMainFrame.this.IPList.setSelectedIndex(0);
+                        for (int i = 0; i < n; ++i) {
+                            if (!((InetAddress) vector.elementAt(i)).getHostAddress().equals(string))
+                                continue;
+                            SIPInspectorMainFrame.this.IPList.setSelectedIndex(i);
+                        }
+                    }
+                } catch (Exception exception) {
+                    // empty catch block
+                }
+            }
+        };
+        swingWorker.execute();
+    }
+
+    public JList getIPList() {
+        return this.IPList;
+    }
+
+    public String getLocalPort() {
+        return this.LocalPort.getText();
+    }
+
+    public String getCPSText() {
+        return this.cpsField.getText();
+    }
+
+    public String getTotCalsText() {
+        return this.totCalsField.getText();
+    }
+
+    public String getMaxConcurrCalls() {
+        return this.MaxConcurrentCallsField.getText();
+    }
+
+    public boolean isRemoteServerEnabled() {
+        return this.RemoteServerEnabled.isSelected();
+    }
+
+    public boolean isConnectionUDP() {
+        return this.UDPRadioButton.isSelected();
+    }
+
+    public boolean isConnectionTCP() {
+        return this.TCPRadioButton.isSelected();
+    }
+
+    public boolean isConnectionTLS() {
+        return this.TLSRadioButton.isSelected();
+    }
+
+    public InetAddress getRemoteAddress() {
+        return this.remoteIPAddress;
+    }
+
+    public int getRemotePort() {
+        return this.remotePort;
+    }
+
+    public void updateMessagesFromText(String string) {
+        MsgScenarioUpdater msgScenarioUpdater = new MsgScenarioUpdater(this, string);
+        msgScenarioUpdater.execute();
+    }
+
+    public JTree getTree() {
+        return this.MsgTree;
+    }
+
+    public SIPScenario getScenario() {
+        return this.sipScenario;
+    }
+
+    public JTextArea getMessageTextArea() {
+        return this.MessageTextArea;
+    }
+
+    private void createDefaultScenario() {
+        DefaultMutableTreeNode defaultMutableTreeNode = (DefaultMutableTreeNode) this.MsgTree.getModel().getRoot();
+        if (this.MsgTree.getModel().getChildCount(defaultMutableTreeNode) == 0) {
+            LoadScenario loadScenario = this.RemoteServerEnabled.isSelected()
+                    ? new LoadScenario(this, "scenarios" + File.separatorChar + "Call_client.txt")
+                    : new LoadScenario(this, "scenarios" + File.separatorChar + "Call_server.txt");
+            loadScenario.execute();
+        }
+    }
+
+    private void NewScenMenuItemActionPerformed(ActionEvent actionEvent) {
+        this.sipScenario.RemoveAllScenarioEntries(this.MsgTree);
+        this.MessageTextArea.setText("");
+        this.SaveScenMenuItem.setEnabled(true);
+    }
+
+    private void saveScenarioToFile() {
+        JFileChooser chooser = new JFileChooser(System.getProperty("user.dir"));
+        chooser.setDialogTitle("Save scenario file");
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = chooser.getSelectedFile();
+            Object[] options = new Object[] { "Yes", "No" };
+            if (file.exists()) {
+                int choice = JOptionPane.showOptionDialog(this,
+                        "Do you really want to overwrite an existing scenario file?",
+                        "Save File",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.WARNING_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+                if (choice != 0) {
+                    return;
+                }
+            }
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                for (int i = 0; i < SIPScenario.getEntriesCount(); ++i) {
+                    fos.write(SIPScenario.getScenarioPos(i).getScenarioScreenText()
+                            .replace("\u00ab\r\n", "\r\n").getBytes());
+                }
+                GlobalSettings.setSetting("scenarioPath", file.getAbsolutePath());
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this,
+                        "Failed to save scenario: " + ex.getMessage(),
+                        "Save Scenario",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (this.mySocket != null) {
+            this.mySocket.close();
+        }
+        if (statusBar != null) {
+            statusBar.setConnected(false);
+            statusBar.resetSession();
+        }
+        super.dispose();
+    }
+
+    void setTreeUpdateFlag() {
+        this.updateTreeFlag = true;
+    }
+
+    MySocketAbstract getSocket() {
+        return this.mySocket;
+    }
+
+    private boolean openSocket() {
+        if (!this.isRemoteServerEnabled()) {
+            if (this.isConnectionUDP()) {
+                try {
+                    this.mySocket = new UDPServerSocket(this.localIPAddress, this.localPort);
+                } catch (IOException iOException) {
+                    JOptionPane.showMessageDialog(this, iOException, "Socket status", 0);
+                    return false;
+                }
+                GlobalSettings.setTransport("UDP");
+            } else if (this.isConnectionTCP()) {
+                this.mySocket = new TCPServerSocket(this.localIPAddress, this.localPort);
+                GlobalSettings.setTransport("TCP");
+            } else if (this.isConnectionTLS()) {
+                this.mySocket = new TCPServerSocket(this.localIPAddress, this.localPort);
+                GlobalSettings.setTransport("TLS");
+            }
+        } else {
+            if (this.remoteIPAddress == null) {
+                JOptionPane.showMessageDialog(this, "Please enter IP address", "Remote Server Address", 0);
+                return false;
+            }
+            if (this.isConnectionUDP()) {
+                try {
+                    this.mySocket = new UDPClientSocket(this.localIPAddress, this.localPort);
+                } catch (IOException iOException) {
+                    JOptionPane.showMessageDialog(this, iOException, "Socket status", 0);
+                    return false;
+                }
+                GlobalSettings.setTransport("UDP");
+            } else if (this.isConnectionTCP()) {
+                this.mySocket = new TCPClientSocket(this.localIPAddress, this.localPort);
+                GlobalSettings.setTransport("TCP");
+            } else if (this.isConnectionTLS()) {
+                this.mySocket = new TLSClientSocket_V6(this.localIPAddress, this.localPort);
+                GlobalSettings.setTransport("TLS");
+            }
+        }
+        return this.mySocket.open(this.remoteIPAddress, this.remotePort);
+    }
+
+    public ValuesLoader getValuesLoader() {
+        return this.valuesLoader;
+    }
+
+    private void setRemoteIPAdddress() {
+        try {
+            this.remoteIPAddress = InetAddress.getByName(this.RemoteIPAddress.getText());
+            GlobalSettings.setRemoteIPAddr(this.remoteIPAddress.getHostAddress());
+        } catch (UnknownHostException unknownHostException) {
+            JOptionPane.showMessageDialog(this, "Invalid IP or invalid host name", "Remote Server Address", 0);
+        }
+    }
+
+    private void setRemotePort() {
+        this.remotePort = Integer.parseInt(this.RemoteServerPort.getText());
+        GlobalSettings.setRemotePort(this.RemoteServerPort.getText());
+    }
+
+    private void setLocalPort() {
+        this.localPort = Integer.parseInt(this.LocalPort.getText());
+        GlobalSettings.setLocalPort(this.LocalPort.getText());
+    }
+
+    private void setLocalIPAddress() {
+        if (this.getIPList().isSelectionEmpty()) {
+            JOptionPane.showMessageDialog(this, "You must have and pick at least one IP address",
+                    "IP address selection", 0);
+        }
+        this.localIPAddress = (InetAddress) this.getIPList().getSelectedValue();
+        GlobalSettings.setLocalIP(this.localIPAddress.getHostAddress());
+    }
+
+    public static String getSIPInspectorVersion() {
+        return "1.60";
+    }
+
+    public static void setIcon(Window window) {
+        BufferedImage bufferedImage = null;
+        URL uRL = window.getClass().getResource("/Icons/SIPSimulator.png");
+        if (uRL != null) {
+            try {
+                bufferedImage = ImageIO.read(uRL);
+                window.setIconImage(bufferedImage);
+            } catch (IOException iOException) {
+                // empty catch block
+            }
+        }
+    }
+
+    public InetAddress getRemoteRTPAddress() {
+        return this.remoteRTPAddress;
+    }
+
+    public int getRemoteRTPPort() {
+        return this.remoteRTPPort;
+    }
+
+    private void initComponents() {
+        this.cardPanel = new JPanel();
+        this.MainMenuBar = new JMenuBar();
+        this.FileMenu = new JMenu();
+        this.LoadScenMenuItem = new JMenuItem();
+        this.LoadVariablesItem = new JMenuItem();
+        this.SaveScenMenuItem = new JMenuItem();
+        this.Exit = new JMenuItem();
+        this.EditMenu = new JMenu();
+        this.FindReplaceMenuItem = new JMenuItem();
+        this.OptionsMenu = new JMenu();
+        this.LoggingCheckBoxMenuItem = new JCheckBoxMenuItem();
+        this.RemoteRTPMenuItem = new JMenuItem();
+        this.QoSMenuItem = new JMenuItem();
+        this.ToolsMenu = new JMenu();
+        this.SDPCalculator = new JMenuItem();
+        this.HelpMenu = new JMenu();
+        this.AboutMenuItem = new JMenuItem();
+        this.setDefaultCloseOperation(3);
+        this.setTitle("SIP Simulator");
+        this.setResizable(true);
+        this.cardPanel.setLayout(new CardLayout());
+        this.StartingPanel = new JPanel(new MigLayout("fill, insets 18", "[grow]", "[][grow][]"));
+        this.SettingsTabbedPane = new JTabbedPane();
+        this.SettingsTabbedPane.addTab("Account", new AccountTab());
+        this.settingsTab = new SettingsTab(this);
+        this.SettingsTabbedPane.addTab("Settings", this.settingsTab);
+        this.StartingPanel.add((Component) this.SettingsTabbedPane, "growx, wrap");
+        this.LocalInfoPanel = new JPanel(new MigLayout("fillx"));
+        this.LocalInfoPanel.setBorder(BorderFactory.createTitledBorder("Local Info"));
+        this.IPAddressPanel = new JPanel(new MigLayout(""));
+        this.IPAddressPanel.setBorder(BorderFactory.createTitledBorder("Select local IP address"));
+        this.IPAddressPanel.setToolTipText("Select local IP address");
+        this.IPAddressPanel.add((Component) this.IPList, "h 90!, w 100!");
+        this.LocalInfoPanel.add((Component) this.IPAddressPanel, "w 50%!, spany 2");
+        this.IPPortPanel = new JPanel(new MigLayout(""));
+        this.IPPortPanel.setBorder(BorderFactory.createTitledBorder("Bind to port"));
+        this.LocalPort = new JTextField();
+        this.LocalPort.setToolTipText("Set local SIP port");
+        if (GlobalSettings.getLocalPort() != null) {
+            this.LocalPort.setText(GlobalSettings.getLocalPort());
+        } else {
+            this.LocalPort.setText("5060");
+        }
+        this.IPPortPanel.add((Component) this.LocalPort, "w 50!");
+        this.LocalInfoPanel.add((Component) this.IPPortPanel, "w 50%, wrap");
+        this.StartingPanel.add((Component) this.LocalInfoPanel, "grow, wrap");
+        this.IPConnType = new JPanel(new MigLayout(""));
+        this.IPConnType.setBorder(BorderFactory.createTitledBorder("IP Connection Type"));
+        this.IPConnType.setToolTipText("Pick IP connection type");
+        this.ConnType = new ButtonGroup();
+        this.UDPRadioButton = new JRadioButton("UDP");
+        this.UDPRadioButton.setSelected(true);
+        this.UDPRadioButton.setToolTipText("UDP connection");
+        this.UDPRadioButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.UDPRadioButtonActionPerformed(actionEvent);
+            }
+        });
+        this.ConnType.add(this.UDPRadioButton);
+        this.IPConnType.add(this.UDPRadioButton);
+        this.TCPRadioButton = new JRadioButton("TCP");
+        this.TCPRadioButton.setToolTipText("TCP connection");
+        this.TCPRadioButton.setEnabled(true);
+        this.TCPRadioButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.TCPRadioButtonActionPerformed(actionEvent);
+            }
+        });
+        this.ConnType.add(this.TCPRadioButton);
+        this.IPConnType.add(this.TCPRadioButton);
+        this.TLSRadioButton = new JRadioButton("TLS");
+        this.TLSRadioButton.setToolTipText("TLS/SSL connection");
+        this.TLSRadioButton.setEnabled(true);
+        this.TLSRadioButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.TLSRadioButtonActionPerformed(actionEvent);
+            }
+        });
+        this.ConnType.add(this.TLSRadioButton);
+        this.IPConnType.add(this.TLSRadioButton);
+        this.LocalInfoPanel.add((Component) this.IPConnType, "w 50%");
+        this.RemoteServerInfoPanel = new JPanel(new MigLayout("fillx"));
+        this.RemoteServerInfoPanel.setBorder(BorderFactory.createTitledBorder("Remote Server Info"));
+        this.RemoteServerInfoPanel.setToolTipText("Remote Server Information");
+        this.StartingPanel.add((Component) this.RemoteServerInfoPanel, "grow, wrap");
+        this.RemoteServerEnabled = new JCheckBox("Remote Server");
+        this.RemoteServerEnabled.setToolTipText("Select if message will be sent to remote server");
+        String string = GlobalSettings.getSetting("remoteServerFlag");
+        if (string != null && string.equals("enabled")) {
+            this.RemoteServerEnabled.setSelected(true);
+        } else {
+            this.RemoteServerEnabled.setSelected(false);
+        }
+        this.RemoteServerEnabled.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.RemoteServerEnabledActionPerformed(actionEvent);
+            }
+        });
+        this.RemoteServerInfoPanel.add((Component) this.RemoteServerEnabled, "spanx 2, wrap");
+        this.RemoteIPAddressPanel = new JPanel(new MigLayout(""));
+        this.RemoteIPAddressPanel.setBorder(BorderFactory.createTitledBorder("Remote IP Address"));
+        this.RemoteIPAddress = new JTextField();
+        this.RemoteIPAddress.setToolTipText("Remote Server IP address");
+        if (GlobalSettings.getRemoteIPAddr() != null) {
+            this.RemoteIPAddress.setText(GlobalSettings.getRemoteIPAddr());
+        }
+        if (this.RemoteServerEnabled.isSelected()) {
+            this.RemoteIPAddress.setEnabled(true);
+        } else {
+            this.RemoteIPAddress.setEnabled(false);
+        }
+        this.RemoteIPAddressPanel.add((Component) this.RemoteIPAddress, "w 100!");
+        this.RemoteServerInfoPanel.add((Component) this.RemoteIPAddressPanel, "w 50%!");
+        this.RemoteServerPortPanel = new JPanel(new MigLayout(""));
+        this.RemoteServerPortPanel.setBorder(BorderFactory.createTitledBorder("Remote Server Port"));
+        this.RemoteServerPort = new JTextField();
+        this.RemoteServerPort.setToolTipText("Remote Server port");
+        if (GlobalSettings.getRemotePort() != null) {
+            this.RemoteServerPort.setText(GlobalSettings.getRemotePort());
+        } else {
+            this.RemoteServerPort.setText("5060");
+        }
+        if (this.RemoteServerEnabled.isSelected()) {
+            this.RemoteServerPort.setEnabled(true);
+        } else {
+            this.RemoteServerPort.setEnabled(false);
+        }
+        this.RemoteServerPortPanel.add((Component) this.RemoteServerPort, "w 50!");
+        this.RemoteServerInfoPanel.add((Component) this.RemoteServerPortPanel, "w 50%");
+        JPanel jPanel = new JPanel(new MigLayout("fill, insets 0", "[grow][]", "[]"));
+        this.statisticsButton = new JButton("Statistics", EmojiIcon.getStatsIcon());
+        this.statisticsButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                CardLayout cardLayout = (CardLayout) SIPInspectorMainFrame.this.cardPanel.getLayout();
+                cardLayout.show(SIPInspectorMainFrame.this.cardPanel, "statistics_card");
+            }
+        });
+        jPanel.add((Component) this.statisticsButton, "cell 0 0, left");
+        this.Next = new JButton("Next >>");
+        this.Next.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.NextActionPerformed(actionEvent);
+            }
+        });
+        jPanel.add((Component) this.Next, "cell 1 0, right");
+        this.StartingPanel.add((Component) jPanel, "growx");
+        this.cardPanel.add((Component) this.StartingPanel, "interview_card");
+        JPanel jPanel2 = new JPanel();
+        jPanel2.setLayout(new MigLayout("fill, insets 10", "[grow 1] [] [grow 3] []", "[] [] [] [] [grow] []"));
+        JPanel jPanel3 = new JPanel(new MigLayout("fillx, ins 0"));
+        jPanel3.add((Component) new JLabel("Tool"), "left");
+        this.ScenarioScreenLabel = new JLabel("Scenario");
+        this.ScenarioScreenLabel.setHorizontalAlignment(0);
+        this.ScenarioScreenLabel.setBorder(BorderFactory.createLineBorder(new Color(51, 153, 255)));
+        jPanel3.add((Component) this.ScenarioScreenLabel, "center");
+        jPanel3.add((Component) new JLabel("Remote"), "right");
+        jPanel2.add((Component) jPanel3, "grow, wrap");
+        this.MsgScrollPane = new JScrollPane();
+        DefaultMutableTreeNode defaultMutableTreeNode = new DefaultMutableTreeNode("SIP Messages");
+        DefaultTreeModel defaultTreeModel = new DefaultTreeModel(defaultMutableTreeNode);
+        this.MsgTree = new JTree(defaultTreeModel);
+        this.MsgScrollPane.setViewportView(this.MsgTree);
+        jPanel2.add((Component) this.MsgScrollPane, "spany 2, grow, width 200:200:, height 100:220:");
+        this.upArrowButton = new JButton();
+        this.upArrowButton.setIcon(EmojiIcon.getArrowUpIcon());
+        this.upArrowButton.setBorder(null);
+        this.upArrowButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.upArrowButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel2.add((Component) this.upArrowButton, "top, w 30!");
+        this.ControlTabbedPane = new JTabbedPane();
+        EditValuesTab editValuesTab = new EditValuesTab(this);
+        ScenarioValuesPanel scenarioValuesPanel = new ScenarioValuesPanel(this, editValuesTab);
+        this.ControlTabbedPane.addTab("SIP", new SIPPanel());
+        this.ControlTabbedPane.addTab("Condition", new ConditionsPanel(this.sipScenario));
+        this.ControlTabbedPane.addTab("Scenario & Values", scenarioValuesPanel);
+        this.ControlTabbedPane.addTab("Edit Values", editValuesTab);
+        this.ControlTabbedPane.addTab("Logs", new LogsTab(this));
+        this.ControlTabbedPane.addTab("Commands", new CommandsPanel());
+        this.ControlTabbedPane.addTab("Variables", new VariablesPanel());
+        this.ControlTabbedPane.addTab("SDP", new SDPPanel());
+        this.ControlTabbedPane.getAccessibleContext().setAccessibleName("SIP");
+        jPanel2.add((Component) this.ControlTabbedPane, "spanx, grow, wrap");
+        this.downArrowButton = new JButton();
+        this.downArrowButton.setIcon(EmojiIcon.getArrowDownIcon());
+        this.downArrowButton.setBorder(null);
+        this.downArrowButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.downArrowButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel2.add((Component) this.downArrowButton, "baseline, w 30!");
+        this.AddButton = new JButton("<< Add");
+        this.AddButton.setToolTipText("Add SIP message to scenario");
+        this.AddButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.AddButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel2.add(this.AddButton);
+        this.RemoveButton = new JButton("Del >>");
+        this.RemoveButton.setToolTipText("Delete selected message from scenario");
+        this.RemoveButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.RemoveButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel2.add((Component) this.RemoveButton, "wrap, right");
+        this.MessageTextAreaLabel = new JLabel("SIP messages text");
+        this.MessageTextAreaLabel.setBorder(BorderFactory.createLineBorder(new Color(51, 153, 255)));
+        jPanel2.add((Component) this.MessageTextAreaLabel, "span, right, wrap");
+        this.MsgTextScrollPane = new JScrollPane();
+        this.MsgTextScrollPane.setAutoscrolls(true);
+        this.MessageTextArea = new JTextArea();
+        this.MessageTextArea.setFont(new Font("Courier New", 0, 13));
+        this.defaultMessageBg = this.MessageTextArea.getBackground();
+        this.defaultMessageFg = this.MessageTextArea.getForeground();
+        this.MessageTextArea.addMouseListener(new MouseAdapter() {
+
+            @Override
+            public void mouseEntered(MouseEvent mouseEvent) {
+                SIPInspectorMainFrame.this.MessageTextAreaMouseEntered(mouseEvent);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent mouseEvent) {
+                SIPInspectorMainFrame.this.MessageTextAreaMouseExited(mouseEvent);
+            }
+        });
+        this.MessageTextArea.addKeyListener(new KeyAdapter() {
+
+            @Override
+            public void keyTyped(KeyEvent keyEvent) {
+                SIPInspectorMainFrame.this.MessageTextAreaKeyTyped(keyEvent);
+            }
+        });
+        this.MsgTextScrollPane.setViewportView(this.MessageTextArea);
+        jPanel2.add((Component) this.MsgTextScrollPane, "spanx, grow, push, wrap");
+        JPanel jPanel4 = new JPanel(new MigLayout("fill, insets 0"));
+        this.BackButton = new JButton("<<Back");
+        this.BackButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.BackButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel4.add(this.BackButton);
+        this.cpsLabel = new JLabel("Calls/sec");
+        jPanel4.add((Component) this.cpsLabel, "right");
+        this.cpsField = new JTextField();
+        if (GlobalSettings.getSetting("callsPerSec") == null) {
+            GlobalSettings.setSetting("callsPerSec", "1");
+        }
+        this.cpsField.setText(GlobalSettings.getSetting("callsPerSec"));
+        this.cpsField.setToolTipText("Calls per second (integer values only)");
+        this.cpsField.setAutoscrolls(false);
+        this.cpsField.setInputVerifier(new FloatValidator());
+        this.cpsField.addFocusListener(new FocusAdapter() {
+
+            @Override
+            public void focusLost(FocusEvent focusEvent) {
+                SIPInspectorMainFrame.this.cpsFieldFocusLost(focusEvent);
+            }
+        });
+        jPanel4.add((Component) this.cpsField, "left, w 40!");
+        this.MaxConcurrentCallsLabel = new JLabel("Max Concurrent");
+        jPanel4.add((Component) this.MaxConcurrentCallsLabel, "right");
+        this.MaxConcurrentCallsField = new JTextField();
+        this.MaxConcurrentCallsField.setToolTipText("Max concurrent calls allowed (0 for unlimited)");
+        this.MaxConcurrentCallsField.setInputVerifier(new IntegerValidator());
+        this.MaxConcurrentCallsField.addFocusListener(new FocusAdapter() {
+
+            @Override
+            public void focusLost(FocusEvent focusEvent) {
+                SIPInspectorMainFrame.this.MaxConcurrentCallsFieldFocusLost(focusEvent);
+            }
+        });
+        if (GlobalSettings.getSetting("maxConcurrCalls") == null) {
+            GlobalSettings.setSetting("maxConcurrCalls", "1");
+        }
+        this.MaxConcurrentCallsField.setText(GlobalSettings.getSetting("maxConcurrCalls"));
+        jPanel4.add((Component) this.MaxConcurrentCallsField, "left, w 40!");
+        this.totCalsLabel = new JLabel("Total Calls");
+        jPanel4.add((Component) this.totCalsLabel, "right");
+        this.totCalsField = new JTextField();
+        this.totCalsField.setToolTipText("Total number of calls (0 for infinite)");
+        this.totCalsField.setInputVerifier(new IntegerValidator());
+        this.totCalsField.addFocusListener(new FocusAdapter() {
+
+            @Override
+            public void focusLost(FocusEvent focusEvent) {
+                SIPInspectorMainFrame.this.totCalsFieldFocusLost(focusEvent);
+            }
+        });
+        if (GlobalSettings.getSetting("totalCalls") == null) {
+            GlobalSettings.setSetting("totalCalls", "1");
+        }
+        this.totCalsField.setText(GlobalSettings.getSetting("totalCalls"));
+        jPanel4.add((Component) this.totCalsField, "left, w 40!");
+        this.RunButton = new JButton("Run", EmojiIcon.getRunIcon());
+        this.RunButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.RunButtonActionPerformed(actionEvent);
+            }
+        });
+        jPanel4.add((Component) this.RunButton, "right");
+        jPanel2.add((Component) jPanel4, "grow, spanx");
+        this.cardPanel.add((Component) jPanel2, "program_card");
+        JPanel jPanel5 = new JPanel();
+        jPanel5.setLayout(new MigLayout("fill, ins 0"));
+        jPanel5.add((Component) StatisticsPanel.getInstance(), "grow");
+        this.cardPanel.add((Component) jPanel5, "statistics_card");
+        this.FileMenu.setText("File");
+        this.FileMenu.setIcon(EmojiIcon.getFileIcon());
+        this.NewScenMenuItem = new JMenuItem("New Scenario");
+        this.NewScenMenuItem.setIcon(EmojiIcon.getFileIcon());
+        this.NewScenMenuItem.setAccelerator(KeyStroke.getKeyStroke(78, 128));
+        this.NewScenMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.NewScenMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.FileMenu.add(this.NewScenMenuItem);
+        this.LoadScenMenuItem.setText("Load Scenario");
+        this.LoadScenMenuItem.setAccelerator(KeyStroke.getKeyStroke(79, 128));
+        this.LoadScenMenuItem.setIcon(EmojiIcon.getOpenFolderIcon());
+        this.LoadScenMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.LoadScenMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.FileMenu.add(this.LoadScenMenuItem);
+        this.LoadVariablesItem.setText("Load Values");
+        this.LoadVariablesItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.LoadValuesItemActionPerformed(actionEvent);
+            }
+        });
+        this.FileMenu.add(this.LoadVariablesItem);
+        this.SaveScenMenuItem.setText("Save Scenario");
+        this.SaveScenMenuItem.setAccelerator(KeyStroke.getKeyStroke(83, 128));
+        this.SaveScenMenuItem.setIcon(EmojiIcon.getSaveIcon());
+        this.SaveScenMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.SaveScenMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.FileMenu.add(this.SaveScenMenuItem);
+        this.SaveScenAsMenuItem = new JMenuItem("Save Scenario As...");
+        this.SaveScenAsMenuItem.setAccelerator(KeyStroke.getKeyStroke(83, 192));
+        this.SaveScenAsMenuItem.setIcon(EmojiIcon.getSaveIcon());
+        this.SaveScenAsMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.saveScenarioToFile();
+            }
+        });
+        this.FileMenu.add(this.SaveScenAsMenuItem);
+        this.Exit.setText("Exit");
+        this.Exit.setAccelerator(KeyStroke.getKeyStroke(81, 128));
+        this.Exit.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.ExitProgram(actionEvent);
+            }
+        });
+        this.FileMenu.add(this.Exit);
+        this.MainMenuBar.add(this.FileMenu);
+        this.EditMenu.setText("Edit");
+        this.EditMenu.setIcon(EmojiIcon.getEditIcon());
+        this.FindReplaceMenuItem.setAccelerator(KeyStroke.getKeyStroke(70, 2));
+        this.FindReplaceMenuItem.setText("Find/Replace");
+        this.FindReplaceMenuItem.setIcon(EmojiIcon.getSearchIcon());
+        this.FindReplaceMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.FindReplaceMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.EditMenu.add(this.FindReplaceMenuItem);
+        this.MainMenuBar.add(this.EditMenu);
+        this.OptionsMenu.setText("Options");
+        this.OptionsMenu.setIcon(EmojiIcon.getOptionsIcon());
+        this.LoggingCheckBoxMenuItem.setText("Enable Logging");
+        this.LoggingCheckBoxMenuItem.setToolTipText("Toggle SIP + transport logging");
+        this.LoggingCheckBoxMenuItem.setSelected(GlobalSettings.logsEnabled);
+        this.LoggingCheckBoxMenuItem.addActionListener(actionEvent -> {
+            if (LoggingCheckBoxMenuItem.isSelected()) {
+                LogManager.startLogging(GlobalSettings.getTransport());
+            } else {
+                LogManager.stopLogging();
+            }
+        });
+        this.OptionsMenu.add(this.LoggingCheckBoxMenuItem);
+        this.RemoteRTPMenuItem.setText("Remote RTP...");
+        this.RemoteRTPMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.RemoteRTPMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.OptionsMenu.add(this.RemoteRTPMenuItem);
+        this.QoSMenuItem.setText("QoS");
+        this.QoSMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.QoSMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.OptionsMenu.add(this.QoSMenuItem);
+        this.MainMenuBar.add(this.OptionsMenu);
+        this.ToolsMenu.setText("Tools");
+        this.ToolsMenu.setIcon(EmojiIcon.getToolsIcon());
+        this.SDPCalculator.setText("SDP Calculator");
+        this.SDPCalculator.setIcon(EmojiIcon.getStatsIcon());
+        this.SDPCalculator.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.SDPCalculatorActionPerformed(actionEvent);
+            }
+        });
+        this.ToolsMenu.add(this.SDPCalculator);
+        JMenuItem jMenuItem7 = new JMenuItem("Export Statistics", EmojiIcon.getSaveIcon());
+        jMenuItem7.setToolTipText("Export statistics to CSV");
+        jMenuItem7.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.exportStatistics();
+            }
+        });
+        this.ToolsMenu.add(jMenuItem7);
+        JMenuItem jMenuItem8 = new JMenuItem("Open Logs Folder...");
+        jMenuItem8.setToolTipText("Open transport debug logs folder");
+        jMenuItem8.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.openLogsFolder();
+            }
+        });
+        this.ToolsMenu.add(jMenuItem8);
+        this.MainMenuBar.add(this.ToolsMenu);
+        this.HelpMenu.setText("Help");
+        this.HelpMenu.setIcon(EmojiIcon.getHelpIcon());
+        JMenuItem jMenuItem9 = new JMenuItem("Keyboard Shortcuts");
+        jMenuItem9.setAccelerator(KeyStroke.getKeyStroke(112, 0));
+        jMenuItem9.setToolTipText("View all keyboard shortcuts (F1)");
+        jMenuItem9.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.showKeyboardShortcuts();
+            }
+        });
+        this.HelpMenu.add(jMenuItem9);
+        this.HelpMenu.addSeparator();
+        this.AboutMenuItem.setText("About");
+        this.AboutMenuItem.setIcon(EmojiIcon.getHelpIcon());
+        this.AboutMenuItem.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                SIPInspectorMainFrame.this.AboutMenuItemActionPerformed(actionEvent);
+            }
+        });
+        this.HelpMenu.add(this.AboutMenuItem);
+        this.MainMenuBar.add(this.HelpMenu);
+        this.setJMenuBar(this.MainMenuBar);
+        this.getContentPane().setLayout(new MigLayout("fill, insets 0", "[grow]", "[grow][]"));
+        this.getContentPane().add((Component) this.cardPanel, "cell 0 0, grow");
+        statusBar = new EnhancedStatusBar();
+        statusBar.setLogsEnabled(GlobalSettings.logsEnabled);
+        this.getContentPane().add((Component) statusBar, "cell 0 1, growx");
+        this.pack();
+        this.setSize(new Dimension(1200, 750));
+        this.setMinimumSize(new Dimension(1000, 650));
+        this.setLocationRelativeTo(null);
+        this.applyCurrentThemeToTabs();
+        this.applyThemeToButtons();
+        this.resetMessageAreaColors();
+    }
+
+    private void applyCurrentThemeToTabs() {
+        Color color = UIManager.getColor("TabbedPane.background");
+        Color color2 = UIManager.getColor("TabbedPane.selectedBackground");
+        Color color3 = UIManager.getColor("TabbedPane.foreground");
+        Color color4 = UIManager.getColor("TabbedPane.selectedForeground");
+        this.applyTabPaletteToAll(color, color2, color3, color4);
+    }
+
+    private void applyTabPaletteToAll(Color color, Color color2, Color color3, Color color4) {
+        this.styleTabbedPane(this.SettingsTabbedPane, color, color2, color3, color4);
+        this.styleTabbedPane(this.ControlTabbedPane, color, color2, color3, color4);
+    }
+
+    private void styleTabbedPane(JTabbedPane jTabbedPane, Color color, Color color2, Color color3, Color color4) {
+        int n;
+        if (jTabbedPane == null) {
+            return;
+        }
+        Color color5 = this.blendColors(color2, color, 0.25f);
+        jTabbedPane.putClientProperty("JTabbedPane.tabAreaBackground", color);
+        jTabbedPane.putClientProperty("JTabbedPane.selectedBackground", color5);
+        if (color4 != null) {
+            jTabbedPane.putClientProperty("JTabbedPane.selectedForeground", color4);
+        }
+        if (color != null) {
+            jTabbedPane.setBackground(color);
+            for (n = 0; n < jTabbedPane.getTabCount(); ++n) {
+                jTabbedPane.setBackgroundAt(n, color);
+            }
+        }
+        if (color3 != null) {
+            jTabbedPane.setForeground(color3);
+            for (n = 0; n < jTabbedPane.getTabCount(); ++n) {
+                jTabbedPane.setForegroundAt(n, color3);
+            }
+        }
+        jTabbedPane.revalidate();
+        jTabbedPane.repaint();
+    }
+
+    private Color blendColors(Color color, Color color2, float f) {
+        if (color == null && color2 == null) {
+            return null;
+        }
+        if (color == null) {
+            return color2;
+        }
+        if (color2 == null) {
+            return color;
+        }
+        float f2 = 1.0f - f;
+        int n = Math.round((float) color.getRed() * f + (float) color2.getRed() * f2);
+        int n2 = Math.round((float) color.getGreen() * f + (float) color2.getGreen() * f2);
+        int n3 = Math.round((float) color.getBlue() * f + (float) color2.getBlue() * f2);
+        return new Color(n, n2, n3);
+    }
+
+    private void applyThemeToButtons() {
+        Color color = UIManager.getColor("Button.background");
+        Color color2 = UIManager.getColor("Button.foreground");
+        this.styleButton(this.AddButton, color, color2);
+        this.styleButton(this.RemoveButton, color, color2);
+        this.styleButton(this.Next, color, color2);
+        this.styleButton(this.BackButton, color, color2);
+        this.styleButton(this.RunButton, color, color2);
+        this.styleButton(this.statisticsButton, color, color2);
+        this.styleButton(this.upArrowButton, color, color2);
+        this.styleButton(this.downArrowButton, color, color2);
+    }
+
+    private void styleButton(AbstractButton abstractButton, Color color, Color color2) {
+        if (abstractButton == null) {
+            return;
+        }
+        if (color != null) {
+            abstractButton.setBackground(color);
+        }
+        if (color2 != null) {
+            abstractButton.setForeground(color2);
+        }
+        abstractButton.setOpaque(true);
+        abstractButton.setContentAreaFilled(true);
+    }
+
+    private void resetMessageAreaColors() {
+        if (this.MessageTextArea == null) {
+            return;
+        }
+        if (this.defaultMessageBg != null) {
+            this.MessageTextArea.setBackground(this.defaultMessageBg);
+        }
+        if (this.defaultMessageFg != null) {
+            this.MessageTextArea.setForeground(this.defaultMessageFg);
+        }
+    }
+
+    private void NextActionPerformed(ActionEvent actionEvent) {
+        boolean bl = true;
+        this.setLocalIPAddress();
+        this.setLocalPort();
+        this.setRemoteIPAdddress();
+        this.setRemotePort();
+        if (this.isConnectionTLS() && this.isRemoteServerEnabled() && this.remotePort != 5061) {
+            JOptionPane.showMessageDialog(this,
+                    "For TLS transport, remote server port is typically 5061.\nCurrent remote port: " + this.remotePort,
+                    "TLS Port Warning", 2);
+        }
+        this.createDefaultScenario();
+        if (this.mySocket == null) {
+            bl = this.openSocket();
+        } else {
+            this.mySocket.close();
+            bl = this.openSocket();
+        }
+        if (bl) {
+            if (statusBar != null) {
+                statusBar.setConnected(true);
+                statusBar.setTransport(GlobalSettings.getTransport());
+                statusBar.resetSession();
+            }
+            CardLayout cardLayout = (CardLayout) this.cardPanel.getLayout();
+            cardLayout.show(this.cardPanel, "program_card");
+            if (!this.mySocket.isDaemon()) {
+                this.cpsField.setVisible(true);
+                this.cpsLabel.setVisible(true);
+                this.totCalsField.setVisible(true);
+                this.totCalsLabel.setVisible(true);
+                this.MaxConcurrentCallsField.setVisible(true);
+                this.MaxConcurrentCallsLabel.setVisible(true);
+            } else {
+                this.cpsField.setVisible(false);
+                this.cpsLabel.setVisible(false);
+                this.totCalsField.setVisible(false);
+                this.totCalsLabel.setVisible(false);
+                this.MaxConcurrentCallsField.setVisible(false);
+                this.MaxConcurrentCallsLabel.setVisible(false);
+            }
+            this.SaveScenMenuItem.setEnabled(true);
+        }
+    }
+
+    private void RemoteServerEnabledActionPerformed(ActionEvent actionEvent) {
+        if (this.RemoteServerEnabled.isSelected()) {
+            this.RemoteIPAddress.setEditable(true);
+            this.RemoteIPAddress.setEnabled(true);
+            this.RemoteServerPort.setEditable(true);
+            this.RemoteServerPort.setEnabled(true);
+            GlobalSettings.setSetting("remoteServerFlag", "enabled");
+        } else {
+            this.RemoteIPAddress.setEnabled(false);
+            this.RemoteServerPort.setEnabled(false);
+            GlobalSettings.setSetting("remoteServerFlag", "disabled");
+        }
+    }
+
+    private void ExitProgram(ActionEvent actionEvent) {
+        this.dispose();
+    }
+
+    private void BackButtonActionPerformed(ActionEvent actionEvent) {
+        CardLayout cardLayout = (CardLayout) this.cardPanel.getLayout();
+        cardLayout.show(this.cardPanel, "interview_card");
+        this.SaveScenMenuItem.setEnabled(false);
+    }
+
+    private void AddButtonActionPerformed(ActionEvent actionEvent) {
+        SwingWorker<JTree, Object> swingWorker = new SwingWorker<JTree, Object>() {
+
+            @Override
+            protected JTree doInBackground() throws Exception {
+                EntryTab entryTab = (EntryTab) SIPInspectorMainFrame.this.ControlTabbedPane.getSelectedComponent();
+                return entryTab.addMsgTreeEntry(SIPInspectorMainFrame.this.MsgTree,
+                        SIPInspectorMainFrame.this.sipScenario);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    JTree jTree = (JTree) this.get();
+                    ((DefaultTreeModel) jTree.getModel())
+                            .nodeChanged((TreeNode) ((DefaultTreeModel) jTree.getModel()).getRoot());
+                } catch (Exception exception) {
+                    JOptionPane.showMessageDialog(SIPInspectorMainFrame.this.ControlTabbedPane, exception,
+                            "Adding an entry", 0);
+                }
+                SIPInspectorMainFrame.this.sipScenario.setEntriesIndices();
+            }
+        };
+        swingWorker.execute();
+    }
+
+    private void RemoveButtonActionPerformed(ActionEvent actionEvent) {
+        int n = this.MsgTree.getSelectionCount();
+        int[] nArray = this.MsgTree.getSelectionRows();
+        if (nArray == null) {
+            return;
+        }
+        Arrays.sort(nArray);
+        for (int i = n - 1; i >= 0; --i) {
+            if (nArray[i] == 0)
+                continue;
+            this.sipScenario.removeEntry(nArray[i] - 1);
+        }
+        this.sipScenario.updateTreeFromScenario(this.MsgTree);
+        this.sipScenario.setEntriesIndices();
+        this.MsgTree.clearSelection();
+    }
+
+    private void upArrowButtonActionPerformed(ActionEvent actionEvent) {
+        int n = this.MsgTree.getSelectionCount();
+        int[] nArray = this.MsgTree.getSelectionRows();
+        Arrays.sort(nArray);
+        DefaultMutableTreeNode defaultMutableTreeNode = (DefaultMutableTreeNode) this.MsgTree.getModel().getRoot();
+        DefaultTreeModel defaultTreeModel = (DefaultTreeModel) this.MsgTree.getModel();
+        for (int i = 0; i < n; ++i) {
+            if (nArray[i] == 0 || nArray[i] == 1) {
+                JOptionPane.showMessageDialog(this.upArrowButton, "Can not shift up", "Moving up", 0);
+                return;
+            }
+            int n2 = nArray[i] - 1;
+            DefaultMutableTreeNode defaultMutableTreeNode2 = (DefaultMutableTreeNode) this.MsgTree.getModel()
+                    .getChild(defaultMutableTreeNode, n2);
+            defaultTreeModel.removeNodeFromParent(defaultMutableTreeNode2);
+            defaultTreeModel.insertNodeInto(defaultMutableTreeNode2, defaultMutableTreeNode, n2 - 1);
+            nArray[i] = n2;
+            this.sipScenario.moveEntryUp(n2);
+        }
+        this.MsgTree.setSelectionRows(nArray);
+        defaultTreeModel.nodeChanged(defaultMutableTreeNode);
+        this.sipScenario.setEntriesIndices();
+    }
+
+    private void downArrowButtonActionPerformed(ActionEvent actionEvent) {
+        int n = this.MsgTree.getSelectionCount();
+        int[] nArray = this.MsgTree.getSelectionRows();
+        Arrays.sort(nArray);
+        DefaultMutableTreeNode defaultMutableTreeNode = (DefaultMutableTreeNode) this.MsgTree.getModel().getRoot();
+        DefaultTreeModel defaultTreeModel = (DefaultTreeModel) this.MsgTree.getModel();
+        for (int i = n - 1; i >= 0; --i) {
+            if (nArray[i] == 0 || nArray[i] == defaultTreeModel.getChildCount(defaultMutableTreeNode)) {
+                JOptionPane.showMessageDialog(this.downArrowButton, "Can not shift down", "Moving down", 0);
+                return;
+            }
+            int n2 = nArray[i] - 1;
+            DefaultMutableTreeNode defaultMutableTreeNode2 = (DefaultMutableTreeNode) this.MsgTree.getModel()
+                    .getChild(defaultMutableTreeNode, n2);
+            defaultTreeModel.removeNodeFromParent(defaultMutableTreeNode2);
+            defaultTreeModel.insertNodeInto(defaultMutableTreeNode2, defaultMutableTreeNode, n2 + 1);
+            this.sipScenario.moveEntryDown(n2);
+            nArray[i] = n2 + 2;
+        }
+        this.MsgTree.setSelectionRows(nArray);
+        defaultTreeModel.nodeChanged(defaultMutableTreeNode);
+        this.sipScenario.setEntriesIndices();
+    }
+
+    private void MessageTextAreaKeyTyped(KeyEvent keyEvent) {
+        this.updateTreeFlag = true;
+    }
+
+    private void FindReplaceMenuItemActionPerformed(ActionEvent actionEvent) {
+        FindReplaceDialog findReplaceDialog = new FindReplaceDialog(this, this.MessageTextArea);
+        findReplaceDialog.setLocationRelativeTo(this);
+        findReplaceDialog.setVisible(true);
+        findReplaceDialog.initializeButtons();
+    }
+
+    private void RunButtonActionPerformed(ActionEvent actionEvent) {
+        SIPScenario.initializeStaticCounters();
+        this.getValuesLoader().setCounter(0);
+        this.getValuesLoader().resetValuesInEachRow();
+        ScenarioProgressDialog scenarioProgressDialog = new ScenarioProgressDialog(this);
+        scenarioProgressDialog.setLocationRelativeTo(this);
+        this.mySocket.setQos();
+        scenarioProgressDialog.spawnThreads();
+        scenarioProgressDialog.setVisible(true);
+        scenarioProgressDialog.setModalityType(Dialog.ModalityType.APPLICATION_MODAL);
+        WriteSettings writeSettings = new WriteSettings("userSettings.xml");
+        writeSettings.writeToFile();
+    }
+
+    private void SIPLoggingCheckBoxMenuItemActionPerformed(ActionEvent actionEvent) {
+        if (this.SIPLoggingCheckBoxMenuItem.isSelected()) {
+            LogManager.startLogging(GlobalSettings.getTransport());
+        } else {
+            LogManager.stopLogging();
+        }
+    }
+
+    private void showKeyboardShortcuts() {
+        KeyboardShortcutsDialog keyboardShortcutsDialog = new KeyboardShortcutsDialog(this);
+        keyboardShortcutsDialog.setVisible(true);
+    }
+
+    private void exportStatistics() {
+        ExportUtils.showExportDialog(this, "Export Statistics", "statistics", ".csv",
+                file -> ExportUtils.exportStatisticsToCSV(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, file));
+    }
+
+    public void openLogsFolder() {
+        try {
+            File file = new File("logs");
+            if (!file.exists()) {
+                file.mkdirs();
+            }
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(file);
+            } else {
+                JOptionPane.showMessageDialog(this, "Desktop integration is not supported on this system.",
+                        "Open Logs Folder", 2);
+            }
+        } catch (IOException iOException) {
+            JOptionPane.showMessageDialog(this, "Failed to open logs folder: " + iOException.getMessage(),
+                    "Open Logs Folder", 0);
+        }
+    }
+
+    private void applyStartupSettings() {
+        String string;
+        String string2;
+        GlobalSettings.loadSettings();
+        if (this.settingsTab != null) {
+            this.settingsTab.refreshSettingsCheckboxes();
+        }
+        if ((string2 = GlobalSettings.getSetting("defaultTheme")) != null) {
+            this.applyThemeSilently(this.mapThemeNameToCode(string2));
+        }
+        if ((string = GlobalSettings.getSetting("defaultTransport")) == null) {
+            string = "UDP";
+        }
+        if ("TCP".equals(string)) {
+            this.TCPRadioButton.setSelected(true);
+        } else if ("TLS".equals(string)) {
+            this.TLSRadioButton.setSelected(true);
+        } else {
+            this.UDPRadioButton.setSelected(true);
+        }
+        String string3 = GlobalSettings.getSetting("defaultUdpTcpLocalPort");
+        String string4 = GlobalSettings.getSetting("defaultTlsLocalPort");
+        String string5 = GlobalSettings.getSetting("defaultUdpTcpRemotePort");
+        String string6 = GlobalSettings.getSetting("defaultTlsRemotePort");
+        if ("TLS".equals(string)) {
+            this.LocalPort.setText(string4 != null ? string4 : "5061");
+            this.RemoteServerPort.setText(string6 != null ? string6 : "5061");
+        } else {
+            this.LocalPort.setText(string3 != null ? string3 : "5060");
+            this.RemoteServerPort.setText(string5 != null ? string5 : "5060");
+        }
+        if (GlobalSettings.logsEnabled) {
+            LogManager.startLogging(GlobalSettings.getTransport());
+        } else {
+            LogManager.stopLogging();
+        }
+    }
+
+    private String mapThemeNameToCode(String string) {
+        if ("Classic Blue".equals(string)) {
+            return "light";
+        }
+        if ("Ocean Blue".equals(string)) {
+            return "ocean";
+        }
+        if ("Sunset Orange".equals(string)) {
+            return "sunset";
+        }
+        if ("Forest Green".equals(string)) {
+            return "forest";
+        }
+        if ("Purple Dream".equals(string)) {
+            return "purple";
+        }
+        return "ocean";
+    }
+
+    private void applyThemeSilently(String string) {
+        try {
+            if ("light".equals(string)) {
+                FlatLightLaf.setup();
+            } else if ("dark".equals(string)) {
+                FlatDarkLaf.setup();
+            } else if ("ocean".equals(string)) {
+                CustomThemes.applyOceanTheme();
+            } else if ("sunset".equals(string)) {
+                CustomThemes.applySunsetTheme();
+            } else if ("forest".equals(string)) {
+                CustomThemes.applyForestTheme();
+            } else if ("purple".equals(string)) {
+                CustomThemes.applyPurpleTheme();
+            } else if ("midnight".equals(string)) {
+                CustomThemes.applyMidnightTheme();
+            }
+            CustomThemes.applyStandardFonts();
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    for (Window window : Window.getWindows()) {
+                        SwingUtilities.updateComponentTreeUI(window);
+                        window.repaint();
+                    }
+                    SIPInspectorMainFrame.this.applyCurrentThemeToTabs();
+                    SIPInspectorMainFrame.this.applyThemeToButtons();
+                    SIPInspectorMainFrame.this.resetMessageAreaColors();
+                }
+            });
+        } catch (Exception exception) {
+            System.err.println("Failed to apply theme on startup: " + exception.getMessage());
+        }
+    }
+
+    private void switchTheme(String string) {
+        try {
+            String string2 = "";
+            if ("light".equals(string)) {
+                FlatLightLaf.setup();
+                string2 = "Light";
+            } else if ("dark".equals(string)) {
+                FlatDarkLaf.setup();
+                string2 = "Dark";
+            } else if ("ocean".equals(string)) {
+                CustomThemes.applyOceanTheme();
+                string2 = "Ocean Blue";
+            } else if ("sunset".equals(string)) {
+                CustomThemes.applySunsetTheme();
+                string2 = "Sunset Orange";
+            } else if ("forest".equals(string)) {
+                CustomThemes.applyForestTheme();
+                string2 = "Forest Green";
+            } else if ("purple".equals(string)) {
+                CustomThemes.applyPurpleTheme();
+                string2 = "Purple Dream";
+            } else if ("midnight".equals(string)) {
+                CustomThemes.applyMidnightTheme();
+                string2 = "Midnight Blue";
+            }
+            CustomThemes.applyStandardFonts();
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    for (Window window : Window.getWindows()) {
+                        SwingUtilities.updateComponentTreeUI(window);
+                        window.repaint();
+                    }
+                    SIPInspectorMainFrame.this.applyCurrentThemeToTabs();
+                    SIPInspectorMainFrame.this.applyThemeToButtons();
+                    SIPInspectorMainFrame.this.resetMessageAreaColors();
+                }
+            });
+            try {
+                GlobalSettings.setSetting("theme", string);
+            } catch (Exception exception) {
+                System.err.println("Could not save theme preference: " + exception.getMessage());
+            }
+            JOptionPane.showMessageDialog(this, "Theme changed to: " + string2, "Theme Switcher", 1);
+        } catch (Exception exception) {
+            JOptionPane.showMessageDialog(this, "Failed to change theme:\n" + exception.getMessage(), "Theme Error", 0);
+        }
+    }
+
+    private void AboutMenuItemActionPerformed(ActionEvent actionEvent) {
+        AboutDialog aboutDialog = new AboutDialog(this);
+        aboutDialog.setLocationRelativeTo(this);
+        aboutDialog.setVisible(true);
+    }
+
+    private void LoadScenMenuItemActionPerformed(ActionEvent actionEvent) {
+        File file = new File("scenarios");
+        JFileChooser jFileChooser = file.exists() && file.isDirectory() ? new JFileChooser(file)
+                : new JFileChooser(System.getProperty("user.dir"));
+        jFileChooser.setDialogTitle("Select a valid scenario file");
+        if (jFileChooser.showOpenDialog(this) == 0) {
+            String string = jFileChooser.getSelectedFile().getPath();
+            GlobalSettings.setSetting("scenarioPath", string);
+            LoadScenario loadScenario = new LoadScenario(this, GlobalSettings.getSetting("scenarioPath"));
+            loadScenario.execute();
+        }
+    }
+
+    private void SaveScenMenuItemActionPerformed(ActionEvent actionEvent) {
+        int entriesCount = SIPScenario.getEntriesCount();
+        JFileChooser chooser = new JFileChooser(System.getProperty("user.dir"));
+        chooser.setDialogTitle("Save scenario file");
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = chooser.getSelectedFile();
+            if (file.exists()) {
+                Object[] options = new Object[] { "Yes", "No" };
+                int choice = JOptionPane.showOptionDialog(this,
+                        "Do you really want to overwrite an existing scenario file?",
+                        "Save File",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.WARNING_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+                if (choice != 0) {
+                    return;
+                }
+            }
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                for (int i = 0; i < entriesCount; ++i) {
+                    fos.write(SIPScenario.getScenarioPos(i).getScenarioScreenText()
+                            .replace("\u00ab\r\n", "\r\n").getBytes());
+                }
+                GlobalSettings.setSetting("scenarioPath", file.getName());
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this,
+                        "Failed to save scenario: " + ex.getMessage(),
+                        "Save Scenario",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void MessageTextAreaMouseExited(MouseEvent mouseEvent) {
+        if (this.updateTreeFlag && (this.MsgTree.getRowCount() == 1 || this.MsgTree.getSelectionCount() != 0)) {
+            this.updateMessagesFromText(this.MessageTextArea.getText().replace("\u00ab\r\n", "\r\n"));
+        }
+        this.MessageTextArea.getCaret().setVisible(false);
+        this.updateTreeFlag = false;
+        this.MessageTextArea.setEditable(false);
+    }
+
+    private void MessageTextAreaMouseEntered(MouseEvent mouseEvent) {
+        this.MessageTextArea.setEditable(true);
+        this.MessageTextArea.getCaret().setVisible(true);
+    }
+
+    private void UDPRadioButtonActionPerformed(ActionEvent actionEvent) {
+        String string = GlobalSettings.getSetting("defaultUdpTcpLocalPort");
+        String string2 = GlobalSettings.getSetting("defaultUdpTcpRemotePort");
+        if (string != null) {
+            this.LocalPort.setText(string);
+        } else {
+            this.LocalPort.setText("5060");
+        }
+        if (string2 != null) {
+            this.RemoteServerPort.setText(string2);
+        } else {
+            this.RemoteServerPort.setText("5060");
+        }
+    }
+
+    private void TLSRadioButtonActionPerformed(ActionEvent actionEvent) {
+        if (this.TLSRadioButton.isSelected()) {
+            String string = GlobalSettings.getSetting("defaultTlsLocalPort");
+            String string2 = GlobalSettings.getSetting("defaultTlsRemotePort");
+            if (string != null) {
+                this.LocalPort.setText(string);
+            } else {
+                this.LocalPort.setText("5061");
+            }
+            if (string2 != null) {
+                this.RemoteServerPort.setText(string2);
+            } else {
+                this.RemoteServerPort.setText("5061");
+            }
+            JOptionPane.showMessageDialog(this,
+                    "TLS is selected as transport.\nIf your server expects SRTP, please open the SDP tab and enable 'Use SRTP (RTP/SAVP)'.",
+                    "TLS/SRTP reminder", 1);
+        }
+    }
+
+    private void TCPRadioButtonActionPerformed(ActionEvent actionEvent) {
+        String string = GlobalSettings.getSetting("defaultUdpTcpLocalPort");
+        String string2 = GlobalSettings.getSetting("defaultUdpTcpRemotePort");
+        if (string != null) {
+            this.LocalPort.setText(string);
+        } else {
+            this.LocalPort.setText("5060");
+        }
+        if (string2 != null) {
+            this.RemoteServerPort.setText(string2);
+        } else {
+            this.RemoteServerPort.setText("5060");
+        }
+    }
+
+    private void totCalsFieldFocusLost(FocusEvent focusEvent) {
+        GlobalSettings.setSetting("totalCalls", this.totCalsField.getText());
+    }
+
+    private void cpsFieldFocusLost(FocusEvent focusEvent) {
+        GlobalSettings.setSetting("callsPerSec", this.cpsField.getText());
+    }
+
+    private void LoadValuesItemActionPerformed(ActionEvent actionEvent) {
+        File file = new File("values");
+        JFileChooser jFileChooser = file.exists() && file.isDirectory() ? new JFileChooser(file)
+                : new JFileChooser(System.getProperty("user.dir"));
+        jFileChooser.setDialogTitle("Select a values file");
+        if (jFileChooser.showOpenDialog(this) == 0) {
+            String string = jFileChooser.getSelectedFile().getPath();
+            GlobalSettings.setSetting("valuesPath", string);
+            this.valuesLoader.loadValuesFromFile(string);
+        }
+    }
+
+    private void MaxConcurrentCallsFieldFocusLost(FocusEvent focusEvent) {
+        GlobalSettings.setSetting("maxConcurrCalls", this.MaxConcurrentCallsField.getText());
+    }
+
+    private void RemoteRTPMenuItemActionPerformed(ActionEvent actionEvent) {
+        RemoteRTP remoteRTP = new RemoteRTP(this);
+        remoteRTP.setLocationRelativeTo(this);
+        remoteRTP.setVisible(true);
+    }
+
+    private void QoSMenuItemActionPerformed(ActionEvent actionEvent) {
+        QoS qoS = new QoS(this);
+        qoS.setLocationRelativeTo(this);
+        qoS.setVisible(true);
+    }
+
+    private void SDPCalculatorActionPerformed(ActionEvent actionEvent) {
+        SDPBodyCalc calc = new SDPBodyCalc(this);
+        calc.setLocationRelativeTo(this);
+        calc.setVisible(true);
+    }
+
+    public static enum SOCKET_TYPE {
+        NONE,
+        UDP_CLIENT,
+        UDP_SERVER,
+        TCP_CLIENT,
+        TCP_SERVER;
+
+    }
+}

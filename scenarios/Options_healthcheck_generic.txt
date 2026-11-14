@@ -1,0 +1,34 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 19 – OPTIONS health-check
+// Values file: values/options_healthcheck_values.txt
+//
+// field0 -> Caller user (From/Contact)
+// field1 -> Target user (Request-URI/To)
+////////////////////////////////////////////////////////////////////////////////
+
+---------->
+OPTIONS sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:[field0]@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field1]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] OPTIONS
+Max-Forwards: 70
+Contact: <sip:[field0]@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Accept: application/sdp
+Content-Length: 0
+
+
+<----------
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+Allow: INVITE, ACK, BYE, CANCEL, OPTIONS
+Accept: application/sdp
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0

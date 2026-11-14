@@ -1,0 +1,79 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Incoming basic call (generic placeholder version)
+// Values file: values/incoming_basic_call_values.txt
+// field0 -> Local response tag value applied to provisional/final responses
+// field1 -> SDP audio media port advertised in 200 OK
+// field2 -> Pause duration (ms) after ACK before SIP Inspector sends BYE
+////////////////////////////////////////////////////////////////////////////////
+
+<----------
+INVITE
+
+---------->
+SIP/2.0 100 Trying
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 180 Ringing
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=- 0 1 IN IP4 [local_ip]
+s=-
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [field1] RTP/AVP 18 101
+a=rtpmap:18 G711/8000
+a=fmtp:18 annexb=no
+a=rtpmap:101 telephone-event/8000
+a=sendrecv
+a=maxptime:40
+a=ptime:20
+
+<----------
+ACK
+
+----------
+cmd_Pause=[field2]
+
+<----------
+BYE
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0

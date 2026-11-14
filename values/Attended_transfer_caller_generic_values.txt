@@ -1,0 +1,5 @@
+// Values for Attended_transfer_caller_generic.txt
+// field0 = Caller (Alice) user
+// field1 = Referee/callee (Bob) user
+// field2 = SDP audio media port
+70200;70201;5060

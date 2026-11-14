@@ -1,0 +1,38 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 4 – Incoming error / rejection (generic placeholder version)
+// Values file: values/incoming_error_rejection_values.txt
+//
+// field0 -> Local response tag value applied to provisional/final responses
+// field1 -> Final status code (e.g. 480)
+// field2 -> Reason phrase (e.g. Temporarily Unavailable)
+////////////////////////////////////////////////////////////////////////////////
+
+<----------
+INVITE
+
+---------->
+SIP/2.0 100 Trying
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 [field1] [field2]
+[last_Via:]
+[last_From:]
+[last_To:];tag=[field0]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+<----------
+ACK

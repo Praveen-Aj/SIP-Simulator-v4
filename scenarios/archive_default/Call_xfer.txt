@@ -1,0 +1,247 @@
+
+---------->
+REGISTER sip:120@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[remote_port]>;tag=24417923471779367133
+To: <sip:120@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] REGISTER
+Max-Forwards: 70
+Contact: <sip:120@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: [len]
+
+
+<----------*
+407 Proxy Authentication Required
+
+---------->*
+REGISTER sip:120@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[remote_port]>;tag=24417923471779367133
+To: <sip:120@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] REGISTER
+Max-Forwards: 70
+Contact: <sip:120@[local_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_1.25
+Proxy-Authorization: [authentication username=[username]; password=[password];]
+Content-Length: [len]
+
+
+<----------
+200 OK 
+
+----------
+cmd_Pause=2000
+
+---------->
+INVITE sip:105@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=24417923471779367133
+To: <sip:105@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] INVITE
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=111 843670094 843670094 IN IP4 [local_ip]
+s=-
+c=IN IP4 [local_ip]
+t=0 0
+a=sendrecv
+m=audio 6000 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+
+<----------*
+100 Trying
+
+<----------
+180 Ringing 
+
+<----------
+200 OK 
+
+----------
+set_Variable=toTag "To:" "tag=*"
+
+----------
+set_Variable=fromTag "From:" "tag=*"
+
+----------
+set_Variable=callId "Call-ID:" "*"
+
+---------->
+ACK sip:105@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=24417923471779367133
+To: <sip:105@[remote_ip]:[remote_port]>;[peer_tag_param]
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq] ACK
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+----------
+cmd_Pause=2000
+
+---------->
+INVITE sip:105@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=24417923471779367133
+To: <sip:105@[remote_ip]:[remote_port]>;[peer_tag_param]
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] INVITE
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/sdp
+Content-Length: 301
+
+v=0
+o=MxSIP 0 2092936035 IN IP4 [local_ip]
+s=SIP Call
+c=IN IP4 [local_ip]
+t=0 0
+m=audio 5010 RTP/AVP 8 0 18 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:18 G729/8000
+a=rtpmap:101 telephone-event/8000
+a=silenceSupp:off - - - -
+a=fmtp:18 annexb=no
+a=fmtp:101 0-15
+a=inactive
+
+<----------
+200 OK 
+
+---------->
+ACK sip:105@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=24417923471779367133
+To: <sip:105@[remote_ip]:[remote_port]>;[peer_tag_param]
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq] ACK
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+----------
+cmd_Pause=4000
+
+---------->
+INVITE sip:106@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=244179234717793671
+To: <sip:106@[remote_ip]:[remote_port]>
+Call-ID: 106@[local_ip]
+CSeq: [cseq+1] INVITE
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/sdp
+Content-Length: [len]
+
+v=0
+o=111 843670094 843670094 IN IP4 [local_ip]
+s=-
+c=IN IP4 [local_ip]
+t=0 0
+a=sendrecv
+m=audio 6000 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=ptime:20
+
+<----------*
+100 Trying
+
+<----------
+180 Ringing 
+
+----------
+set_Variable=to2 "To:" "tag=*"
+
+----------
+set_Variable=from2 "From:" "tag=*"
+
+----------
+set_Variable=call2 "Call-ID:" "*"
+
+<----------
+200 OK 
+
+---------->
+ACK sip:106@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag=[$to2]
+To: <sip:106@[remote_ip]:[remote_port]>;tag=[$from2]
+Call-ID: [$call2]
+CSeq: [cseq] ACK
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+User-Agent: SIPInspector_v_1.25
+Content-Length: 0
+
+
+----------
+cmd_Pause=10000
+
+---------->
+REFER sip:105@[remote_ip]:[remote_port];transport=udp SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:120@[remote_ip]:[local_port]>;tag[$fromTag]
+To: <sip:105@[remote_ip]:[remote_port]>;tag[$toTag]
+Call-ID: [$callId]
+CSeq: [cseq+1] REFER
+Max-Forwards: 70
+Contact: <sip:120@[remote_ip]:[local_port];transport=[transport]>
+Refer-To: <sip:106@[remote_ip]:5060;transport=UDP?Replaces=[$call2]%3bto-tag%3d[$to2]%3bfrom-tag%3d[$from2]>
+Referred-By: 120 <sip:120@[local_ip]:[local_port]>
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+202 OK
+
+<----------
+NOTIFY
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_1.25
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+<----------
+BYE
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_1.25
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+

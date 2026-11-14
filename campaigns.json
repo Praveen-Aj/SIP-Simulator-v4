@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Basic Call Verification",
+    "callerScenario": "Outgoing_basic_call.txt",
+    "callerValues": "Outgoing_basic_call_values.txt",
+    "calleeScenario": "Incoming_basic_call_generic.txt",
+    "calleeValues": "Incoming_basic_call_generic_values.txt",
+    "expectedStatus": "PASS"
+  },
+  {
+    "name": "SIP Registration Flow",
+    "callerScenario": "Reg_client.txt",
+    "callerValues": "Reg_client_values.txt",
+    "calleeScenario": "Reg_server.txt",
+    "calleeValues": "Reg_server_values.txt",
+    "expectedStatus": "PASS"
+  },
+  {
+    "name": "Attended Transfer Handshake",
+    "callerScenario": "Attended_transfer_caller_generic.txt",
+    "callerValues": "Attended_transfer_caller_generic_values.txt",
+    "calleeScenario": "Attended_transfer_referee_generic.txt",
+    "calleeValues": "Attended_transfer_referee_generic_values.txt",
+    "expectedStatus": "PASS"
+  },
+  {
+    "name": "Early Media Support",
+    "callerScenario": "Outgoing_basic_call.txt",
+    "callerValues": "Outgoing_basic_call_values.txt",
+    "calleeScenario": "Incoming_early_media_call_generic.txt",
+    "calleeValues": "Incoming_early_media_call_generic_values.txt",
+    "expectedStatus": "PASS"
+  },
+  {
+    "name": "Cancel & Retry Scenario",
+    "callerScenario": "Outgoing_basic_call.txt",
+    "callerValues": "Outgoing_basic_call_values.txt",
+    "calleeScenario": "Incoming_cancel_retry_generic.txt",
+    "calleeValues": "Incoming_cancel_retry_generic_values.txt",
+    "expectedStatus": "PASS"
+  }
+]

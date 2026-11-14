@@ -1,0 +1,99 @@
+////////////////////////////////////////////////////////////////////////////////
+// Call server scenario, follows clients request for reliable
+// provisional responses
+// Calling party: any
+// Called party: any
+//
+// SIP Messages
+//  <--- INVITE
+//  ---- set var1=("CSeq:","*")
+//  ---> 100
+//  ---> 180
+//  <--- PRACK
+//  ---> 200
+//  ---> 200
+//  <--- ACK
+//  <--- BYE
+//  ---> 200
+//
+// NOTE: Comments are allowed anywhere in a scenario file as long as they start
+// with "//"
+////////////////////////////////////////////////////////////////////////////////
+
+
+<----------
+INVITE
+
+----------
+set_Variable=var1 "CSeq:" "*"
+
+---------->
+SIP/2.0 100 Trying
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 180 Ringing
+[last_Via:]
+[last_From:]
+[last_To:];tag=[call_number]
+[last_Call-ID:]
+[last_CSeq:]
+Require: 100rel
+RSeq: 1234
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+<----------
+PRACK
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+CSeq: [$var1]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+
+
+<----------
+ACK
+
+<----------
+BYE
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:]
+[last_Call-ID:]
+[last_CSeq:]
+User-Agent: SIPInspector_v_[ver]
+Contact: <sip:[local_ip]:[local_port];transport=[transport]>
+Content-Length: 0
+

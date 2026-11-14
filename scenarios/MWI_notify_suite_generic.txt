@@ -1,0 +1,57 @@
+////////////////////////////////////////////////////////////////////////////////
+// Scenario: Template 18 – MWI / NOTIFY suite
+// Values file: values/MWI_notify_suite_values.txt
+//
+// field0 -> Subscriber user (mailbox)
+// field1 -> Messages-Waiting flag for first NOTIFY (yes/no)
+// field2 -> Messages-Waiting flag for second NOTIFY (yes/no)
+////////////////////////////////////////////////////////////////////////////////
+
+// Initial MWI NOTIFY (e.g. VM set)
+
+---------->
+NOTIFY sip:[field0]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:voicemail@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field0]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Event: message-summary
+Subscription-State: active
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/simple-message-summary
+Content-Length: [len]
+
+Messages-Waiting: [field1]
+Voice-Message: 1/0 (0/0)
+
+
+<----------
+SIP/2.0 200 OK
+
+----------
+cmd_Pause=3000
+
+// Second MWI NOTIFY (e.g. VM cleared)
+
+---------->
+NOTIFY sip:[field0]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/[transport] [local_ip]:[local_port];branch=[branch]
+From: <sip:voicemail@[local_ip]:[local_port]>;tag=111111
+To: <sip:[field0]@[remote_ip]:[remote_port]>
+Call-ID: [call_number]@[local_ip]
+CSeq: [cseq+1] NOTIFY
+Max-Forwards: 70
+Event: message-summary
+Subscription-State: active
+User-Agent: SIPInspector_v_[ver]
+Content-Type: application/simple-message-summary
+Content-Length: [len]
+
+Messages-Waiting: [field2]
+Voice-Message: 0/0 (0/0)
+
+
+<----------
+SIP/2.0 200 OK

@@ -1,0 +1,6 @@
+// Values for PRACK_client_example.txt scenario
+// PRACK (Provisional Acknowledgment) client example
+// field0 = Caller user
+// field1 = Callee user
+// field2 = Media port
+alice;bob;5000

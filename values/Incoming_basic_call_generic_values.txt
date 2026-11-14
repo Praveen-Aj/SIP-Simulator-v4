@@ -1,0 +1,5 @@
+// Values for Incoming_basic_call_generic.txt
+// field0 = Local response tag value applied to provisional/final responses
+// field1 = SDP audio media port advertised in 200 OK
+// field2 = Pause duration (ms) after ACK before SIP Simulator sends BYE
+generictag456;42000;8000

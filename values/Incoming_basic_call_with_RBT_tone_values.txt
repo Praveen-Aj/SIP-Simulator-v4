@@ -1,0 +1,5 @@
+// field placeholders for Incoming_basic_call_with_RBT_tone.txt
+// field0 = To/From tag used in all responses
+// field1 = Media RTP port advertised in 200 OK
+// field2 = Pause duration (ms) after ACK before internal BYE
+5678;10172;600

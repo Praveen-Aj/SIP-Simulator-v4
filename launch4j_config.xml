@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch4jConfig>
+  <dontWrapJar>false</dontWrapJar>
+  <headerType>gui</headerType>
+  <jar>SIP_Simulator_v4.jar</jar>
+  <outfile>SIP_Simulator_v4.exe</outfile>
+  <errTitle>SIP Simulator</errTitle>
+  <cmdLine></cmdLine>
+  <chdir>.</chdir>
+  <priority>normal</priority>
+  <downloadUrl>http://java.com/download</downloadUrl>
+  <supportUrl></supportUrl>
+  <stayAlive>false</stayAlive>
+  <restartOnCrash>false</restartOnCrash>
+  <manifest></manifest>
+  <icon>SIP_Simulator.ico</icon>
+  <jre>
+    <path>jre</path>
+    <bundledJre64Bit>false</bundledJre64Bit>
+    <bundledJreAsFallback>false</bundledJreAsFallback>
+    <minVersion>1.8.0</minVersion>
+    <maxVersion></maxVersion>
+    <jdkPreference>preferJre</jdkPreference>
+    <runtimeBits>64/32</runtimeBits>
+    <opt>-Djava.library.path=lib</opt>
+  </jre>
+  <versionInfo>
+    <fileVersion>4.1.0.0</fileVersion>
+    <txtFileVersion>4.1.0</txtFileVersion>
+    <fileDescription>SIP Simulator - SIP Protocol Testing Tool</fileDescription>
+    <copyright>2026</copyright>
+    <productVersion>4.1.0.0</productVersion>
+    <txtProductVersion>4.1.0</txtProductVersion>
+    <productName>SIP Simulator</productName>
+    <companyName>SIP Support Team</companyName>
+    <internalName>SIP_Simulator</internalName>
+    <originalFilename>SIP_Simulator.exe</originalFilename>
+  </versionInfo>
+</launch4jConfig>

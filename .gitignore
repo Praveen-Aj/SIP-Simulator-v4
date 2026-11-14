@@ -1,0 +1,16 @@
+# Build and packaging output
+build/
+*.zip
+*.log
+installer_output/
+SIP_Simulator_Package/
+
+# Node modules
+web-app/node_modules/
+web-app/client/node_modules/
+deployment/webapp_dist/node_modules/
+deployment/webapp_dist/public/
+
+# Temporary / Scratch
+*.tmp
+config/uploaded_temp.pcap

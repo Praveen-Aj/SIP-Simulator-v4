@@ -1,0 +1,5 @@
+// field placeholders for Incoming_basic_call_generic.txt
+// field0 = To/From tag used in all responses
+// field1 = Media RTP port advertised in 200 OK
+// field2 = Pause duration (ms) after ACK before internal BYE
+1234;10162;500

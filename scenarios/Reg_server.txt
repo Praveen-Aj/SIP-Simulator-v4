@@ -1,0 +1,43 @@
+////////////////////////////////////////////////////////////////////////////////
+// Registrar server with authentication scenario
+//
+// SIP Messages
+//  <--- REGISTER
+//  ---> 407
+//  <--- REGISTER
+//  ---> 200
+//
+// NOTE: Comments are allowed anywhere in a scenario file, as long as
+// they start with "//"
+////////////////////////////////////////////////////////////////////////////////
+
+<----------
+REGISTER
+
+---------->
+SIP/2.0 407 Proxy Authentication Required
+[last_Via:]
+[last_From:]
+[last_To:];tag=[call_number]
+[last_Call-ID:]
+[last_CSeq:]
+Proxy-Authenticate: Digest realm="[local_ip]:[local_port]", domain="sip:[local_ip]", nonce="b57aa7088ae5cac88d298d66f2c809cd", opaque="185a87188c63a2c7f69105023454e0b2", stale=TRUE, algorithm=MD5
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+
+
+<----------
+REGISTER
+
+---------->
+SIP/2.0 200 OK
+[last_Via:]
+[last_From:]
+[last_To:];tag=[call_number]
+[last_Call-ID:]
+[last_CSeq:]
+[last_Contact:];expires=3600
+Expires: 3600
+User-Agent: SIPInspector_v_[ver]
+Content-Length: 0
+

@@ -1,0 +1,222 @@
+/*
+ *  SIP Inspector - tool for VoIP engineers to create, duplicate and 
+ *  troubleshoot SIP signaling. 
+ * 
+ *  Copyright (C) 2008  Zarko Coklin (zarko_coklin at yahoo dot com)
+ * 
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ * 
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ * 
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package sipinspector.Socket;
+
+import java.io.IOException;
+import java.math.BigInteger;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+
+import sipinspector.GlobalSettings;
+import sipinspector.MyPacket;
+import sipinspector.Utils.TLSDebugLogger;
+
+/**
+ *
+ * @author Zarko Coklin
+ */
+public class UDPClientSocket extends MySocketAbstract {
+
+    public UDPClientSocket(
+            InetAddress localIP,
+            int localPort) throws IOException {
+        this.localAddress = localIP;
+        this.localPort = localPort;
+        byteBuffer = new byte[4096];
+
+        // Check if UDP debug logging is enabled
+        String udpDebug = System.getProperty("udp.debug");
+        if ("true".equalsIgnoreCase(udpDebug)) {
+            TLSDebugLogger.enable("UDP");
+        }
+
+        if (TLSDebugLogger.isEnabled()) {
+            TLSDebugLogger.log("=== UDP SOCKET INIT ===");
+            TLSDebugLogger.log("Local: " + localIP + ":" + localPort);
+        }
+
+        try {
+            socket = new DatagramSocket(new InetSocketAddress(localAddress, localPort));
+            socket.setReuseAddress(true);
+            socket.setTrafficClass(144);
+            socket.setSoTimeout(100);
+
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.log("UDP socket created successfully");
+                TLSDebugLogger.log("");
+            }
+        } catch (IOException ioexcp) {
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.logException("UDP SOCKET INIT FAILED:", ioexcp);
+            }
+            throw ioexcp;
+        }
+    }
+
+    public boolean open(InetAddress remoteAddress,
+            int remotePort) {
+        return true;
+    }
+
+    public void setQos() {
+        try {
+            BigInteger bi = new BigInteger(GlobalSettings.getSetting("QoS"), 16);
+            socket.setTrafficClass(bi.intValue());
+        } catch (Exception e) {
+            return;
+        }
+    }
+
+    public boolean isOpen() {
+        if (socket.isBound() == false) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public void setSocket(DatagramSocket sckt) {
+        // socket = sckt;
+    }
+
+    public DatagramSocket getSocket() {
+        return socket;
+    }
+
+    public void close() {
+
+        socket.close();
+    }
+
+    public InetAddress getLocalAddress() {
+        return localAddress;
+    }
+
+    public int getLocalPort() {
+        return localPort;
+    }
+
+    public MyPacket receive() throws IOException {
+
+        MyPacket myPacket = null;
+
+        DatagramPacket packet = new DatagramPacket(byteBuffer, byteBuffer.length);
+        if (socket == null) {
+            throw new IOException();
+        }
+        try {
+            socket.receive(packet);
+        } catch (SocketTimeoutException exc) {
+            return null;
+        }
+
+        // Apply incoming packet simulation
+        if (SocketSimulationHelper.simulateIncoming(packet.getAddress(), packet.getPort(), "UDP")) {
+            return null;
+        }
+
+        if (TLSDebugLogger.isEnabled()) {
+            TLSDebugLogger.log("=== UDP RECV DEBUG ===");
+            TLSDebugLogger.log("From: " + packet.getAddress() + ":" + packet.getPort());
+            TLSDebugLogger.log("Packet length: " + packet.getLength() + " bytes");
+            String sipMessage = new String(packet.getData(), packet.getOffset(), packet.getLength());
+            TLSDebugLogger.log("--- SIP MESSAGE START ---");
+            TLSDebugLogger.log(sipMessage);
+            TLSDebugLogger.log("--- SIP MESSAGE END ---");
+            TLSDebugLogger.log("");
+        }
+
+        myPacket = new MyPacket(packet);
+        logIncomingMsg(myPacket);
+        return myPacket;
+    }
+
+    public void send(MyPacket sipPacket) throws IOException {
+        // Apply simulation packet corruption
+        sipPacket = SocketSimulationHelper.corruptPacketIfNeeded(sipPacket);
+
+        // Apply outgoing simulation (delay & drop)
+        if (SocketSimulationHelper.simulateOutgoing(sipPacket.getAddress(), sipPacket.getPort(), "UDP")) {
+            return;
+        }
+
+        if (TLSDebugLogger.isEnabled()) {
+            TLSDebugLogger.log("=== UDP SEND DEBUG ===");
+            TLSDebugLogger.log("To: " + sipPacket.getAddress() + ":" + sipPacket.getPort());
+            TLSDebugLogger.log("Packet length: " + sipPacket.length() + " bytes");
+            String sipMessage = new String(sipPacket.getBytes(), 0, sipPacket.length());
+            TLSDebugLogger.log("--- SIP MESSAGE START ---");
+            TLSDebugLogger.log(sipMessage);
+            TLSDebugLogger.log("--- SIP MESSAGE END ---");
+            TLSDebugLogger.log("");
+        }
+
+        DatagramPacket packet = new DatagramPacket(sipPacket.getBytes(),
+                sipPacket.length(),
+                sipPacket.getAddress(),
+                sipPacket.getPort());
+        socket.send(packet);
+
+        if (TLSDebugLogger.isEnabled()) {
+            TLSDebugLogger.log("UDP SEND SUCCESS!");
+            TLSDebugLogger.log("=== UDP SEND COMPLETE ===");
+            TLSDebugLogger.log("");
+        }
+
+        logOutgoingMsg(sipPacket);
+    }
+
+    public String getTransportType() {
+        return "UDP";
+    }
+
+    public boolean isTransportUDP() {
+        return true;
+    }
+
+    public boolean isDaemon() {
+        return false;
+    }
+
+    public Selector getSelector() {
+        return selector;
+    }
+
+    public SelectionKey getInitialKey() {
+        return initialKey;
+    }
+
+    byte[] byteBuffer;
+
+    protected Selector selector;
+
+    protected InetAddress localAddress;
+
+    protected int localPort;
+
+    protected SelectionKey initialKey;
+
+    protected DatagramSocket socket;
+}

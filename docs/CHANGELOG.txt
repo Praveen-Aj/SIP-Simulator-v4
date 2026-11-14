@@ -1,0 +1,185 @@
+SIP Simulator - Changelog
+==========================
+
+Version 4.1 (2026-07-05)
+-------------------------
+A large update focused on fixing broken/incomplete features from earlier
+releases and adding several tools requested by the support team for day to
+day OXE/PBX testing.
+
+**New: Packet Capture (Wireshark)**
+- Tools -> Start/Stop Packet Capture writes a standard .pcap file containing
+  every SIP message (UDP/TCP/TLS - TLS is captured decrypted, in cleartext)
+  plus RTP media (PCAP tone/media playback and Live Audio), so a call can be
+  opened and inspected in Wireshark like a normal network trace.
+- Works out of the box; does not require Npcap.
+
+**New: Tones tab (Scenario Editor)**
+- A new "Tones" tab sits next to "SDP" in the Scenario Editor. It inserts a
+  tone at the exact position you choose in the script - the same way you add
+  a SIP message - so Ring Back Tone, a greeting, hold music, or a DTMF digit
+  can be scripted before 180 Ringing, between 180 and 200 OK, after the call
+  is answered, or anywhere else you need it.
+- Built-in tones: Ring Back Tone (RBT), Hold, Welcome/Greeting Guide,
+  Background Conversation, all 12 DTMF digits, and four newly generated
+  tones - Dial Tone, Busy Tone, Reorder (fast busy), and a short End Tone.
+  A "Custom .pcap file" option is available for anything else.
+
+**New: Compare SIP Messages (Tools menu)**
+- Paste two SIP messages (e.g. a sent INVITE and the OXE's response, or two
+  scenario runs) and get a header-by-header diff table highlighting exactly
+  which headers match, differ, or are missing on either side - useful for
+  tracking down interop issues one header at a time.
+
+**New: Message Templates (Tools menu)**
+- A library of 19 ready-to-use SIP message templates (INVITE, REGISTER, BYE,
+  responses, etc.) that can be copied to the clipboard and pasted into a
+  scenario while authoring it.
+
+**New: Message Search tab**
+- Full-text and message-type/response-code filtering across the SIP message
+  tree, in its own tab next to RTP Inspector.
+
+**New: Call Flow export (PNG/PDF)**
+- The Logs tab's visual sequence ladder can now be exported as a PNG image
+  or a PDF, ready to paste into an email or a defect ticket.
+
+**New: Save Values**
+- The Edit Values tab now has "Save" and "Save As..." buttons. Edited field
+  values can be written back to a values file (preserving its original
+  comment header), not just applied for the current session. Respects the
+  Values Protection setting (Settings tab) to prevent accidental overwrites.
+
+**Fixed: Campaign batch testing**
+- Running a caller/callee test case now automatically spawns a matching
+  background instance to act as the other side of the call, using the
+  identity (username) defined in each side's own values file - not a guess.
+  Three-way attended-transfer tests (caller, callee, and a transfer target)
+  are now configured explicitly when adding a test case, instead of relying
+  on scenario file names containing the word "referee".
+- Pass/Fail results now require the actual call to have connected (an
+  INVITE followed by a 200 OK) instead of just any SIP activity appearing in
+  the log, so a failed/unanswered call is no longer reported as a pass.
+- Added a one-click CSV export of campaign results, alongside the existing
+  HTML report, and both now show an overall pass/fail summary.
+
+**Fixed: RTP Inspector**
+- Now shows the negotiated audio codec name (not just the numeric payload
+  type) for both sent and received RTP, and displays DTMF digits received
+  during the call.
+- "No Active Audio Stream" now explains that this is expected whenever the
+  running scenario has not started Live Audio or a tone/PCAP - it is not
+  necessarily an error.
+
+**Fixed: Application theme**
+- Selecting a theme in Settings now applies immediately and is correctly
+  remembered the next time the app starts (it was previously being silently
+  discarded on restart).
+
+**Fixed: File Open/Save dialogs**
+- Every Open/Save/Export dialog now has a "Path:" box at the top where a
+  folder or file path can be typed or pasted and jumped to directly with
+  Enter or the Go button, instead of navigating folder by folder.
+
+**Fixed: Export Statistics**
+- The Tools -> Export Statistics menu now exports the real, live message
+  counters instead of an all-zero placeholder file.
+
+**Fixed: Live Audio jitter buffer**
+- Incoming RTP packets that arrive out of order are now replayed to the
+  speaker in the correct sequence instead of arrival order.
+
+**Fixed: broken menu icons**
+- A handful of newly added toolbar/menu icons could show as an empty box on
+  some systems; all icons now use the application's own icon set, matching
+  the rest of the toolbar.
+- Message Templates, Compare SIP Messages, Export PNG/PDF, and the tone
+  buttons now have proper colored icons instead of plain text.
+
+**Fixed: several corrupted/incomplete files from previous releases**
+- The Message Templates dialog and the transport debug logger had become
+  corrupted in an earlier release and did not work; both have been rebuilt.
+
+**Also in this release**
+- RTP media (audio) events - Live Audio start/stop, DTMF digits, tone
+  playback start/stop, with basic statistics - are now written to the same
+  log file already shown in the Logs tab, alongside the SIP messages.
+- The Web Dashboard, campaign batch runner, and Message Templates/Search
+  features (added in earlier 4.x builds but not always reliable) have all
+  been re-verified end to end.
+- The installer, background Node.js web server, and campaign test runner no
+  longer depend on Java or Node being on the system PATH - everything uses
+  the copy bundled with the application, so the app runs correctly on
+  locked-down PCs without administrator rights.
+
+
+Version 4.0 (June 2026)
+------------------------
+**Web Dashboard**
+- Added a browser-based dashboard (separate from the desktop app) for
+  browsing scenarios/values, running tests, and viewing live diagnostics
+  from another device on the network.
+
+**Visual Sequence Diagram**
+- Added a color-coded call-flow ladder diagram (inbound in green, outbound
+  in cyan) with click-to-inspect message headers, in both the desktop app
+  and the web dashboard.
+
+**Telecom/OXE Presets**
+- Added one-click header injectors for common Alcatel-Lucent OXE testing
+  needs: User-to-User Information (UUI), Call Diversion/History-Info,
+  P-Asserted-Identity, Privacy, and custom headers.
+- The app now automatically responds 200 OK to unexpected NOTIFY requests
+  from the call server, even when not scripted, avoiding spurious failures.
+
+**Network Emulation & Diagnostics**
+- Added real-time packet delay and packet-loss sliders, and SIP anomaly
+  injection (corrupted CSeq/Branch/Call-ID/Expires) for negative testing.
+- Added a live call/dialog counter and REGISTER expiry countdown.
+- Logs now use the current user's Desktop automatically, instead of a
+  hardcoded folder path, so they work out of the box on any PC.
+
+
+Version 3.0 (March 2026)
+-------------------------
+- Added native TCP and TLS transport support (previously UDP only).
+- Added live microphone audio streaming and recording during a call.
+- Switched to a Launch4j-based .exe with a bundled Java runtime, so end
+  users do not need Java installed separately.
+- Added automatic log rotation to keep old trace files from accumulating.
+
+
+Version 2.0 (November 2025)
+----------------------------
+**Branding & documentation**
+- Rebranded from "SIP Inspector" to "SIP Simulator" (new icon, installer
+  art, and this documentation set).
+
+**Scenario/value workspace**
+- Added a combined Scenario & Values tab; selecting a scenario now
+  auto-selects its matching values file.
+- Added an Edit Values panel for quick field edits.
+- Added file protection for the built-in scenario/values files, with
+  automatic backup and a Settings -> Restore action.
+
+**Logging & diagnostics**
+- Added a dedicated Logs tab, plus a one-click log enable/disable toggle
+  and a status bar showing Scenario/Values/Logs state at a glance.
+
+**PCAP/RTP reliability**
+- Bundled the Npcap installer and native PCAP libraries so RTP/tone
+  playback works immediately on a fresh Windows install.
+
+
+Version 1.0 - Original SIP Inspector
+--------------------------------------
+The original SIP Inspector by Zarko Coklin: SIP scenario execution over
+UDP, value substitution, and basic logging. SIP Simulator is built on this
+foundation - all original scenario files remain fully compatible.
+
+
+Getting Help
+------------
+Collect the log files from "SIP Simulator logs" on your desktop, note the
+scenario you were running, and share both with the SIP Support /
+engineering team.

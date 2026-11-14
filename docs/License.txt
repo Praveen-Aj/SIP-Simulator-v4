@@ -1,0 +1,49 @@
+/*******************************************************************************
+ *                                                                             *
+ *  LICENSE AGREEMENT:                                                         *
+ *                                                                             *
+ *  SIP Inspector tool is a free utility. Any individual can use it free of    *
+ *  charge. Corporate/Commercial users MUST ask for a permission before        *
+ *  using it. A permission will be granted in most cases, but donations MAY be *
+ *  required. Donations will definitely speed up approval process. This license*
+ *  agreement affects SIP Inspector 1.xx versions                              *
+ *                                                                             *
+ *  For licensing inquiries please contact me through a web page:              *
+ *  a) http://sites.google.com/site/sipinspectorsite/contact                   *
+ *                                                                             *
+ *     or by sending an email to:                                              *
+ *                                                                             *
+ *  b) sip-inspector@googlegroups.com                                          *
+ *                                                                             *
+ ******************************************************************************/
+
+SIP Simulator Addendum (2025)
+-----------------------------
+SIP Simulator v2.x is derived from SIP Inspector 1.24. The SIP Support Team
+maintains these modifications for internal customer-support workflows. All
+terms imposed by the original SIP Inspector license continue to apply. The
+following clarifications describe the changes and bundled dependencies:
+
+1. **Scope of Modifications**
+   - Updated branding, icons, and UI copy to "SIP Simulator".
+   - Added PCAP playback fixes (bundled 32-bit JPcap + JRE, Npcap integration).
+   - Added documentation (README_APP.txt, CHANGELOG.txt) and installer updates.
+
+2. **Distribution Terms**
+   - Redistribution is limited to the SIP Support Team and authorized partners
+     unless written consent is obtained from the original SIP Inspector author.
+   - Internal users must not resell or publicly redistribute the binaries.
+
+3. **Bundled Third-Party Components**
+   - **FlatLaf 3.2.5** – Apache License 2.0.
+   - **MigLayout 3.7.3.1 / 4.2** – BSD License.
+   - **JPcap** – GNU GPL; source available at https://github.com/evolium/jpcap.
+   - **Npcap** – https://npcap.com/ (Npcap OEM license terms apply when the
+     user installs the driver).
+   - **Oracle JRE 8u202 (32-bit)** – Oracle Binary Code License (see jre\LICENSE).
+
+4. **Warranty**
+   - SIP Simulator is provided "AS IS" without warranties. Use at your own
+     risk. For support, contact the SIP Support Team.
+
+For questions about this addendum, email support@sipsimulator.local.
