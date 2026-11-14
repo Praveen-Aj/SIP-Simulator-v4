@@ -236,7 +236,7 @@ public class AssertionUnitTest {
             "\n" +
             "----------\n";
             
-        File cleanLogFile = new File("logs/temp_clean_unit_test.log");
+        File cleanLogFile = new File(AppPaths.getLogsDir(), "temp_clean_unit_test.log");
         try (java.io.FileWriter fw = new java.io.FileWriter(cleanLogFile)) {
             fw.write(cleanLog);
         }
@@ -272,7 +272,7 @@ public class AssertionUnitTest {
             "2026-06-21 08:54:57.190 \n" +
             "2026-06-21 08:54:57.190 --- SIP MESSAGE END ---\n";
 
-        File debugLogFile = new File("logs/temp_debug_unit_test.log");
+        File debugLogFile = new File(AppPaths.getLogsDir(), "temp_debug_unit_test.log");
         try (java.io.FileWriter fw = new java.io.FileWriter(debugLogFile)) {
             fw.write(debugLog);
         }

@@ -221,7 +221,7 @@ public class SIPInspectorMainFrame
         File file;
         Object object;
         Object object2;
-        File file2 = new File("userSettings.xml");
+        File file2 = sipinspector.Utils.AppPaths.resolve("userSettings.xml");
         UserSettingsHandler userSettingsHandler = new UserSettingsHandler(this.settings);
         SAXParserFactory sAXParserFactory = SAXParserFactory.newInstance();
         try {
@@ -1728,7 +1728,7 @@ public class SIPInspectorMainFrame
         scenarioProgressDialog.setModalityType(Dialog.ModalityType.MODELESS);
         scenarioProgressDialog.spawnThreads();
         scenarioProgressDialog.setVisible(true);
-        WriteSettings writeSettings = new WriteSettings("userSettings.xml");
+        WriteSettings writeSettings = new WriteSettings(sipinspector.Utils.AppPaths.resolve("userSettings.xml").getAbsolutePath());
         writeSettings.writeToFile();
     }
 

@@ -102,6 +102,14 @@ public final class AppPaths {
     }
 
     /**
+     * Resets the cached application root so that dynamic discovery runs again.
+     * Useful for isolated testing or environment switching.
+     */
+    public static synchronized void resetCachedAppRoot() {
+        cachedAppRoot = null;
+    }
+
+    /**
      * Resolves a path relative to the application root.
      * Handles forward and backslashes portably.
      */

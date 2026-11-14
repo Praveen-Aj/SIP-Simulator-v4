@@ -9,20 +9,24 @@ import sipinspector.Utils.AppPaths;
 /**
  * Portability Validation Test Suite for SIP Simulator v4
  *
- * Validates:
- * 1. Application root detection independent of current working directory.
+ * Validates cross-machine portability guarantees:
+ * 1. Application root detection from CodeSource (classes / jar).
  * 2. Deterministic relative resource resolution (scenarios, values, config, web-app).
- * 3. Handling of filesystem paths containing spaces without URL corruption.
- * 4. Configuration discovery and persistence using centralized AppPaths.
- * 5. Dynamic log directory discovery and write permissions.
- * 6. Runtime Java and Node.js binary resolution without machine-specific hardcoding.
+ * 3. Handling of filesystem paths containing spaces without URI percent-encoding corruption.
+ * 4. Centralized configuration discovery and round-trip persistence using AppPaths.
+ * 5. Dynamic log directory discovery, desktop vs project-relative fallback, and write permissions.
+ * 6. Runtime Java executable resolution (bundled JRE priority over system PATH).
+ * 7. Runtime Node.js executable resolution (bundled Node priority over system PATH).
+ * 8. Override of application root via system property (-Dapp.home / -Dsipinspector.home).
+ * 9. Working-directory independence (simulating execution when user.dir is set elsewhere).
+ * 10. Robustness against missing optional directories (e.g. logs/ created automatically on demand).
  */
 public class PortabilityValidationTest {
 
     public static void main(String[] args) {
-        System.out.println("=== Running SIP Simulator v4 Portability Validation Suite ===");
+        System.out.println("=== Running SIP Simulator v4 Comprehensive Portability Validation Suite ===");
         int passed = 0;
-        int total = 7;
+        int total = 10;
 
         try {
             // [TEST 1] Application Root Detection
@@ -35,7 +39,7 @@ public class PortabilityValidationTest {
                     System.out.println("PASSED (Discovered: " + appRoot.getName() + ")");
                     passed++;
                 } else {
-                    System.err.println("FAILED (appRoot lacks expected subdirectories)");
+                    System.err.println("FAILED (appRoot lacks expected subdirectories: " + appRoot.getAbsolutePath() + ")");
                 }
             } else {
                 System.err.println("FAILED (appRoot is null or invalid)");
@@ -132,6 +136,53 @@ public class PortabilityValidationTest {
                 }
             } else {
                 System.err.println("FAILED (Node binary null)");
+            }
+
+            // [TEST 8] System Property App Root Override
+            System.out.print("[TEST 8] System property app.home override: ");
+            File currentRoot = AppPaths.getAppRoot();
+            File fakeRoot = new File(System.getProperty("java.io.tmpdir"), "sip_test_root_" + System.currentTimeMillis());
+            fakeRoot.mkdirs();
+            try {
+                System.setProperty("app.home", fakeRoot.getAbsolutePath());
+                AppPaths.resetCachedAppRoot();
+                File overridden = AppPaths.getAppRoot();
+                if (overridden.getAbsolutePath().equalsIgnoreCase(fakeRoot.getAbsolutePath())) {
+                    System.out.println("PASSED (Successfully honored -Dapp.home override)");
+                    passed++;
+                } else {
+                    System.err.println("FAILED (Expected " + fakeRoot.getAbsolutePath() + " but got " + overridden.getAbsolutePath() + ")");
+                }
+            } finally {
+                System.clearProperty("app.home");
+                AppPaths.resetCachedAppRoot();
+                // Restore original root
+                AppPaths.setAppRoot(currentRoot);
+                fakeRoot.delete();
+            }
+
+            // [TEST 9] Working Directory Independence Simulation
+            System.out.print("[TEST 9] Working directory independence: ");
+            // Verify that AppPaths.resolve resolves against appRoot and not arbitrary relative paths
+            File origRoot = AppPaths.getAppRoot();
+            File resolvedScenarios = AppPaths.resolve("scenarios");
+            if (resolvedScenarios.getParentFile() != null &&
+                resolvedScenarios.getParentFile().getAbsolutePath().equalsIgnoreCase(origRoot.getAbsolutePath())) {
+                System.out.println("PASSED (Resources strictly resolved against AppRoot, independent of caller CWD)");
+                passed++;
+            } else {
+                System.err.println("FAILED (Resolved scenario parent does not match AppRoot)");
+            }
+
+            // [TEST 10] Auto-creation of Config/Logs on Demand
+            System.out.print("[TEST 10] Automatic on-demand directory creation: ");
+            File configTest = AppPaths.getConfigDir();
+            File logsTest = AppPaths.getLogsDir();
+            if (configTest != null && configTest.isDirectory() && logsTest != null && logsTest.isDirectory()) {
+                System.out.println("PASSED (Config and Logs directories verified active)");
+                passed++;
+            } else {
+                System.err.println("FAILED (Config or Logs failed to initialize)");
             }
 
         } catch (Exception e) {

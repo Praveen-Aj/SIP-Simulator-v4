@@ -128,7 +128,7 @@ public class OfflineValidationSuite {
 
         test("ValuesLoader CSV and Semicolon Token Mapping", () -> {
             ValuesLoader loader = new ValuesLoader();
-            File tempVal = new File("values/temp_test_values_loader.txt");
+            File tempVal = new File(sipinspector.Utils.AppPaths.getValuesDir(), "temp_test_values_loader.txt");
             try (java.io.FileWriter fw = new java.io.FileWriter(tempVal)) {
                 fw.write("// Test values\n");
                 fw.write("70200;192.168.0.70;5060\n");

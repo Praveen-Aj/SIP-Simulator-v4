@@ -183,5 +183,5 @@ The following telecom features require a physical or virtual Alcatel-Lucent OXE 
    - *Target:* Decouple into distinct Controller and Service layers without altering existing UI behavior.
 
 3. **Inconsistent Logging Paths:**
-   - Traces are scattered between `<Desktop>/SIP Simulator logs/`, workspace `logs/`, and temporary system directories.
-   - *Target:* Centralize all log path resolution through `sipinspector.Utils.Settings`.
+   - Traces were previously scattered between `<Desktop>/SIP Simulator logs/`, workspace `logs/`, and temporary system directories.
+   - *Status (Phase 1A/1B):* **RESOLVED** via centralized `sipinspector.Utils.AppPaths.getLogsDir()` and `AppPaths.resolve()`, prioritizing desktop logs while providing automatic fallback to project-relative `logs/` for headless/server environments.
