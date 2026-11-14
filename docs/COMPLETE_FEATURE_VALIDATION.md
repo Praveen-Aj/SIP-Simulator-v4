@@ -3,7 +3,7 @@
 **Document Version:** 4.1.0-VALIDATION  
 **Date:** November 2026  
 **Auditor Roles:** Senior Java Desktop Application Developer, SIP Protocol Engineer & Telecom Testing Specialist  
-**Workspace:** `c:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4`  
+**Workspace:** `<repository-root>`  
 **Git Branch:** `stability/feature-validation`
 
 ---

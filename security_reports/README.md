@@ -110,7 +110,7 @@ Each document has detailed information:
 ## 📍 File Locations
 
 ```
-C:\Users\paruljot\Desktop\Praveen\workspace\oxe_ch-n4.524\CR\Praveen - Project works\SIP Simulator_v4\security_reports\
+security_reports/
 ├── README.md                               ← You are here
 ├── SECURITY_QUICK_SUMMARY.txt              ← Start here! (5 min read)
 ├── SECURITY_REPORT_EXECUTIVE_SUMMARY.md    ← For meetings (20 min read)

@@ -1,7 +1,7 @@
 # SIP Simulator Application - Comprehensive Security Review
 **Review Date:** 2026-08-01  
 **Application:** SIP Simulator v4 (Java Swing Desktop Application)  
-**Working Directory:** C:\Users\paruljot\Desktop\Praveen\workspace\oxe_ch-n4.524\CR\Praveen - Project works\SIP Simulator_v4
+**Working Directory:** `<repository-root>`
 
 ---
 

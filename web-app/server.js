@@ -37,7 +37,21 @@ function javaCp() {
     }
     return 'SIP_Simulator_v4.jar;lib/*';
 }
-const LOGS_DIR = path.join(os.homedir(), 'Desktop', 'SIP Simulator logs', 'UDP');
+
+// Portable logs directory resolution (checks standard Desktop, OneDrive redirected Desktop, and project-local logs)
+function resolveLogsDir(transport = 'UDP') {
+    const candidates = [
+        path.join(os.homedir(), 'Desktop', 'SIP Simulator logs', transport),
+        path.join(os.homedir(), 'OneDrive', 'Desktop', 'SIP Simulator logs', transport),
+        path.join(TRUNK_DIR, 'logs', transport)
+    ];
+    for (const c of candidates) {
+        if (fs.existsSync(c)) return c;
+    }
+    return candidates[0];
+}
+
+const LOGS_DIR = resolveLogsDir('UDP');
 
 // Active child processes tracker - strictly manages processes spawned by this Express server
 const activeProcesses = new Set();

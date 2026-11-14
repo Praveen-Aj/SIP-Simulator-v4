@@ -69,7 +69,7 @@ Each issue is classified with:
   ```
 - **Root Cause:**
   `TLSDebugLogger.java` and `SIPScenarioRunner.java` write runtime SIP trace logs to:
-  `C:\Users\<User>\Desktop\SIP Simulator logs\<TRANSPORT>\`
+  `<UserHome>/Desktop/SIP Simulator logs/<TRANSPORT>/`
   However, `web-app/server.js` in `/api/campaigns/export` expects logs to be located at `TRUNK_DIR/logs/<transport>` (which is empty in production).
 - **Impact:** Exported campaign HTML reports and PDF summaries have blank or missing SIP sequence diagrams, even though the tests executed successfully and logs were written to the desktop folder.
 - **Recommended Fix:**

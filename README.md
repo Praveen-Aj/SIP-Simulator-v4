@@ -47,6 +47,16 @@ SIP_Simulator_v4/
 
 ---
 
+## 📋 Development Standards & Portability
+
+All modifications to this repository must adhere to the permanent development policy defined in [docs/DEVELOPMENT_STANDARDS.md](docs/DEVELOPMENT_STANDARDS.md):
+- **Preserve Existing Functionality:** Working SIP execution, scenario parsing, and socket behavior must never suffer regressions.
+- **Zero Machine-Specific Paths:** All paths must resolve dynamically via `sipinspector.Utils.AppPaths` in Java or relative to `TRUNK_DIR` in Node.js.
+- **Java 8 & Windows Portability:** Strictly preserve `-source 1.8 -target 1.8` bytecode compatibility and no-admin execution.
+- **Pre-Commit Verification:** Run `build.bat`, `AssertionUnitTest`, `OfflineValidationSuite`, `DisplayScalingValidationTest`, and `PortabilityValidationTest` before committing.
+
+---
+
 ## 🛠️ Getting Started
 
 ### Requirements

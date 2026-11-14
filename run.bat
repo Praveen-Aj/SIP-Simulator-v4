@@ -7,6 +7,9 @@ echo Starting SIP Simulator v4 with Web Dashboard
 echo ========================================
 echo.
 
+REM Switch to project directory regardless of caller working directory
+cd /d "%~dp0"
+
 if exist "deployment\jre\bin\java.exe" (
     set "JAVA_CMD=deployment\jre\bin\java.exe"
 ) else (

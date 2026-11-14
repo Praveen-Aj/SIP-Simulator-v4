@@ -38,7 +38,7 @@ This document establishes the official **Regression Baseline** for SIP Simulator
 
 ### 3.1. Java Build Verification (`build.bat`)
 ```text
-C:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4>cmd /c build.bat
+> cmd /c build.bat
 Cleaning build directory...
 Compiling Java sources...
 Note: Some input files use or override a deprecated API.
@@ -51,7 +51,7 @@ Compilation completed successfully!
 
 ### 3.2. Assertion Engine Verification (`AssertionUnitTest`)
 ```text
-C:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4>java -cp "build;lib/*" sipinspector.Utils.AssertionUnitTest
+> java -cp "build;lib/*" sipinspector.Utils.AssertionUnitTest
 Running AssertionUnitTests...
 [TEST 1] Status Code Equals Assertion: PASSED
 [TEST 2] Status Code Mismatch: PASSED
@@ -67,7 +67,7 @@ AssertionUnitTests complete. Result: 8 passed, 0 failed.
 
 ### 3.3. Live Audio & SRTP Soak Validation (`LiveAudioSoakValidationMain`)
 ```text
-C:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4>java -cp "build;lib/*" sipinspector.Rtp.LiveAudioSoakValidationMain
+> java -cp "build;lib/*" sipinspector.Media.LiveAudioSoakValidationMain
 [SOAK] Starting LiveAudio rapid start/stop soak validation (5 cycles)...
 [CYCLE 1] Started. Running 500ms... Stopped.
 [CYCLE 2] Started. Running 500ms... Stopped.
@@ -84,7 +84,7 @@ RESULT cycles=5 start_failures=0 runtime_exceptions=0 remaining_liveaudio_thread
 
 ### 3.4. Offline Protocol Validation Suite (`test/OfflineValidationSuite`)
 ```text
-C:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4>java -cp "build;lib/*" test.OfflineValidationSuite
+> java -cp "build;lib/*" test.OfflineValidationSuite
 === Running SIP Simulator v4 Offline Protocol Validation Suite ===
 [TEST 1] G.711 A-law and PCMU roundtrip transcode: PASSED
 [TEST 2] G.722 wideband encoder/decoder state validation: PASSED
@@ -103,7 +103,7 @@ All 6 offline protocol validation tests PASSED successfully!
 
 ### 3.5. React Web Dashboard Compilation
 ```text
-C:\Users\Praveen\Downloads\Python Scripts\SIP Simulator_v4>npm --prefix web-app/client run build
+> npm --prefix web-app/client run build
 vite v6.4.1 building for production...
 transforming...
 ✓ 114 modules transformed.

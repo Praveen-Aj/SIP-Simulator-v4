@@ -2011,43 +2011,7 @@ public class SIPInspectorMainFrame
             }
         } catch (Exception ignore) {
         }
-        java.util.List<String> candidates = new java.util.ArrayList<>();
-        candidates.add("node" + File.separator + "node.exe");                  // bundled (installer)
-        candidates.add("web-app" + File.separator + "node" + File.separator + "node.exe");
-        String pf = System.getenv("ProgramFiles");
-        if (pf != null) {
-            candidates.add(pf + File.separator + "nodejs" + File.separator + "node.exe");
-        }
-        String pf86 = System.getenv("ProgramFiles(x86)");
-        if (pf86 != null) {
-            candidates.add(pf86 + File.separator + "nodejs" + File.separator + "node.exe");
-        }
-        String localAppData = System.getenv("LOCALAPPDATA");
-        if (localAppData != null) {
-            candidates.add(localAppData + File.separator + "Programs" + File.separator + "nodejs" + File.separator + "node.exe");
-        }
-        for (String c : candidates) {
-            File f = new File(c);
-            if (f.exists()) {
-                return f.getAbsolutePath();
-            }
-        }
-        // Last resort: search PATH directories explicitly rather than just
-        // returning the bare "node" and hoping the OS resolves it - this way
-        // a missing/misconfigured PATH is caught and logged here, instead of
-        // surfacing 8 seconds later as an unexplained "didn't start in time".
-        String path = System.getenv("PATH");
-        if (path != null) {
-            for (String dir : path.split(File.pathSeparator)) {
-                if (dir.trim().isEmpty()) continue;
-                File f = new File(dir.trim(), "node.exe");
-                if (f.exists()) {
-                    return f.getAbsolutePath();
-                }
-            }
-        }
-        System.err.println("[Dashboard] Could not find node.exe in any known install location or on PATH.");
-        return "node"; // let the OS make one final attempt; will surface as a clear error if it also fails
+        return sipinspector.Utils.AppPaths.getNodeExecutable();
     }
 
     private void launchWebDashboard() {
@@ -2061,7 +2025,7 @@ public class SIPInspectorMainFrame
 
         // Start the web server in the background
         try {
-            File webAppDir = new File("web-app");
+            File webAppDir = sipinspector.Utils.AppPaths.getWebAppDir();
             if (!webAppDir.exists() || !new File(webAppDir, "server.js").exists()) {
                 JOptionPane.showMessageDialog(this,
                         "Web app not found. Expected 'web-app/server.js' in the application directory.",

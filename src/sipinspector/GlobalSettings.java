@@ -220,10 +220,16 @@ public class GlobalSettings {
     }
 
     static public void setSetting(String key, String value) {
+        if (KeyWordsMap == null) {
+            KeyWordsMap = new HashMap<String, String>();
+        }
         KeyWordsMap.put(key, value);
     }
 
     static public String getSetting(String key) {
+        if (KeyWordsMap == null) {
+            return null;
+        }
         return KeyWordsMap.get(key);
     }
 
@@ -246,7 +252,7 @@ public class GlobalSettings {
 
     static private String AuthPassword = null;
 
-    static HashMap<String, String> KeyWordsMap;
+    static HashMap<String, String> KeyWordsMap = new HashMap<String, String>();
 
     static private String LocalIPAddr = null;
 
@@ -296,16 +302,19 @@ public class GlobalSettings {
 
     static public boolean isInitialInvite = false;
 
-    // Settings persistence
-    private static final String SETTINGS_FILE = "config/settings.properties";
+    // Settings persistence (centrally and portably resolved via AppPaths)
+    private static File getSettingsFile() {
+        return sipinspector.Utils.AppPaths.getConfigFile("settings.properties");
+    }
 
     /**
      * Save settings to persistent storage (file)
      */
     static public void saveSettings() {
         try {
-            File configDir = new File("config");
-            if (!configDir.exists()) {
+            File settingsFile = getSettingsFile();
+            File configDir = settingsFile.getParentFile();
+            if (configDir != null && !configDir.exists()) {
                 configDir.mkdirs();
             }
 
@@ -339,7 +348,7 @@ public class GlobalSettings {
             if (getSetting("window.y") != null) props.setProperty("window.y", getSetting("window.y"));
             if (getSetting("window.maximized") != null) props.setProperty("window.maximized", getSetting("window.maximized"));
 
-            FileOutputStream fos = new FileOutputStream(SETTINGS_FILE);
+            FileOutputStream fos = new FileOutputStream(settingsFile);
             props.store(fos, "SIP Simulator Settings");
             fos.close();
         } catch (IOException e) {
@@ -352,13 +361,13 @@ public class GlobalSettings {
      */
     static public void loadSettings() {
         try {
-            File settingsFile = new File(SETTINGS_FILE);
+            File settingsFile = getSettingsFile();
             if (!settingsFile.exists()) {
                 return; // No saved settings yet
             }
 
             Properties props = new Properties();
-            FileInputStream fis = new FileInputStream(SETTINGS_FILE);
+            FileInputStream fis = new FileInputStream(settingsFile);
             props.load(fis);
             fis.close();
 

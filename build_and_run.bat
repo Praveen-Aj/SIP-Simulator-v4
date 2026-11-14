@@ -7,6 +7,9 @@ echo ========================================
 echo BUILD AND RUN - SIP Simulator
 echo ========================================
 
+REM Switch to project directory regardless of caller working directory
+cd /d "%~dp0"
+
 echo Stripping UTF-8 BOMs (if any) from SIPInspectorMainFrame.java...
 python -c "from pathlib import Path; p=Path('src/sipinspector/SIPInspectorMainFrame.java'); data=p.read_bytes(); cleaned=data.lstrip(b'\xef\xbb\xbf'); changed=data!=cleaned; print('Removed BOM from SIPInspectorMainFrame.java' if changed else 'No BOM detected in SIPInspectorMainFrame.java'); p.write_bytes(cleaned) if changed else None"
 

@@ -6,6 +6,9 @@ echo ========================================
 echo SIP Inspector Build Script
 echo ========================================
 
+REM Switch to project directory regardless of caller working directory
+cd /d "%~dp0"
+
 REM Clean build directory
 echo Cleaning build directory...
 if exist build rmdir /s /q build

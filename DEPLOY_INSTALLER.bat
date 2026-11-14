@@ -64,9 +64,12 @@ echo ========================================
 echo STEP 4/5: Setting Up Inno Setup
 echo ========================================
 
-set INNO_PATH="C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-if not exist %INNO_PATH% (
-    set INNO_PATH="C:\Program Files\Inno Setup 6\ISCC.exe"
+set INNO_PATH="%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
+if not exist %INNO_PATH% if defined ProgramFiles(x86) (
+    set INNO_PATH="%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+)
+if not exist %INNO_PATH% if defined ProgramFiles (
+    set INNO_PATH="%ProgramFiles%\Inno Setup 6\ISCC.exe"
 )
 
 if not exist %INNO_PATH% (
