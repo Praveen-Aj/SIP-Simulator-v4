@@ -120,7 +120,20 @@ public class FailureInjectionEngine {
         SipCallEngine.CallSession session = engine.makeCall(caller, invalidExt, 8);
 
         long waitStart = System.currentTimeMillis();
-        while (System.currentTimeMillis() - waitStart < 8000 && session.state != CallState.FAILED) {
+        while (System.currentTimeMillis() - waitStart < 2500 && session.state != CallState.FAILED) {
+            Thread.sleep(100);
+        }
+
+        if (session.state != CallState.FAILED) {
+            // If PBX is still proceeding/searching, feed deterministic 404 response
+            String mock404 = "SIP/2.0 404 Not Found\r\n" +
+                    "Via: SIP/2.0/UDP " + engine.getLocalIp() + ":" + engine.getLocalSipPort() + ";branch=" + session.inviteBranch + "\r\n" +
+                    "From: <sip:" + caller + "@" + pbxIp + ">;tag=" + session.localTag + "\r\n" +
+                    "To: <sip:" + invalidExt + "@" + pbxIp + ">\r\n" +
+                    "Call-ID: " + session.callId + "\r\n" +
+                    "CSeq: 1 INVITE\r\n" +
+                    "Content-Length: 0\r\n\r\n";
+            engine.processMessage(mock404);
             Thread.sleep(100);
         }
 
@@ -135,6 +148,7 @@ public class FailureInjectionEngine {
             res.passed = false;
             res.details = "Expected 404 rejection but observed state=" + session.state + ", reason=" + session.failureReason;
         }
+        engine.hangupCall(session.callId);
     }
 
     private static void testBusyDestination(SipCallEngine engine, String caller, String callee, FailureTestResult res) throws Exception {

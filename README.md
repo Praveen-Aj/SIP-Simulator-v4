@@ -43,6 +43,13 @@ Version 4 achieves full feature parity between the primary Java Desktop Client a
    * Controlled failure injection framework: automated testing for 404/488 invalid destination, 486 busy/reject, 408 timeout, CANCEL, and remote BYE with zero resource leakage.
    * Interactive Performance Dashboard in React UI and REST API (`/api/perf/*`, `/api/health`).
 
+6. **🏆 Live Performance Qualification & Operational Hardening (Phase 6)**
+   * **Live OXE PBX Concurrency Qualification:** Multi-call testing against physical Alcatel-Lucent OmniPCX Enterprise (OXE R101.1) and MicroSIP. Verified PBX single-line policy (`488 Not Acceptable Here`, `cause=488;text="Outgoing call isn't allowed here"`) while maintaining 100% dialog and media isolation on active calls.
+   * **Advanced Campaign Metrics:** Setup latency percentiles (min, avg, p50, p95, p99, max), SIP response code distribution map, and achieved CPS throughput.
+   * **Refined ITU-T G.107 E-Model:** Explicit one-way mouth-to-ear delay ($10\text{ms} + 20\text{ms} + 2 \times \text{jitter}$) with G.711 PLC calibration.
+   * **Dual HTML & JSON Reporting:** Automatic styled HTML reports (`logs/perf_campaigns/*.html`) and raw JSON metrics, served via `/api/perf/reports/:filename`.
+   * **Automated Regression Suites:** `run_offline_tests.bat` executing 11 suites (67 unit/integration tests, 100% PASS in 12.2s) and `run_oxe_live_tests.bat` executing live PBX stages.
+
 ---
 
 ## 📂 Project Structure
@@ -99,6 +106,8 @@ java -Djava.library.path=lib -cp "SIP_Simulator_v4.jar;lib/*" sipinspector.Main
 Or use the convenience scripts:
 * `run.bat` - Standard launch.
 * `run_with_udp_debug.bat` - Runs Java with stdout diagnostic streams.
+* `run_offline_tests.bat` - Runs the comprehensive offline regression master harness (11 test suites, 67 tests).
+* `run_oxe_live_tests.bat` - Runs the live 3-stage OXE PBX concurrency and policy qualification suite.
 
 Once the Java Swing UI opens, go to **Tools → Launch Web Dashboard** to automatically launch the browser at `http://localhost:3001`.
 

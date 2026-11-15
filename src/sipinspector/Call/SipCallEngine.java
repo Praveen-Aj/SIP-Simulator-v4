@@ -333,7 +333,16 @@ public class SipCallEngine {
     }
 
     public List<CallSession> getActiveCalls() {
-        return new ArrayList<>(activeSessions.values());
+        Set<CallSession> unique = new LinkedHashSet<>(activeSessions.values());
+        return new ArrayList<>(unique);
+    }
+
+    public void registerCallSession(CallSession session) {
+        if (session != null && session.callId != null) {
+            activeSessions.put(session.callId, session);
+            String pfx = normalizeCallId(session.callId);
+            if (!pfx.isEmpty()) activeSessions.put(pfx, session);
+        }
     }
 
     /**
@@ -597,9 +606,25 @@ public class SipCallEngine {
      * Terminate an established call using BYE.
      */
     public synchronized boolean hangupCall(String callId) throws Exception {
-        CallSession session = activeSessions.get(callId);
+        CallSession session = getCallSession(callId);
         if (session == null) {
             return false;
+        }
+
+        if (session.state == CallState.CALLING || session.state == CallState.RINGING || session.state == CallState.PROCEEDING) {
+            try {
+                cancelCall(session.callId);
+            } catch (Exception ignored) {}
+            stopMediaForSession(session);
+            session.setState(CallState.TERMINATED);
+            cleanupSessionMaps(session, callId);
+            return true;
+        }
+
+        if (session.state == CallState.FAILED || session.state == CallState.TERMINATED) {
+            stopMediaForSession(session);
+            cleanupSessionMaps(session, callId);
+            return true;
         }
 
         session.setState(CallState.TERMINATING);
@@ -634,18 +659,26 @@ public class SipCallEngine {
         bye.append("User-Agent: SIP Simulator v4\r\n");
         bye.append("Content-Length: 0\r\n\r\n");
 
-        MyPacket pkt = new MyPacket(bye.toString());
-        pkt.setAddress(InetAddress.getByName(pbxIp));
-        pkt.setPort(pbxSipPort);
-        signalingSocket.send(pkt);
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(bye.toString());
+            pkt.setAddress(InetAddress.getByName(pbxIp));
+            pkt.setPort(pbxSipPort);
+            signalingSocket.send(pkt);
+        }
 
         stopMediaForSession(session);
         session.setState(CallState.TERMINATED);
-        activeSessions.remove(callId);
-        activeSessions.remove(session.callId);
-        String pfx = normalizeCallId(session.callId);
-        if (!pfx.isEmpty()) activeSessions.remove(pfx);
+        cleanupSessionMaps(session, callId);
         return true;
+    }
+
+    private void cleanupSessionMaps(CallSession session, String callId) {
+        if (callId != null) activeSessions.remove(callId);
+        if (session != null && session.callId != null) {
+            activeSessions.remove(session.callId);
+            String pfx = normalizeCallId(session.callId);
+            if (!pfx.isEmpty()) activeSessions.remove(pfx);
+        }
     }
 
     /**
@@ -824,6 +857,31 @@ public class SipCallEngine {
         }
     }
 
+    /**
+     * Process a raw SIP message directly (used for offline deterministic testing and protocol simulation).
+     */
+    public void processMessage(String msg) {
+        if (msg == null || msg.trim().isEmpty()) return;
+        try {
+            MyPacket pkt = new MyPacket(msg);
+            String callId = SIPParser.getCallID(msg);
+            String rawCallId = SIPParser.getHeaderValue(msg, "Call-ID", "i");
+            if (rawCallId != null) rawCallId = rawCallId.trim();
+
+            CallSession session = getCallSession(callId);
+            if (session == null && rawCallId != null) {
+                session = getCallSession(rawCallId);
+            }
+
+            boolean isRequest = SIPParser.isMsgRequest(msg);
+            if (isRequest) {
+                handleIncomingRequest(pkt, msg, callId, rawCallId, session);
+            } else {
+                handleIncomingResponse(pkt, msg, callId, rawCallId, session);
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void checkPendingTransactions() {
         long now = System.currentTimeMillis();
         for (CallSession session : new ArrayList<>(activeSessions.values())) {
@@ -918,8 +976,8 @@ public class SipCallEngine {
                 stopMediaForSession(session);
                 session.failureReason = "487 Request Terminated (Cancelled)";
                 session.setState(CallState.FAILED);
-                activeSessions.remove(callId);
-                if (rawCallId != null) activeSessions.remove(rawCallId);
+                cleanupSessionMaps(session, callId);
+                if (rawCallId != null) cleanupSessionMaps(session, rawCallId);
             }
         } else if ("BYE".equals(method)) {
             if (session != null) {
@@ -928,8 +986,8 @@ public class SipCallEngine {
                 } catch (Exception ignored) {}
                 stopMediaForSession(session);
                 session.setState(CallState.TERMINATED);
-                activeSessions.remove(callId);
-                if (rawCallId != null) activeSessions.remove(rawCallId);
+                cleanupSessionMaps(session, callId);
+                if (rawCallId != null) cleanupSessionMaps(session, rawCallId);
             } else {
                 try {
                     sendOkForByeWithoutSession(msg);
@@ -1003,8 +1061,9 @@ public class SipCallEngine {
                 if (cseq != null && (cseq.toUpperCase().contains("INVITE") || cseq.toUpperCase().contains("CANCEL"))) {
                     sendNon2xxAck(session, msg);
                 }
-                activeSessions.remove(callId);
-                if (rawCallId != null) activeSessions.remove(rawCallId);
+                stopMediaForSession(session);
+                cleanupSessionMaps(session, callId);
+                if (rawCallId != null) cleanupSessionMaps(session, rawCallId);
             }
         }
     }

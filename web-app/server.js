@@ -1551,6 +1551,19 @@ app.post('/api/call/cancel', async (req, res) => {
 // 12. Start Performance Campaign
 app.post('/api/perf/start', async (req, res) => {
     try {
+        const { totalCalls, maxConcurrent, callsPerSecond, durationSeconds } = req.body || {};
+        if (totalCalls !== undefined && (typeof totalCalls !== 'number' || totalCalls < 1 || totalCalls > 1000)) {
+            return res.status(400).json({ error: 'totalCalls must be between 1 and 1000' });
+        }
+        if (maxConcurrent !== undefined && (typeof maxConcurrent !== 'number' || maxConcurrent < 1 || maxConcurrent > 50)) {
+            return res.status(400).json({ error: 'maxConcurrent must be between 1 and 50' });
+        }
+        if (callsPerSecond !== undefined && (typeof callsPerSecond !== 'number' || callsPerSecond <= 0 || callsPerSecond > 100)) {
+            return res.status(400).json({ error: 'callsPerSecond must be between 0.1 and 100' });
+        }
+        if (durationSeconds !== undefined && (typeof durationSeconds !== 'number' || durationSeconds < 1 || durationSeconds > 3600)) {
+            return res.status(400).json({ error: 'durationSeconds must be between 1 and 3600' });
+        }
         await ensureCallEngineDaemon();
         const resp = await requestDaemon('POST', '/api/perf/start', req.body);
         res.status(resp.status).json(resp.data);
@@ -1587,6 +1600,31 @@ app.get('/api/perf/results', async (req, res) => {
         await ensureCallEngineDaemon();
         const resp = await requestDaemon('GET', '/api/perf/results');
         res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 15.1. Download/View Performance Report (JSON or HTML)
+app.get('/api/perf/reports/:filename', (req, res) => {
+    try {
+        const filename = req.params.filename;
+        if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+            return res.status(400).json({ error: 'Invalid filename' });
+        }
+        const reportPath = path.join(TRUNK_DIR, 'logs', 'perf_campaigns', filename);
+        if (!fs.existsSync(reportPath)) {
+            return res.status(404).json({ error: 'Report not found' });
+        }
+        if (filename.endsWith('.html')) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.sendFile(reportPath);
+        } else if (filename.endsWith('.json')) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.sendFile(reportPath);
+        } else {
+            return res.status(400).json({ error: 'Unsupported file format' });
+        }
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

@@ -204,3 +204,30 @@ flowchart TD
 | **Phase 3** | **Feature Completeness & Polish** | **P2** | PKCS#1 PEM support, bounded jitter buffer, Re-INVITE state tracking. | **COMPLETED** |
 | **Phase 4** | **Production Call Engine & Audio Management** | **P0** | Full SIP dialog engine, live bidirectional audio, dual WAV recording, OXE two-endpoint integration. | **COMPLETED** |
 | **Phase 5** | **Performance, Multi-Call & Compliance** | **P0** | Multi-call orchestration, CPS rate control, Timer A/B, CANCEL, ITU-T MOS, failure injection, web dashboard. | **COMPLETED** |
+| **Phase 6** | **Live Performance Qualification & Operational Hardening** | **P0** | Live concurrent OXE qualification, G.107 one-way delay refinement, p50/p95/p99 latency metrics, HTML reporting, offline regression harness. | **COMPLETED** |
+
+---
+
+## 8. Phase 6: Live Performance Qualification, Campaign Validation & Operational Hardening (Priority: P0)
+
+**Status:** **COMPLETED & VALIDATED**
+
+### Key Accomplishments
+1. **Live Concurrent OXE Qualification (`test.OxeLiveConcurrentCallTest`):**
+   - Stage 1: Single live call baseline verified (Simulator 90008 -> MicroSIP 90001, bidirectional PCMA PT=8, MOS=4.39 pristine).
+   - Stage 2: Two concurrent live calls against OXE PBX. Verified independent Call-IDs and collision-free even RTP ports (42002 and 42004).
+   - OXE Concurrency Boundary Qualification: Identified that OmniPCX Enterprise R101.1 n4.524.2 enforces single-line outgoing profile (`SIP/2.0 488 Not Acceptable Here`, `Reason: SIP;cause=488;text="Outgoing call isn't allowed here"`).
+   - Dialog Isolation: Verified Call 1 maintained established dialog, live audio streaming, and zero jitter interruption during Call 2 rejection.
+   - Stage 3: Zero resource leaks verified post-test (0 open sockets, 0 active receivers, 0 active senders, 0 active calls).
+2. **Enhanced Performance Campaign Engine (`PerformanceTestEngine.java`):**
+   - Added setup latency percentiles: min, avg, median (p50), 95th percentile (p95), 99th percentile (p99), and max.
+   - Added real-time SIP response-code distribution map (`responseCodeDistribution`) tracking 100, 180, 200, 486, 488, 404, 408 codes.
+   - Added achieved CPS calculation: $CPS = \text{calls} / (\text{durationSec})$.
+   - Automated human-readable HTML performance report generation (`logs/perf_campaigns/campaign_<timestamp>.html`) alongside machine-readable JSON.
+3. **ITU-T E-Model G.107 MOS Refinement (`LiveAudioController.java`):**
+   - Refined one-way delay calculation: explicit propagation delay (10ms) + packetization delay (20ms) + jitter buffer delay ($2 \times \text{jitter}$).
+   - Parameterized Appendix I PLC robustness ($B_{pl} = 19.0$) and validated boundary clamping ($R \le 0 \implies \text{MOS} = 1.0$, $R \ge 100 \implies \text{MOS} = 4.5$).
+4. **Master Offline Regression Harness & Script (`run_offline_tests.bat` / `OfflineFullRegressionSuite.java`):**
+   - Single command executing 11 test suites covering 67 individual tests with 100% pass rate in ~12 seconds.
+5. **Separate Live OXE Test Harness (`run_oxe_live_tests.bat`):**
+   - Dedicated runner executing live PBX two-endpoint call and concurrent qualification with zero manual intervention.

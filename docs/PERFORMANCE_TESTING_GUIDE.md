@@ -108,8 +108,8 @@ $$R = R_0 - I_s - I_d - I_{e,\text{eff}} + A$$
 ### 5.1 Parameter Definitions
 - **$R_0$ (Basic Signal-to-Noise Ratio):** Default $93.2$ for narrowband (G.711 PCMA/PCMU).
 - **$I_s$ (Simultaneous Impairment):** Default $0$.
-- **$I_d$ (Delay Impairment):** Derived from estimated one-way delay:
-  $$\text{Delay} = 20\text{ ms (network)} + 2 \times \text{Jitter (ms)}$$
+- **$I_d$ (Delay Impairment):** Derived from estimated one-way mouth-to-ear delay:
+  $$\text{Delay} = 10\text{ ms (network propagation)} + 20\text{ ms (packetization)} + 2 \times \text{Jitter (ms)} = 30\text{ ms} + 2 \times \text{Jitter (ms)}$$
   $$\text{If Delay} > 177.3\text{ ms:} \quad I_d = 0.024 \times \text{Delay} + 0.11 \times (\text{Delay} - 177.3)$$
   $$\text{Else:} \quad I_d = 0.024 \times \text{Delay}$$
 - **$I_{e,\text{eff}}$ (Effective Equipment Impairment):**
@@ -168,7 +168,8 @@ The embedded daemon exposes these endpoints on port `5065` (proxied by the Expre
   ```
 - **`POST /api/perf/stop`**: Aborts running campaign and systematically hangs up active calls.
 - **`GET /api/perf/status`**: Returns real-time campaign progress, active metrics, and latest results.
-- **`GET /api/perf/results`**: Lists historical campaign JSON reports saved in `logs/perf_campaigns/`.
+- **`GET /api/perf/results`**: Lists historical campaign reports (both `.json` and `.html`) saved in `logs/perf_campaigns/`.
+- **`GET /api/perf/reports/:filename`**: Streams a generated JSON result or renders a styled HTML campaign performance report directly in the browser.
 
 ### Protocol & Anomaly Injection
 - **`POST /api/perf/failure-test`**
@@ -187,7 +188,59 @@ The embedded daemon exposes these endpoints on port `5065` (proxied by the Expre
 
 ---
 
-## 8. Safety & Live PBX Protection Guidelines
+## 8. Campaign Metrics & HTML Reporting
+
+The performance engine captures high-resolution metrics across both signaling and media domains:
+
+### 8.1 Signaling Latency Percentiles
+Call setup latency (INVITE transmission to 200 OK receipt) is analyzed and reported with full distribution statistics:
+- **Minimum & Maximum Latency:** Bound extremes of network propagation.
+- **Average (Arithmetic Mean):** Overall setup latency baseline.
+- **Median (p50):** 50th percentile setup latency.
+- **p95 & p99 Latencies:** 95th and 99th percentile tail latencies for SLA verification.
+
+### 8.2 SIP Response Code Distribution
+Every final and provisional response received during a campaign is recorded in a distribution frequency map:
+- `200`: Successful call establishments
+- `486`: User busy / call declined
+- `408`: Transaction timeout
+- `488`: PBX media or channel limit policy rejection
+
+### 8.3 Achieved CPS (Calls Per Second)
+The true throughput of the campaign is measured directly:
+$$\text{Achieved CPS} = \frac{\text{Total Calls Completed}}{\text{Elapsed Campaign Time (seconds)}}$$
+
+### 8.4 Dual Report Generation
+Upon campaign completion, the engine atomically writes two files to `<APP_ROOT>/logs/perf_campaigns/`:
+1. `perf_report_<timestamp>.json`: Complete machine-readable telemetry dataset for automated CI/CD pipelines.
+2. `perf_report_<timestamp>.html`: Self-contained, styled HTML report featuring KPI cards (MOS, CPS, Latency, Loss, Jitter), latency distribution table, SIP response code breakdown, and per-call stream details.
+
+---
+
+## 9. Automated Test Runner Scripts
+
+To facilitate routine qualification without manual UI interaction, two standalone batch runners are provided:
+
+### 9.1 Offline Regression Runner (`run_offline_tests.bat`)
+Executes the comprehensive 11-suite master regression harness (`test.OfflineFullRegressionSuite`):
+```cmd
+run_offline_tests.bat
+```
+- **Requirements:** Java 8+ on PATH or bundled JRE.
+- **Coverage:** Core assertions, codecs (G.711/G.722), SRTP, dynamic paths, high-DPI scaling, TCP framer, multi-call orchestration, SIP transaction reliability, failure recovery, campaign metrics, and ITU-T G.107 MOS calculation.
+- **Network Dependency:** Zero (100% offline).
+
+### 9.2 Live OXE PBX Concurrency Runner (`run_oxe_live_tests.bat`)
+Executes the live 3-stage OXE PBX qualification suite (`test.OxeLiveConcurrentCallTest`):
+```cmd
+run_oxe_live_tests.bat
+```
+- **Requirements:** OXE PBX reachable at `192.168.0.20:5060`, MicroSIP running on extension `90001`.
+- **Validation:** Stage 1 baseline call, Stage 2 concurrent call and OXE policy verification, Stage 3 zero-leak audit.
+
+---
+
+## 10. Safety & Live PBX Protection Guidelines
 
 When conducting tests against a production OXE PBX:
 1. **Never exceed safe concurrency limits:** Keep concurrent calls $\le 5$ channels unless authorized.

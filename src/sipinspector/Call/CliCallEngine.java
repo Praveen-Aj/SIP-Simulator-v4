@@ -621,20 +621,25 @@ public class CliCallEngine {
             public void handle(HttpExchange exchange) throws IOException {
                 if (handleCors(exchange)) return;
                 File dir = new File(AppPaths.getLogsDir(), "perf_campaigns");
-                List<String> files = new ArrayList<>();
+                List<String> jsonFiles = new ArrayList<>();
+                List<String> htmlFiles = new ArrayList<>();
                 if (dir.exists() && dir.isDirectory()) {
                     File[] list = dir.listFiles();
                     if (list != null) {
                         for (File f : list) {
                             if (f.getName().endsWith(".json")) {
-                                files.add(f.getName());
+                                jsonFiles.add(f.getName());
+                            } else if (f.getName().endsWith(".html")) {
+                                htmlFiles.add(f.getName());
                             }
                         }
                     }
                 }
-                Collections.sort(files, Collections.reverseOrder());
+                Collections.sort(jsonFiles, Collections.reverseOrder());
+                Collections.sort(htmlFiles, Collections.reverseOrder());
                 Map<String, Object> resp = new LinkedHashMap<>();
-                resp.put("reports", files);
+                resp.put("reports", jsonFiles);
+                resp.put("htmlReports", htmlFiles);
                 sendJsonResponse(exchange, 200, toJson(resp));
             }
         });

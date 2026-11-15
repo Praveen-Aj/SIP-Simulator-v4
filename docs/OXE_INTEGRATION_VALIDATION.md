@@ -408,3 +408,50 @@ In Phase 4, the test scaffolding was formalized into a permanent, production-gra
    PHASE 4 PRODUCTION ENGINE VALIDATION RESULTS: 8 / 8 PASSED (100%)
 ================================================================================
 ```
+
+---
+
+## 8. Phase 6 Live Concurrent Call & Policy Qualification
+
+In Phase 6, SIP Simulator v4 was subjected to live concurrent multi-call qualification against the Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) and MicroSIP 3.22.16 endpoint.
+
+### 8.1 Test Topology & Configuration
+- **OXE Call Server:** `192.168.0.20:5060` (UDP)
+- **Local Host:** `192.168.0.8` (auto-resolved by OS routing table)
+- **Simulator Endpoint A:** Extension `90008`
+- **MicroSIP Endpoint B:** Extension `90001`
+- **Runner Script:** `run_oxe_live_tests.bat`
+- **Harness:** `test.OxeLiveConcurrentCallTest`
+
+### 8.2 Three-Stage Live Qualification Methodology
+1. **Stage 1 (Single Call Baseline):** Establish Call 1, verify bidirectional media streaming (PCMA PT=8), assess packet transmission, compute real-time G.107 MOS score.
+2. **Stage 2 (Concurrent Call Attempt & Policy Verification):** While Call 1 remains active, initiate Call 2 from the same simulator extension `90008` to MicroSIP `90001` using an independent RTP port and unique Call-ID. Verify dialog separation and observe PBX admission behavior.
+3. **Stage 3 (Graceful Teardown & Resource Audit):** Hang up Call 1, verify clean transaction completion, deregister extension `90008`, and confirm zero leaked threads, sessions, or sockets.
+
+### 8.3 Live Signalling Trace & OXE Policy Discovery
+During Stage 2, when Call 2 was initiated while Call 1 was established, the OXE PBX responded with:
+```sip
+SIP/2.0 488 Not Acceptable Here
+To: <sip:90001@192.168.0.20>;tag=32eaee6ffb822bb2b45e786b3a0e6981
+From: "90008" <sip:90008@192.168.0.20>;tag=tag1794700012345
+Call-ID: call2_1794700012345@192.168.0.8
+CSeq: 1 INVITE
+Via: SIP/2.0/UDP 192.168.0.8:5060;received=192.168.0.8;branch=z9hG4bKinv1794700012345_2;rport=5060
+Reason: SIP;cause=488;text="Outgoing call isn't allowed here"
+User-Agent: Alcatel-Lucent Enterprise OXE R101.1 n4.524.2
+Content-Length: 0
+```
+
+### 8.4 Findings & Key Verification Criteria
+1. **OXE Single-Line Subscriber Policy Enforcement:**
+   The OXE subscriber profile for extension `90008` restricts the line to a single simultaneous outgoing call. OXE rejects subsequent outgoing call attempts with `488 Not Acceptable Here` (`cause=488;text="Outgoing call isn't allowed here"`).
+2. **Dialog State & Media Isolation:**
+   `SipCallEngine` correctly dispatched the `488 Not Acceptable Here` response solely to Call 2's session, automatically returned a non-2xx `ACK`, and transitioned Call 2 to `FAILED`.
+   **Call 1 remained completely unaffected in `ESTABLISHED` state.** Audio playback and recording on Call 1's RTP port (42002) continued with zero interruption, zero dropped packets, and stable MOS of 4.39.
+3. **Post-Test Resource Audit:**
+   Following Call 1 teardown (via BYE -> 200 OK) and deregistration (Expires: 0 -> 200 OK), an audit verified:
+   - Active Call Sessions: 0
+   - Open Media Sockets: 0
+   - Leaked Threads: 0
+
+```

@@ -632,10 +632,19 @@ public class LiveAudioController {
 
     /**
      * ITU-T E-model G.107 MOS calculation.
-     * Computes R-factor based on delay (derived from jitter) and packet loss %,
+     * Computes R-factor based on delay (derived from 10ms propagation + 20ms packetization + 2*jitter)
+     * and packet loss % with Bpl=19.0 (G.711 with Appendix I PLC),
      * then transforms R into MOS on a 1.0 to 4.5 scale.
      */
     public static double calculateMos(double packetLossPercent, double jitterMs) {
+        return calculateMos(packetLossPercent, jitterMs, -1.0);
+    }
+
+    /**
+     * Overloaded ITU-T E-model G.107 MOS calculation with explicit one-way delay (ms).
+     * If oneWayDelayMs < 0, delay is estimated as: 10ms (propagation) + 20ms (packetization) + 2 * jitterMs.
+     */
+    public static double calculateMos(double packetLossPercent, double jitterMs, double oneWayDelayMs) {
         if (packetLossPercent < 0) packetLossPercent = 0;
         if (packetLossPercent > 100) packetLossPercent = 100;
         if (jitterMs < 0) jitterMs = 0;
@@ -643,8 +652,15 @@ public class LiveAudioController {
         // Base R-factor for G.711 / standard narrowband
         double r0 = 93.2;
 
-        // Delay impairment Id: estimated one-way delay = typical network delay (20ms) + 2 * jitter
-        double delay = 20.0 + 2.0 * jitterMs;
+        // One-way delay: propagation (10ms) + packetization (20ms) + jitter buffer delay (2 * jitter)
+        double delay;
+        if (oneWayDelayMs >= 0) {
+            delay = oneWayDelayMs;
+        } else {
+            delay = 10.0 + 20.0 + (2.0 * jitterMs);
+        }
+
+        // Delay impairment Id
         double id = 0.0;
         if (delay > 177.3) {
             id = 0.024 * delay + 0.11 * (delay - 177.3);

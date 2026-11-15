@@ -223,14 +223,41 @@ Each issue is classified with:
 
 ### ISSUE-011: Real-Time RTP Quality Analysis & ITU-T E-Model G.107 MOS Calculation
 - **Severity:** **P2 (Medium)**
-- **Status:** **RESOLVED in Phase 5**
+- **Status:** **RESOLVED in Phase 5 & 6**
 - **File:** `src/sipinspector/Media/LiveAudioReceiverThread.java`, `src/sipinspector/Media/LiveAudioController.java`
 - **Root Cause:**
   RTP receiver metrics previously lacked sequence discontinuity tracking, duplicate packet counts, out-of-order packet tracking, and standardized Mean Opinion Score (MOS) computation.
 - **Resolution:**
   1. Implemented RFC 3550 sequence difference arithmetic in `LiveAudioReceiverThread.validateRxRtp`.
-  2. Implemented ITU-T E-model G.107 transmission rating factor $R$ calculation with Appendix I PLC parameterization ($B_{pl} = 19.0$) and $R \to \text{MOS}$ transformation.
-  3. Validated with `test.PerformanceCampaignEngineTest` across ideal, moderate, severe, and extreme network degradation profiles.
+  2. Implemented ITU-T E-model G.107 transmission rating factor $R$ calculation with Appendix I PLC parameterization ($B_{pl} = 19.0$) and explicit one-way delay separation ($d = 10\text{ms} + 20\text{ms} + 2 \times \text{jitter}$).
+  3. Overloaded `calculateMos` supporting explicit one-way delay injection and validated boundary clamping ($R \le 0 \implies \text{MOS} = 1.0$, $R \ge 100 \implies \text{MOS} = 4.5$).
+  4. Validated with `test.PerformanceCampaignEngineTest` across ideal, moderate, severe, and extreme network degradation profiles.
+
+---
+
+### ISSUE-012: PBX Single-Line Outgoing Policy Enforcement on Live OXE Extension
+- **Severity:** **P2 (Telecom Specific / Informational)**
+- **Status:** **VERIFIED & QUALIFIED in Phase 6**
+- **File:** `test/OxeLiveConcurrentCallTest.java`
+- **Root Cause:**
+  When initiating a second simultaneous outbound call from extension 90008 to extension 90001 while Call 1 was active and streaming audio, Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) returned `SIP/2.0 488 Not Acceptable Here` with `Reason: SIP;cause=488;text="Outgoing call isn't allowed here"`.
+- **Resolution & Qualification:**
+  1. Identified that OXE PBX subscriber profile for extension 90008 enforces single-line outgoing concurrency.
+  2. Verified dialog isolation in `SipCallEngine`: Call 1 maintained established dialog, active audio, and zero jitter interruption during Call 2 rejection.
+  3. Validated clean teardown and post-test zero resource leakage in `test.OxeLiveConcurrentCallTest`.
+
+---
+
+### ISSUE-013: Map Multi-Key Cleanup in Active Session Registry
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 6**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`
+- **Root Cause:**
+  `activeSessions` stores entries by both full Call-ID (`call<N>_<ts>@<ip>`) and prefix (`call<N>_<ts>`). When teardown occurred through asynchronous responses or CANCEL, deleting one key without the other left ghost sessions in `activeSessions`, skewing `getActiveCalls()` count.
+- **Resolution:**
+  1. Centralized cleanup into `cleanupSessionMaps(session, callId)`, removing normalized prefix, full ID, and original call ID atomically.
+  2. Updated `getActiveCalls()` to deduplicate sessions using `LinkedHashSet<CallSession>`.
+  3. Verified in `test.ActiveCampaignFailureRecoveryTest` and `test.OfflineFullRegressionSuite` (zero lingering calls).
 
 ---
 

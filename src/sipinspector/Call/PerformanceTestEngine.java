@@ -60,6 +60,7 @@ public class PerformanceTestEngine {
         public long setupLatencyMs;
         public long durationMs;
         public String state;
+        public String responseCode = "";
         public String failureReason;
         public long txPackets;
         public long rxPackets;
@@ -78,6 +79,7 @@ public class PerformanceTestEngine {
             m.put("setupLatencyMs", setupLatencyMs);
             m.put("durationMs", durationMs);
             m.put("state", state);
+            m.put("responseCode", responseCode);
             m.put("failureReason", failureReason);
             m.put("txPackets", txPackets);
             m.put("rxPackets", rxPackets);
@@ -137,7 +139,11 @@ public class PerformanceTestEngine {
         public double minSetupLatencyMs = 0;
         public double avgSetupLatencyMs = 0;
         public double maxSetupLatencyMs = 0;
+        public double p50SetupLatencyMs = 0;
         public double p95SetupLatencyMs = 0;
+        public double p99SetupLatencyMs = 0;
+        public double achievedCps = 0.0;
+        public Map<String, Integer> responseCodeDistribution = new ConcurrentHashMap<>();
 
         public double minDurationSeconds = 0;
         public double avgDurationSeconds = 0;
@@ -163,6 +169,12 @@ public class PerformanceTestEngine {
         public List<CallMetric> callMetrics = new CopyOnWriteArrayList<>();
         public List<SoakSnapshot> soakSnapshots = new CopyOnWriteArrayList<>();
 
+        public synchronized void recordResponseCode(String code) {
+            if (code == null || code.trim().isEmpty()) code = "UNKNOWN";
+            Integer count = responseCodeDistribution.get(code);
+            responseCodeDistribution.put(code, count == null ? 1 : count + 1);
+        }
+
         public Map<String, Object> toMap() {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("campaignName", campaignName);
@@ -172,12 +184,16 @@ public class PerformanceTestEngine {
             m.put("totalSuccessful", totalSuccessful);
             m.put("totalFailed", totalFailed);
             m.put("successRatePercent", Math.round(successRatePercent * 100.0) / 100.0);
+            m.put("achievedCps", achievedCps);
+            m.put("responseCodeDistribution", new LinkedHashMap<>(responseCodeDistribution));
 
             Map<String, Object> lat = new LinkedHashMap<>();
             lat.put("minMs", Math.round(minSetupLatencyMs * 100.0) / 100.0);
             lat.put("avgMs", Math.round(avgSetupLatencyMs * 100.0) / 100.0);
-            lat.put("maxMs", Math.round(maxSetupLatencyMs * 100.0) / 100.0);
+            lat.put("p50Ms", Math.round(p50SetupLatencyMs * 100.0) / 100.0);
             lat.put("p95Ms", Math.round(p95SetupLatencyMs * 100.0) / 100.0);
+            lat.put("p99Ms", Math.round(p99SetupLatencyMs * 100.0) / 100.0);
+            lat.put("maxMs", Math.round(maxSetupLatencyMs * 100.0) / 100.0);
             m.put("setupLatency", lat);
 
             Map<String, Object> rtp = new LinkedHashMap<>();
@@ -458,9 +474,10 @@ public class PerformanceTestEngine {
         SipCallEngine engine = SipCallEngine.getInstance();
         CallMetric metric = new CallMetric();
         metric.startTimeMs = System.currentTimeMillis();
+        SipCallEngine.CallSession session = null;
 
         try {
-            SipCallEngine.CallSession session = engine.makeCall(currentConfig.caller, currentConfig.callee, currentConfig.payloadType);
+            session = engine.makeCall(currentConfig.caller, currentConfig.callee, currentConfig.payloadType);
             metric.callId = session.callId;
             activeCampaignCallIds.add(session.callId);
 
@@ -523,6 +540,18 @@ public class PerformanceTestEngine {
             metric.failureReason = ex.getMessage();
         } finally {
             if (metric.callId != null) activeCampaignCallIds.remove(metric.callId);
+            if (session != null && session.lastResponseCode != null) {
+                metric.responseCode = session.lastResponseCode;
+            } else if ("ESTABLISHED".equals(metric.state) || "TERMINATED".equals(metric.state)) {
+                metric.responseCode = "200";
+            } else if ("REJECTED".equals(metric.state) || (metric.failureReason != null && metric.failureReason.contains("486"))) {
+                metric.responseCode = "486";
+            } else if ("FAILED".equals(metric.state)) {
+                metric.responseCode = "500";
+            } else {
+                metric.responseCode = "408";
+            }
+            currentResult.recordResponseCode(metric.responseCode);
             currentResult.callMetrics.add(metric);
             currentResult.totalAttempted++;
             if ("ESTABLISHED".equals(metric.state) || "TERMINATED".equals(metric.state)) {
@@ -537,9 +566,10 @@ public class PerformanceTestEngine {
         SipCallEngine engine = SipCallEngine.getInstance();
         CallMetric metric = new CallMetric();
         metric.startTimeMs = System.currentTimeMillis();
+        SipCallEngine.CallSession session = null;
 
         try {
-            SipCallEngine.CallSession session = engine.makeCall(currentConfig.caller, currentConfig.callee, currentConfig.payloadType);
+            session = engine.makeCall(currentConfig.caller, currentConfig.callee, currentConfig.payloadType);
             metric.callId = session.callId;
             activeCampaignCallIds.add(session.callId);
 
@@ -580,6 +610,18 @@ public class PerformanceTestEngine {
             metric.failureReason = ex.getMessage();
         } finally {
             if (metric.callId != null) activeCampaignCallIds.remove(metric.callId);
+            if (session != null && session.lastResponseCode != null) {
+                metric.responseCode = session.lastResponseCode;
+            } else if ("ESTABLISHED".equals(metric.state) || "TERMINATED".equals(metric.state)) {
+                metric.responseCode = "200";
+            } else if ("REJECTED".equals(metric.state) || (metric.failureReason != null && metric.failureReason.contains("486"))) {
+                metric.responseCode = "486";
+            } else if ("FAILED".equals(metric.state)) {
+                metric.responseCode = "500";
+            } else {
+                metric.responseCode = "408";
+            }
+            currentResult.recordResponseCode(metric.responseCode);
             currentResult.callMetrics.add(metric);
             currentResult.totalAttempted++;
             if ("ESTABLISHED".equals(metric.state) || "TERMINATED".equals(metric.state)) {
@@ -672,6 +714,10 @@ public class PerformanceTestEngine {
         currentResult.avgJitterMs = metricCount > 0 ? sumJitter / metricCount : 0.0;
         currentResult.overallMosScore = metricCount > 0 ? sumMos / metricCount : 4.5;
 
+        if (currentResult.totalDurationMs > 0) {
+            currentResult.achievedCps = Math.round(((double) currentResult.totalAttempted / (currentResult.totalDurationMs / 1000.0)) * 100.0) / 100.0;
+        }
+
         if (!latencies.isEmpty()) {
             Collections.sort(latencies);
             currentResult.minSetupLatencyMs = latencies.get(0);
@@ -679,8 +725,12 @@ public class PerformanceTestEngine {
             long sum = 0;
             for (Long l : latencies) sum += l;
             currentResult.avgSetupLatencyMs = (double) sum / latencies.size();
+            int p50Idx = (int) Math.ceil(latencies.size() * 0.50) - 1;
+            currentResult.p50SetupLatencyMs = latencies.get(Math.max(0, Math.min(p50Idx, latencies.size() - 1)));
             int p95Idx = (int) Math.ceil(latencies.size() * 0.95) - 1;
             currentResult.p95SetupLatencyMs = latencies.get(Math.max(0, Math.min(p95Idx, latencies.size() - 1)));
+            int p99Idx = (int) Math.ceil(latencies.size() * 0.99) - 1;
+            currentResult.p99SetupLatencyMs = latencies.get(Math.max(0, Math.min(p99Idx, latencies.size() - 1)));
         }
 
         if (!durations.isEmpty()) {
@@ -706,12 +756,142 @@ public class PerformanceTestEngine {
             pw.println(mapToJson(res.toMap(), 0));
             pw.close();
 
+            File htmlFile = new File(dir, "campaign_" + timeStamp + ".html");
+            PrintWriter pwHtml = new PrintWriter(new FileWriter(htmlFile));
+            pwHtml.println(generateHtmlReport(res));
+            pwHtml.close();
+
             if (TLSDebugLogger.isEnabled()) {
-                TLSDebugLogger.logf("[PERF ENGINE] Campaign report saved to: %s", jsonFile.getAbsolutePath());
+                TLSDebugLogger.logf("[PERF ENGINE] Campaign reports saved: JSON=%s, HTML=%s",
+                        jsonFile.getAbsolutePath(), htmlFile.getAbsolutePath());
             }
         } catch (Exception ex) {
             System.err.println("Failed to save campaign report: " + ex.getMessage());
         }
+    }
+
+    private static String generateHtmlReport(CampaignResult res) {
+        StringBuilder sb = new StringBuilder();
+        String dateStr = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(res.startTimeMs));
+        sb.append("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n");
+        sb.append("<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+        sb.append("<title>SIP Performance Campaign Report - ").append(escapeHtml(res.campaignName)).append("</title>\n");
+        sb.append("<style>\n");
+        sb.append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }\n");
+        sb.append(".container { max-width: 1200px; margin: 0 auto; }\n");
+        sb.append("h1, h2, h3 { color: #38bdf8; margin-top: 0; }\n");
+        sb.append(".header { background: #1e293b; padding: 24px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #334155; }\n");
+        sb.append(".grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }\n");
+        sb.append(".card { background: #1e293b; padding: 16px; border-radius: 8px; border: 1px solid #334155; }\n");
+        sb.append(".card .title { font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }\n");
+        sb.append(".card .value { font-size: 1.8rem; font-weight: bold; margin-top: 8px; color: #f1f5f9; }\n");
+        sb.append(".card .sub { font-size: 0.8rem; color: #64748b; margin-top: 4px; }\n");
+        sb.append(".section { background: #1e293b; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #334155; }\n");
+        sb.append("table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }\n");
+        sb.append("th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #334155; }\n");
+        sb.append("th { background: #0f172a; color: #94a3b8; font-weight: 600; }\n");
+        sb.append("tr:hover { background: #243248; }\n");
+        sb.append(".badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }\n");
+        sb.append(".badge-success { background: #065f46; color: #34d399; }\n");
+        sb.append(".badge-danger { background: #7f1d1d; color: #f87171; }\n");
+        sb.append(".badge-info { background: #075985; color: #38bdf8; }\n");
+        sb.append(".badge-warning { background: #78350f; color: #fbbf24; }\n");
+        sb.append("</style>\n</head>\n<body>\n<div class=\"container\">\n");
+
+        // Header
+        sb.append("<div class=\"header\">\n");
+        sb.append("  <h1>SIP Performance Campaign Report</h1>\n");
+        sb.append("  <p style=\"color: #94a3b8; margin: 4px 0;\">Campaign: <strong style=\"color:#fff;\">").append(escapeHtml(res.campaignName)).append("</strong> | Mode: <span class=\"badge badge-info\">").append(res.mode).append("</span> | Generated: ").append(dateStr).append("</p>\n");
+        sb.append("</div>\n");
+
+        // KPI Grid
+        sb.append("<div class=\"grid\">\n");
+        sb.append("  <div class=\"card\"><div class=\"title\">Total Attempted</div><div class=\"value\">").append(res.totalAttempted).append("</div><div class=\"sub\">Duration: ").append(res.totalDurationMs).append(" ms</div></div>\n");
+        sb.append("  <div class=\"card\"><div class=\"title\">Success Rate</div><div class=\"value\" style=\"color:").append(res.successRatePercent >= 95 ? "#34d399" : "#f87171").append(";\">").append(Math.round(res.successRatePercent * 10.0) / 10.0).append("%</div><div class=\"sub\">").append(res.totalSuccessful).append(" ok / ").append(res.totalFailed).append(" failed</div></div>\n");
+        sb.append("  <div class=\"card\"><div class=\"title\">Achieved CPS</div><div class=\"value\">").append(res.achievedCps).append("</div><div class=\"sub\">Calls per second</div></div>\n");
+        sb.append("  <div class=\"card\"><div class=\"title\">Overall MOS Score</div><div class=\"value\" style=\"color:").append(res.overallMosScore >= 4.0 ? "#34d399" : (res.overallMosScore >= 3.0 ? "#fbbf24" : "#f87171")).append(";\">").append(Math.round(res.overallMosScore * 100.0) / 100.0).append("</div><div class=\"sub\">ITU-T G.107 E-Model</div></div>\n");
+        sb.append("</div>\n");
+
+        // Latency & SIP Distribution
+        sb.append("<div class=\"grid\">\n");
+        sb.append("  <div class=\"section\" style=\"margin-bottom:0;\">\n");
+        sb.append("    <h3>Signaling Latency (ms)</h3>\n");
+        sb.append("    <table>\n");
+        sb.append("      <tr><th>Metric</th><th>Latency (ms)</th></tr>\n");
+        sb.append("      <tr><td>Minimum Setup Latency</td><td>").append(Math.round(res.minSetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("      <tr><td>Average Setup Latency</td><td>").append(Math.round(res.avgSetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("      <tr><td>Median Setup Latency (p50)</td><td>").append(Math.round(res.p50SetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("      <tr><td>95th Percentile (p95)</td><td>").append(Math.round(res.p95SetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("      <tr><td>99th Percentile (p99)</td><td>").append(Math.round(res.p99SetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("      <tr><td>Maximum Setup Latency</td><td>").append(Math.round(res.maxSetupLatencyMs)).append(" ms</td></tr>\n");
+        sb.append("    </table>\n");
+        sb.append("  </div>\n");
+
+        sb.append("  <div class=\"section\" style=\"margin-bottom:0;\">\n");
+        sb.append("    <h3>SIP Response Distribution & Resources</h3>\n");
+        sb.append("    <table>\n");
+        sb.append("      <tr><th>Response Code</th><th>Count</th></tr>\n");
+        for (Map.Entry<String, Integer> e : res.responseCodeDistribution.entrySet()) {
+            String badgeCls = e.getKey().startsWith("2") ? "badge-success" : (e.getKey().startsWith("1") ? "badge-info" : "badge-danger");
+            sb.append("      <tr><td><span class=\"badge ").append(badgeCls).append("\">").append(escapeHtml(e.getKey())).append("</span></td><td>").append(e.getValue()).append("</td></tr>\n");
+        }
+        sb.append("    </table>\n");
+        sb.append("    <h4 style=\"margin-top:16px; margin-bottom:4px; color:#94a3b8;\">JVM Resource Usage</h4>\n");
+        sb.append("    <p style=\"font-size:0.85rem; color:#cbd5e1; margin:4px 0;\">Heap Memory: ").append(res.memoryUsedMbStart).append(" MB &rarr; ").append(res.memoryUsedMbEnd).append(" MB | Active Threads: ").append(res.threadCountStart).append(" &rarr; ").append(res.threadCountEnd).append("</p>\n");
+        sb.append("  </div>\n");
+        sb.append("</div>\n");
+
+        // Media Statistics
+        sb.append("<div class=\"section\">\n");
+        sb.append("  <h3>RTP Media Quality & Impairments</h3>\n");
+        sb.append("  <table>\n");
+        sb.append("    <tr><th>TX Packets</th><th>RX Packets</th><th>Lost Packets</th><th>Loss Rate</th><th>Avg Jitter</th><th>Max Jitter</th><th>Duplicates</th><th>Out-of-Order</th><th>One-Way Audio</th></tr>\n");
+        sb.append("    <tr>\n");
+        sb.append("      <td>").append(res.totalTxPackets).append("</td>\n");
+        sb.append("      <td>").append(res.totalRxPackets).append("</td>\n");
+        sb.append("      <td>").append(res.totalLostPackets).append("</td>\n");
+        sb.append("      <td>").append(Math.round(res.overallLossRatePercent * 100.0) / 100.0).append("%</td>\n");
+        sb.append("      <td>").append(Math.round(res.avgJitterMs * 100.0) / 100.0).append(" ms</td>\n");
+        sb.append("      <td>").append(Math.round(res.maxJitterMs * 100.0) / 100.0).append(" ms</td>\n");
+        sb.append("      <td>").append(res.totalDuplicates).append("</td>\n");
+        sb.append("      <td>").append(res.totalOutOfOrder).append("</td>\n");
+        sb.append("      <td>").append(res.oneWayAudioCount).append("</td>\n");
+        sb.append("    </tr>\n");
+        sb.append("  </table>\n");
+        sb.append("</div>\n");
+
+        // Detailed Call Metrics Table
+        sb.append("<div class=\"section\">\n");
+        sb.append("  <h3>Individual Call Metrics</h3>\n");
+        sb.append("  <table>\n");
+        sb.append("    <tr><th>#</th><th>Call-ID</th><th>State</th><th>Code</th><th>Setup Latency</th><th>Duration</th><th>TX</th><th>RX</th><th>Loss %</th><th>Jitter</th><th>MOS</th></tr>\n");
+        int idx = 1;
+        for (CallMetric c : res.callMetrics) {
+            sb.append("    <tr>\n");
+            sb.append("      <td>").append(idx++).append("</td>\n");
+            sb.append("      <td style=\"font-family:monospace; font-size:0.8rem;\">").append(escapeHtml(c.callId)).append("</td>\n");
+            String stBadge = "TERMINATED".equals(c.state) || "ESTABLISHED".equals(c.state) ? "badge-success" : "badge-danger";
+            sb.append("      <td><span class=\"badge ").append(stBadge).append("\">").append(c.state).append("</span></td>\n");
+            sb.append("      <td>").append(escapeHtml(c.responseCode)).append("</td>\n");
+            sb.append("      <td>").append(c.setupLatencyMs).append(" ms</td>\n");
+            sb.append("      <td>").append(c.durationMs).append(" ms</td>\n");
+            sb.append("      <td>").append(c.txPackets).append("</td>\n");
+            sb.append("      <td>").append(c.rxPackets).append("</td>\n");
+            sb.append("      <td>").append(c.lossRatePercent).append("%</td>\n");
+            sb.append("      <td>").append(c.jitterMs).append(" ms</td>\n");
+            sb.append("      <td style=\"font-weight:bold;\">").append(c.mosScore).append("</td>\n");
+            sb.append("    </tr>\n");
+        }
+        sb.append("  </table>\n");
+        sb.append("</div>\n");
+
+        sb.append("</div>\n</body>\n</html>\n");
+        return sb.toString();
+    }
+
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
     @SuppressWarnings("unchecked")
