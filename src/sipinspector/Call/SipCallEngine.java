@@ -58,10 +58,33 @@ public class SipCallEngine {
 
     private final Map<String, CallSession> activeSessions = new ConcurrentHashMap<>();
     private final AtomicInteger nextRtpPort = new AtomicInteger(42000);
+    private final java.util.concurrent.atomic.AtomicLong callSeq = new java.util.concurrent.atomic.AtomicLong(0);
 
     public enum CallDirection {
         OUTBOUND,
         INBOUND
+    }
+
+    /**
+     * Resolves the active local IP towards the given remote target using the OS routing table.
+     */
+    public static String resolveLocalIpTowards(String remoteIp) {
+        if (remoteIp == null || remoteIp.trim().isEmpty()) {
+            remoteIp = "192.168.0.20";
+        }
+        try {
+            java.net.DatagramSocket s = new java.net.DatagramSocket();
+            s.connect(InetAddress.getByName(remoteIp.trim()), 5060);
+            InetAddress addr = s.getLocalAddress();
+            s.close();
+            if (addr != null && !addr.isAnyLocalAddress() && !addr.isLoopbackAddress()) {
+                return addr.getHostAddress();
+            }
+        } catch (Exception ignored) {}
+        try {
+            return InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception ignored) {}
+        return "127.0.0.1";
     }
 
     /**
@@ -97,6 +120,16 @@ public class SipCallEngine {
         public long startTimeMs = System.currentTimeMillis();
         public long establishedTimeMs = 0;
         public long endTimeMs = 0;
+        public long setupTimeMs = 0;
+
+        // Transaction timers and retry tracking
+        public String rawInviteMsg = null;
+        public long lastInviteTransmitMs = 0;
+        public int inviteRetransmitIntervalMs = 500;
+        public long inviteTimeoutMs = 16000;
+        public String failureReason = null;
+        public String targetIp = null;
+        public int targetPort = 5060;
 
         // Pending response synchronization
         public final Object lock = new Object();
@@ -152,6 +185,8 @@ public class SipCallEngine {
             m.put("txWavPath", txWavPath);
             m.put("rxWavPath", rxWavPath);
             m.put("durationSeconds", establishedTimeMs > 0 ? (System.currentTimeMillis() - establishedTimeMs) / 1000L : 0);
+            m.put("setupTimeMs", setupTimeMs);
+            m.put("failureReason", failureReason);
 
             if (mediaController != null) {
                 m.put("mediaStats", mediaController.getStats());
@@ -173,13 +208,35 @@ public class SipCallEngine {
             return true;
         }
 
-        this.localIp = (localIp != null && !localIp.trim().isEmpty()) ? localIp.trim() : "192.168.0.9";
-        this.localSipPort = localSipPort > 0 ? localSipPort : 5060;
         this.pbxIp = (pbxIp != null && !pbxIp.trim().isEmpty()) ? pbxIp.trim() : "192.168.0.20";
         this.pbxSipPort = pbxSipPort > 0 ? pbxSipPort : 5060;
+        this.localSipPort = localSipPort > 0 ? localSipPort : 5060;
+
+        String candidateIp = (localIp != null && !localIp.trim().isEmpty() && !"auto".equalsIgnoreCase(localIp.trim()))
+                ? localIp.trim() : resolveLocalIpTowards(this.pbxIp);
 
         try {
-            signalingSocket = new UDPClientSocket(InetAddress.getByName(this.localIp), this.localSipPort);
+            signalingSocket = new UDPClientSocket(InetAddress.getByName(candidateIp), this.localSipPort);
+            this.localIp = candidateIp;
+        } catch (Exception e) {
+            String autoIp = resolveLocalIpTowards(this.pbxIp);
+            if (!autoIp.equals(candidateIp)) {
+                try {
+                    signalingSocket = new UDPClientSocket(InetAddress.getByName(autoIp), this.localSipPort);
+                    this.localIp = autoIp;
+                } catch (Exception ex2) {
+                    System.err.println("SipCallEngine start failed on fallback " + autoIp + ": " + ex2.getMessage());
+                    running = false;
+                    return false;
+                }
+            } else {
+                System.err.println("SipCallEngine start failed on " + candidateIp + ": " + e.getMessage());
+                running = false;
+                return false;
+            }
+        }
+
+        try {
             running = true;
 
             listenerThread = new Thread(new Runnable() {
@@ -341,31 +398,45 @@ public class SipCallEngine {
      * Initiate an outbound call (INVITE) to callee.
      */
     public synchronized CallSession makeCall(String caller, String callee, int requestedPt) throws Exception {
+        return makeCall(caller, callee, requestedPt, this.pbxIp, this.pbxSipPort);
+    }
+
+    public synchronized CallSession makeCall(String caller, String callee, int requestedPt, String targetIp, int targetPort) throws Exception {
         if (!running) {
             startEngine(localIp, localSipPort, pbxIp, pbxSipPort);
         }
 
+        if (targetIp == null || targetIp.trim().isEmpty()) targetIp = this.pbxIp;
+        if (targetPort <= 0) targetPort = this.pbxSipPort;
+
         int rtpPort = allocateRtpPort();
-        String callPrefix = "call" + (System.currentTimeMillis() % 10000000);
+        long seqNum = callSeq.incrementAndGet();
+        String callPrefix = "call" + seqNum + "_" + System.currentTimeMillis();
         String fullCallId = callPrefix + "@" + localIp;
         CallSession session = new CallSession(fullCallId, CallDirection.OUTBOUND, caller, callee, rtpPort);
+        session.targetIp = targetIp;
+        session.targetPort = targetPort;
         session.payloadType = requestedPt > 0 ? requestedPt : 8;
         session.codecName = LiveAudioCodec.isSupported(requestedPt) ?
                 LiveAudioCodec.create(requestedPt).rtpmapName() : "PCMA";
+        session.startTimeMs = System.currentTimeMillis();
+        session.lastInviteTransmitMs = session.startTimeMs;
+        session.inviteRetransmitIntervalMs = 500;
+        session.inviteTimeoutMs = 16000;
 
         activeSessions.put(fullCallId, session);
         activeSessions.put(callPrefix, session);
         session.setState(CallState.CALLING);
 
         String sdpOffer = buildSdpOffer(localIp, rtpPort, session.payloadType);
-        session.inviteBranch = "z9hG4bKinv" + System.currentTimeMillis();
+        session.inviteBranch = "z9hG4bKinv" + System.currentTimeMillis() + "_" + seqNum;
 
         String inviteMsg =
-                "INVITE sip:" + callee + "@" + pbxIp + " SIP/2.0\r\n" +
+                "INVITE sip:" + callee + "@" + targetIp + " SIP/2.0\r\n" +
                 "Via: SIP/2.0/UDP " + localIp + ":" + localSipPort + ";rport;branch=" + session.inviteBranch + "\r\n" +
                 "Max-Forwards: 70\r\n" +
-                "From: \"" + caller + "\" <sip:" + caller + "@" + pbxIp + ">;tag=" + session.localTag + "\r\n" +
-                "To: \"" + callee + "\" <sip:" + callee + "@" + pbxIp + ">\r\n" +
+                "From: \"" + caller + "\" <sip:" + caller + "@" + targetIp + ">;tag=" + session.localTag + "\r\n" +
+                "To: \"" + callee + "\" <sip:" + callee + "@" + targetIp + ">\r\n" +
                 "Call-ID: " + fullCallId + "\r\n" +
                 "CSeq: " + session.cseq + " INVITE\r\n" +
                 "Contact: \"" + caller + "\" <sip:" + caller + "@" + localIp + ":" + localSipPort + ";transport=udp>\r\n" +
@@ -376,14 +447,16 @@ public class SipCallEngine {
                 "Content-Length: " + sdpOffer.getBytes().length + "\r\n\r\n" +
                 sdpOffer;
 
+        session.rawInviteMsg = inviteMsg;
+
         MyPacket pkt = new MyPacket(inviteMsg);
-        pkt.setAddress(InetAddress.getByName(pbxIp));
-        pkt.setPort(pbxSipPort);
+        pkt.setAddress(InetAddress.getByName(targetIp));
+        pkt.setPort(targetPort);
         signalingSocket.send(pkt);
 
         if (TLSDebugLogger.isEnabled()) {
-            TLSDebugLogger.logf("[CALL ENGINE] INVITE sent for call %s (%s -> %s, PT=%d)",
-                    fullCallId, caller, callee, session.payloadType);
+            TLSDebugLogger.logf("[CALL ENGINE] INVITE sent for call %s (%s -> %s, PT=%d, Target=%s:%d)",
+                    fullCallId, caller, callee, session.payloadType, targetIp, targetPort);
         }
 
         return session;
@@ -575,6 +648,38 @@ public class SipCallEngine {
         return true;
     }
 
+    /**
+     * Cancel a pending outbound call using CANCEL prior to 200 OK.
+     */
+    public synchronized boolean cancelCall(String callId) throws Exception {
+        CallSession session = getCallSession(callId);
+        if (session == null || (session.state != CallState.CALLING && session.state != CallState.RINGING && session.state != CallState.PROCEEDING)) {
+            return false;
+        }
+
+        session.setState(CallState.TERMINATING);
+        StringBuilder cancel = new StringBuilder();
+        cancel.append("CANCEL sip:").append(session.callee).append("@").append(pbxIp).append(" SIP/2.0\r\n");
+        cancel.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=").append(session.inviteBranch).append("\r\n");
+        cancel.append("Max-Forwards: 70\r\n");
+        cancel.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+        cancel.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">\r\n");
+        cancel.append("Call-ID: ").append(session.callId).append("\r\n");
+        cancel.append("CSeq: ").append(session.cseq).append(" CANCEL\r\n");
+        cancel.append("User-Agent: SIP Simulator v4\r\n");
+        cancel.append("Content-Length: 0\r\n\r\n");
+
+        MyPacket pkt = new MyPacket(cancel.toString());
+        pkt.setAddress(InetAddress.getByName(pbxIp));
+        pkt.setPort(pbxSipPort);
+        signalingSocket.send(pkt);
+
+        if (TLSDebugLogger.isEnabled()) {
+            TLSDebugLogger.logf("[CALL ENGINE] CANCEL sent for call %s", session.callId);
+        }
+        return true;
+    }
+
     private void sendReInvite(CallSession session, String sdp) throws Exception {
         String targetUri = session.remoteContact != null ? session.remoteContact : ("sip:" + (session.direction == CallDirection.OUTBOUND ? session.callee : session.caller) + "@" + pbxIp);
         if (targetUri.startsWith("<") && targetUri.contains(">")) {
@@ -688,6 +793,7 @@ public class SipCallEngine {
     private void listenLoop() {
         while (running && signalingSocket != null) {
             try {
+                checkPendingTransactions();
                 MyPacket packet = signalingSocket.receive();
                 if (packet == null || packet.getMessageTxt() == null || packet.getMessageTxt().trim().isEmpty()) {
                     continue;
@@ -713,6 +819,42 @@ public class SipCallEngine {
             } catch (Exception e) {
                 if (running) {
                     // loop continues
+                }
+            }
+        }
+    }
+
+    private void checkPendingTransactions() {
+        long now = System.currentTimeMillis();
+        for (CallSession session : new ArrayList<>(activeSessions.values())) {
+            if (session.direction == CallDirection.OUTBOUND && session.state == CallState.CALLING) {
+                // Check Timer B (timeout)
+                if (now - session.startTimeMs >= session.inviteTimeoutMs) {
+                    session.failureReason = "408 Request Timeout";
+                    session.lastResponseCode = "408";
+                    session.setState(CallState.FAILED);
+                    synchronized (session.lock) {
+                        session.lock.notifyAll();
+                    }
+                    if (TLSDebugLogger.isEnabled()) {
+                        TLSDebugLogger.logf("[CALL ENGINE] Timer B expired for call %s: 408 Request Timeout", session.callId);
+                    }
+                } else if (session.rawInviteMsg != null && (now - session.lastInviteTransmitMs) >= session.inviteRetransmitIntervalMs) {
+                    // Timer A retransmission
+                    try {
+                        MyPacket pkt = new MyPacket(session.rawInviteMsg);
+                        pkt.setAddress(InetAddress.getByName(session.targetIp != null ? session.targetIp : pbxIp));
+                        pkt.setPort(session.targetPort > 0 ? session.targetPort : pbxSipPort);
+                        signalingSocket.send(pkt);
+                        session.lastInviteTransmitMs = now;
+                        session.inviteRetransmitIntervalMs = Math.min(session.inviteRetransmitIntervalMs * 2, 4000);
+                        if (TLSDebugLogger.isEnabled()) {
+                            TLSDebugLogger.logf("[CALL ENGINE] Timer A retransmitted INVITE for call %s (next interval %d ms)",
+                                    session.callId, session.inviteRetransmitIntervalMs);
+                        }
+                    } catch (Exception ex) {
+                        // ignore send failure in timer
+                    }
                 }
             }
         }
@@ -765,6 +907,20 @@ public class SipCallEngine {
                 System.err.println("Error sending ringing: " + ex.getMessage());
             }
 
+        } else if ("CANCEL".equals(method)) {
+            try {
+                sendOkForCancel(pkt, msg);
+            } catch (Exception ignored) {}
+            if (session != null) {
+                try {
+                    sendRequestTerminated487(session);
+                } catch (Exception ignored) {}
+                stopMediaForSession(session);
+                session.failureReason = "487 Request Terminated (Cancelled)";
+                session.setState(CallState.FAILED);
+                activeSessions.remove(callId);
+                if (rawCallId != null) activeSessions.remove(rawCallId);
+            }
         } else if ("BYE".equals(method)) {
             if (session != null) {
                 try {
@@ -774,6 +930,10 @@ public class SipCallEngine {
                 session.setState(CallState.TERMINATED);
                 activeSessions.remove(callId);
                 if (rawCallId != null) activeSessions.remove(rawCallId);
+            } else {
+                try {
+                    sendOkForByeWithoutSession(msg);
+                } catch (Exception ignored) {}
             }
         } else if ("ACK".equals(method)) {
             if (session != null && session.state != CallState.ESTABLISHED) {
@@ -810,25 +970,41 @@ public class SipCallEngine {
 
                     parseSdpBody(session, msg);
 
-                    session.setState(CallState.ESTABLISHED);
-                    try {
-                        sendAck(session);
-                    } catch (Exception ignored) {}
+                    if (session.state != CallState.ESTABLISHED) {
+                        session.setupTimeMs = System.currentTimeMillis() - session.startTimeMs;
+                        session.setState(CallState.ESTABLISHED);
+                        try {
+                            sendAck(session);
+                        } catch (Exception ignored) {}
 
-                    if (!session.isOnHold) {
-                        startMediaForSession(session);
+                        if (!session.isOnHold) {
+                            startMediaForSession(session);
+                        }
+                    } else {
+                        // Duplicate 200 OK - retransmit ACK
+                        try {
+                            sendAck(session);
+                        } catch (Exception ignored) {}
                     }
                 } else if (cseq != null && cseq.toUpperCase().contains("BYE")) {
                     session.setState(CallState.TERMINATED);
                     activeSessions.remove(callId);
+                } else if (cseq != null && cseq.toUpperCase().contains("CANCEL")) {
+                    if (TLSDebugLogger.isEnabled()) {
+                        TLSDebugLogger.logf("[CALL ENGINE] 200 OK received for CANCEL on call %s", session.callId);
+                    }
                 }
             } else if (code.startsWith("4") || code.startsWith("5") || code.startsWith("6")) {
                 System.out.println("<<< [SIP FAILURE " + code + "]:\n" + msg);
+                String startLine = SIPParser.getStartline(msg);
+                session.failureReason = (startLine != null && !startLine.isEmpty()) ? startLine : ("SIP " + code);
                 session.setState(CallState.FAILED);
                 String cseq = SIPParser.getHeaderValue(msg, "CSeq");
-                if (cseq != null && cseq.toUpperCase().contains("INVITE")) {
+                if (cseq != null && (cseq.toUpperCase().contains("INVITE") || cseq.toUpperCase().contains("CANCEL"))) {
                     sendNon2xxAck(session, msg);
                 }
+                activeSessions.remove(callId);
+                if (rawCallId != null) activeSessions.remove(rawCallId);
             }
         }
     }
@@ -942,6 +1118,62 @@ public class SipCallEngine {
         signalingSocket.send(pkt);
     }
 
+    private void sendOkForByeWithoutSession(String byeMsg) throws Exception {
+        String cseq = SIPParser.getHeaderValue(byeMsg, "CSeq");
+        String viaHdr = SIPParser.getHeader(byeMsg, "Via", "v");
+        String branch = SIPParser.getParamValue(viaHdr, "branch");
+        String callId = SIPParser.getHeaderValue(byeMsg, "Call-ID", "i");
+        String ok =
+                "SIP/2.0 200 OK\r\n" +
+                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + (branch != null ? branch : "z9hG4bK") + "\r\n" +
+                "From: " + SIPParser.getHeaderValue(byeMsg, "From") + "\r\n" +
+                "To: " + SIPParser.getHeaderValue(byeMsg, "To") + "\r\n" +
+                "Call-ID: " + (callId != null ? callId : "") + "\r\n" +
+                "CSeq: " + (cseq != null ? cseq : "1 BYE") + "\r\n" +
+                "Content-Length: 0\r\n\r\n";
+
+        MyPacket pkt = new MyPacket(ok);
+        pkt.setAddress(InetAddress.getByName(pbxIp));
+        pkt.setPort(pbxSipPort);
+        signalingSocket.send(pkt);
+    }
+
+    private void sendOkForCancel(MyPacket inPkt, String cancelMsg) throws Exception {
+        String cseq = SIPParser.getHeaderValue(cancelMsg, "CSeq");
+        String viaHdr = SIPParser.getHeader(cancelMsg, "Via", "v");
+        String branch = SIPParser.getParamValue(viaHdr, "branch");
+        String callId = SIPParser.getHeaderValue(cancelMsg, "Call-ID", "i");
+        String ok =
+                "SIP/2.0 200 OK\r\n" +
+                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + (branch != null ? branch : "z9hG4bK") + "\r\n" +
+                "From: " + SIPParser.getHeaderValue(cancelMsg, "From") + "\r\n" +
+                "To: " + SIPParser.getHeaderValue(cancelMsg, "To") + "\r\n" +
+                "Call-ID: " + (callId != null ? callId : "") + "\r\n" +
+                "CSeq: " + (cseq != null ? cseq : "1 CANCEL") + "\r\n" +
+                "Content-Length: 0\r\n\r\n";
+
+        MyPacket pkt = new MyPacket(ok);
+        pkt.setAddress(InetAddress.getByName(pbxIp));
+        pkt.setPort(pbxSipPort);
+        signalingSocket.send(pkt);
+    }
+
+    private void sendRequestTerminated487(CallSession session) throws Exception {
+        String term487 =
+                "SIP/2.0 487 Request Terminated\r\n" +
+                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + session.inviteBranch + "\r\n" +
+                "From: <sip:" + session.caller + "@" + pbxIp + ">;tag=" + session.remoteTag + "\r\n" +
+                "To: <sip:" + session.callee + "@" + pbxIp + ">;tag=" + session.localTag + "\r\n" +
+                "Call-ID: " + session.callId + "\r\n" +
+                "CSeq: " + session.cseq + " INVITE\r\n" +
+                "Content-Length: 0\r\n\r\n";
+
+        MyPacket pkt = new MyPacket(term487);
+        pkt.setAddress(InetAddress.getByName(pbxIp));
+        pkt.setPort(pbxSipPort);
+        signalingSocket.send(pkt);
+    }
+
     private void parseSdpBody(CallSession session, String msg) {
         for (String line : msg.split("\r?\n")) {
             if (line.startsWith("c=IN IP4 ")) {
@@ -967,12 +1199,21 @@ public class SipCallEngine {
     }
 
     private int allocateRtpPort() {
-        int p = nextRtpPort.getAndAdd(2);
-        if (p > 50000) {
-            nextRtpPort.set(42000);
-            p = 42000;
+        for (int i = 0; i < 500; i++) {
+            int p = nextRtpPort.getAndAdd(2);
+            if (p > 50000 || p < 42000) {
+                nextRtpPort.set(42000);
+                p = 42000;
+            }
+            try {
+                java.net.DatagramSocket s = new java.net.DatagramSocket(p);
+                s.close();
+                return p;
+            } catch (Exception ignored) {
+                // Port occupied, advance to next
+            }
         }
-        return p;
+        return nextRtpPort.getAndAdd(2);
     }
 
     private String buildSdpOffer(String ip, int rtpPort, int pt) {

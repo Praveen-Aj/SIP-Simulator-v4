@@ -183,6 +183,57 @@ Each issue is classified with:
 
 ---
 
+### ISSUE-008: Dynamic Local IP Binding on DHCP Host Environments
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 5**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`
+- **Root Cause:**
+  When development/testing machines switch networks or receive new DHCP addresses, hardcoded IP configurations throw `java.net.BindException: Cannot assign requested address`.
+- **Resolution:**
+  Implemented `SipCallEngine.resolveLocalIpTowards(remoteIp)`, which queries the Windows/OS routing table using a lightweight connected UDP datagram socket to dynamically detect the exact local interface towards the target PBX (`192.168.0.20`), eliminating manual configuration.
+
+---
+
+### ISSUE-009: Multi-Call Dialog Concurrency & Media Port Collision
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 5**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`, `src/sipinspector/Call/PerformanceTestEngine.java`
+- **Root Cause:**
+  Rapid multi-call recycling or simultaneous call initiation risked Call-ID collisions and port collisions if an even RTP port was still in TIME_WAIT or held by an asynchronous OS thread.
+- **Resolution:**
+  1. Guaranteed globally unique, collision-free Call-IDs: `call<AtomicLong>_<timestamp>@<localIp>`.
+  2. Implemented test-binding port allocator (`allocateRtpPort()`) testing `new DatagramSocket(port)` across the 42000-50000 range.
+  3. Validated with `test.MultiCallOrchestrationTest` (8 simultaneous multithreaded calls, zero collisions).
+
+---
+
+### ISSUE-010: RFC 3261 Timer A/B Retransmissions & CANCEL Support
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 5**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`
+- **Root Cause:**
+  Outbound INVITEs previously lacked RFC 3261 Timer A exponential backoff retransmissions (500ms -> 1s -> 2s -> 4s) and Timer B transaction timeout (16s), causing indefinite hangs if an intermediate router silently dropped packets. CANCEL was not fully integrated into active session dialogs.
+- **Resolution:**
+  1. Integrated `checkPendingTransactions()` into non-blocking `listenLoop()`, servicing Timer A and Timer B timeouts every 100ms.
+  2. Implemented `cancelCall(callId)` sending RFC 3261 CANCEL with matching branch/CSeq/tags and handling 487 Request Terminated with ACK.
+  3. Added duplicate 200 OK retransmission ACK and duplicate BYE 200 OK handling.
+  4. Validated with `test.SipTransactionReliabilityTest` (3/3 passed).
+
+---
+
+### ISSUE-011: Real-Time RTP Quality Analysis & ITU-T E-Model G.107 MOS Calculation
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 5**
+- **File:** `src/sipinspector/Media/LiveAudioReceiverThread.java`, `src/sipinspector/Media/LiveAudioController.java`
+- **Root Cause:**
+  RTP receiver metrics previously lacked sequence discontinuity tracking, duplicate packet counts, out-of-order packet tracking, and standardized Mean Opinion Score (MOS) computation.
+- **Resolution:**
+  1. Implemented RFC 3550 sequence difference arithmetic in `LiveAudioReceiverThread.validateRxRtp`.
+  2. Implemented ITU-T E-model G.107 transmission rating factor $R$ calculation with Appendix I PLC parameterization ($B_{pl} = 19.0$) and $R \to \text{MOS}$ transformation.
+  3. Validated with `test.PerformanceCampaignEngineTest` across ideal, moderate, severe, and extreme network degradation profiles.
+
+---
+
 ## 3. Suspected Fragile Areas
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`

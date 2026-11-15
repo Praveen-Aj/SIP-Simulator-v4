@@ -568,6 +568,10 @@ public class LiveAudioController {
             stats.put("payload_type", receiverThread.getPayloadType());
             stats.put("jitter_ms", receiverThread.getJitterMs());
             stats.put("drift_ms", receiverThread.getTimestampDriftMs());
+            stats.put("lost_packets", receiverThread.getLostPackets());
+            stats.put("duplicate_packets", receiverThread.getDuplicatePackets());
+            stats.put("out_of_order_packets", receiverThread.getOutOfOrderPackets());
+            stats.put("sequence_discontinuities", receiverThread.getSequenceDiscontinuities());
         }
         
         return stats;
@@ -598,6 +602,24 @@ public class LiveAudioController {
         stats.put("tx_ssrc", sender.containsKey("ssrc") ? sender.get("ssrc") : -1);
         stats.put("tx_payload_type", sender.containsKey("payload_type") ? sender.get("payload_type") : -1);
 
+        long lost = receiver.containsKey("lost_packets") ? ((Number) receiver.get("lost_packets")).longValue() : 0L;
+        long rxPkts = receiver.containsKey("packets_received") ? ((Number) receiver.get("packets_received")).longValue() : 0L;
+        long txPkts = sender.containsKey("packets_sent") ? ((Number) sender.get("packets_sent")).longValue() : 0L;
+        double lossRate = (rxPkts + lost) > 0 ? ((double) lost / (rxPkts + lost)) * 100.0 : 0.0;
+        double jitterMs = receiver.containsKey("jitter_ms") ? ((Number) receiver.get("jitter_ms")).doubleValue() : 0.0;
+
+        stats.put("lost_packets", lost);
+        stats.put("duplicate_packets", receiver.containsKey("duplicate_packets") ? receiver.get("duplicate_packets") : 0L);
+        stats.put("out_of_order_packets", receiver.containsKey("out_of_order_packets") ? receiver.get("out_of_order_packets") : 0L);
+        stats.put("sequence_discontinuities", receiver.containsKey("sequence_discontinuities") ? receiver.get("sequence_discontinuities") : 0L);
+        stats.put("loss_rate_percent", Math.round(lossRate * 100.0) / 100.0);
+
+        boolean oneWay = (txPkts > 50 && rxPkts == 0) || (rxPkts > 50 && txPkts == 0);
+        stats.put("one_way_audio", oneWay);
+
+        double mos = calculateMos(lossRate, jitterMs);
+        stats.put("mos_score", Math.round(mos * 100.0) / 100.0);
+
         stats.put("diag_active_sender_threads", LiveAudioRuntimeDiagnostics.getActiveSenders());
         stats.put("diag_active_receiver_threads", LiveAudioRuntimeDiagnostics.getActiveReceivers());
         stats.put("diag_open_sockets", LiveAudioRuntimeDiagnostics.getOpenSockets());
@@ -606,6 +628,54 @@ public class LiveAudioController {
         stats.put("diag_controller_starts", LiveAudioRuntimeDiagnostics.getControllerStartCount());
         stats.put("diag_controller_stops", LiveAudioRuntimeDiagnostics.getControllerStopCount());
         return stats;
+    }
+
+    /**
+     * ITU-T E-model G.107 MOS calculation.
+     * Computes R-factor based on delay (derived from jitter) and packet loss %,
+     * then transforms R into MOS on a 1.0 to 4.5 scale.
+     */
+    public static double calculateMos(double packetLossPercent, double jitterMs) {
+        if (packetLossPercent < 0) packetLossPercent = 0;
+        if (packetLossPercent > 100) packetLossPercent = 100;
+        if (jitterMs < 0) jitterMs = 0;
+
+        // Base R-factor for G.711 / standard narrowband
+        double r0 = 93.2;
+
+        // Delay impairment Id: estimated one-way delay = typical network delay (20ms) + 2 * jitter
+        double delay = 20.0 + 2.0 * jitterMs;
+        double id = 0.0;
+        if (delay > 177.3) {
+            id = 0.024 * delay + 0.11 * (delay - 177.3);
+        } else {
+            id = 0.024 * delay;
+        }
+
+        // Equipment impairment Ie: standard G.711 with packet loss
+        // Bpl (packet loss robustness factor) = 19.0 for G.711 with ITU-T Appendix I PLC
+        double bpl = 19.0;
+        double ie = 0.0;
+        double ieEff = ie + (95.0 - ie) * (packetLossPercent / (packetLossPercent + bpl));
+
+        // Transmission rating factor R
+        double r = r0 - id - ieEff;
+        if (r < 0) r = 0;
+        if (r > 100) r = 100;
+
+        // Convert R to MOS (1.0 - 4.5) per ITU-T G.107
+        double mos;
+        if (r <= 0) {
+            mos = 1.0;
+        } else if (r >= 100) {
+            mos = 4.5;
+        } else {
+            mos = 1.0 + 0.035 * r + r * (r - 60.0) * (100.0 - r) * 0.000007;
+        }
+
+        if (mos < 1.0) mos = 1.0;
+        if (mos > 4.5) mos = 4.5;
+        return mos;
     }
 
     public String getLastReceivedDtmf() {

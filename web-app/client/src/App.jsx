@@ -509,6 +509,446 @@ function RtpDiagnosticsTab({ API_BASE }) {
   );
 }
 
+function PerformanceTab({ API_BASE }) {
+  const [perfStatus, setPerfStatus] = useState(null);
+  const [healthStatus, setHealthStatus] = useState(null);
+  const [failureResult, setFailureResult] = useState(null);
+  const [failureLoading, setFailureLoading] = useState(false);
+  const [selectedFailure, setSelectedFailure] = useState('INVALID_DESTINATION_404');
+
+  const [campaignForm, setCampaignForm] = useState({
+    name: 'OXE Multi-Call Campaign',
+    mode: 'CONCURRENT',
+    caller: '90008',
+    callee: '90001',
+    totalCalls: 4,
+    maxConcurrent: 2,
+    callsPerSecond: 1.0,
+    durationSeconds: 4,
+    delayBetweenCallsMs: 500,
+    payloadType: 8,
+    autoAnswer: true
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/perf/status`);
+        const data = await res.json();
+        setPerfStatus(data);
+      } catch (e) {
+        console.error("Error fetching perf status:", e);
+      }
+
+      try {
+        const hRes = await fetch(`${API_BASE}/api/health`);
+        const hData = await hRes.json();
+        setHealthStatus(hData);
+      } catch (e) {
+        console.error("Error fetching health status:", e);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 1000);
+    return () => clearInterval(interval);
+  }, [API_BASE]);
+
+  const handleStart = async () => {
+    try {
+      await fetch(`${API_BASE}/api/perf/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(campaignForm)
+      });
+    } catch (e) {
+      alert("Error starting campaign: " + e.message);
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      await fetch(`${API_BASE}/api/perf/stop`, { method: 'POST' });
+    } catch (e) {
+      alert("Error stopping campaign: " + e.message);
+    }
+  };
+
+  const handleRunFailureTest = async () => {
+    setFailureLoading(true);
+    setFailureResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/perf/failure-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario: selectedFailure,
+          caller: campaignForm.caller,
+          callee: campaignForm.callee
+        })
+      });
+      const data = await res.json();
+      setFailureResult(data);
+    } catch (e) {
+      setFailureResult({ passed: false, details: e.message });
+    } finally {
+      setFailureLoading(false);
+    }
+  };
+
+  const isRunning = perfStatus && perfStatus.running;
+  const result = perfStatus && perfStatus.result;
+
+  return (
+    <div className="perf-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%', overflowY: 'auto', paddingRight: '10px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Telecom Performance, Multi-Call & Compliance Engine</h3>
+          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+            Controlled multi-call orchestration, ITU-T E-model G.107 MOS calculation, and SIP transaction resilience
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span style={{
+            padding: '4px 12px',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            background: isRunning ? 'rgba(74, 222, 128, 0.15)' : 'rgba(148, 163, 184, 0.1)',
+            color: isRunning ? 'var(--accent-green)' : 'var(--text-secondary)',
+            border: `1px solid ${isRunning ? 'var(--accent-green)' : 'rgba(255,255,255,0.1)'}`
+          }}>
+            {isRunning ? '● CAMPAIGN ACTIVE' : 'IDLE'}
+          </span>
+        </div>
+      </div>
+
+      {/* Control and Configuration Panel */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '20px' }}>
+        {/* Campaign Settings Form */}
+        <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Campaign Configuration
+          </h4>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Mode</label>
+              <select
+                value={campaignForm.mode}
+                onChange={(e) => setCampaignForm({ ...campaignForm, mode: e.target.value })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              >
+                <option value="CONCURRENT">CONCURRENT</option>
+                <option value="SEQUENTIAL">SEQUENTIAL</option>
+                <option value="RATE_CONTROLLED">RATE CONTROLLED (CPS)</option>
+                <option value="SINGLE_CALL">SINGLE CALL</option>
+                <option value="LONG_DURATION">LONG DURATION (SOAK)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Codec</label>
+              <select
+                value={campaignForm.payloadType}
+                onChange={(e) => setCampaignForm({ ...campaignForm, payloadType: parseInt(e.target.value) })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              >
+                <option value="8">PCMA (G.711a - PT 8)</option>
+                <option value="0">PCMU (G.711u - PT 0)</option>
+                <option value="9">G.722 (HD Audio - PT 9)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Caller Extension</label>
+              <input
+                type="text"
+                value={campaignForm.caller}
+                onChange={(e) => setCampaignForm({ ...campaignForm, caller: e.target.value })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Callee Extension</label>
+              <input
+                type="text"
+                value={campaignForm.callee}
+                onChange={(e) => setCampaignForm({ ...campaignForm, callee: e.target.value })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Total Calls</label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={campaignForm.totalCalls}
+                onChange={(e) => setCampaignForm({ ...campaignForm, totalCalls: parseInt(e.target.value) || 1 })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Max Concurrent</label>
+              <input
+                type="number"
+                min="1"
+                max="5"
+                value={campaignForm.maxConcurrent}
+                onChange={(e) => setCampaignForm({ ...campaignForm, maxConcurrent: parseInt(e.target.value) || 1 })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Call Hold (sec)</label>
+              <input
+                type="number"
+                min="1"
+                max="3600"
+                value={campaignForm.durationSeconds}
+                onChange={(e) => setCampaignForm({ ...campaignForm, durationSeconds: parseInt(e.target.value) || 1 })}
+                disabled={isRunning}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px', borderRadius: '4px', fontSize: '12px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+            <input
+              type="checkbox"
+              id="autoAnswerCheck"
+              checked={campaignForm.autoAnswer}
+              onChange={(e) => setCampaignForm({ ...campaignForm, autoAnswer: e.target.checked })}
+              disabled={isRunning}
+            />
+            <label htmlFor="autoAnswerCheck" style={{ color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              Auto-answer callee on MicroSIP IPC
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+            {!isRunning ? (
+              <button
+                onClick={handleStart}
+                style={{ flex: 1, padding: '10px', background: 'var(--accent-cyan)', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ▶ Start Campaign
+              </button>
+            ) : (
+              <button
+                onClick={handleStop}
+                style={{ flex: 1, padding: '10px', background: 'var(--accent-red)', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ■ Terminate Campaign
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Real-time KPI Dashboard */}
+        <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Live Performance Metrics & MOS Quality
+          </h4>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Completed Calls</div>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
+                {result ? `${result.totalSuccessful} / ${result.totalAttempted}` : '0 / 0'}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--accent-green)', marginTop: '2px' }}>
+                {result ? `${result.successRatePercent}% success` : '0%'}
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Setup Latency</div>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--accent-cyan)', marginTop: '4px' }}>
+                {result && result.setupLatency ? `${result.setupLatency.avgMs} ms` : '-'}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                {result && result.setupLatency ? `p95: ${result.setupLatency.p95Ms} ms` : 'p95: -'}
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ITU-T G.107 MOS</div>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: (result && result.rtpStats && result.rtpStats.overallMosScore >= 4.0) ? 'var(--accent-green)' : 'var(--accent-yellow)', marginTop: '4px' }}>
+                {result && result.rtpStats ? `${result.rtpStats.overallMosScore} / 4.5` : '-'}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                {result && result.rtpStats && result.rtpStats.overallMosScore >= 4.0 ? 'Pristine Audio' : 'Impaired'}
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Avg Jitter / Loss</div>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>
+                {result && result.rtpStats ? `${result.rtpStats.avgJitterMs} ms` : '-'}
+              </div>
+              <div style={{ fontSize: '10px', color: (result && result.rtpStats && result.rtpStats.lossRatePercent > 0) ? 'var(--accent-red)' : 'var(--accent-green)', marginTop: '2px' }}>
+                {result && result.rtpStats ? `${result.rtpStats.lossRatePercent}% loss` : '0% loss'}
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', fontSize: '12px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>RTP Packets (TX/RX): </span>
+              <strong style={{ color: '#fff' }}>
+                {result && result.rtpStats ? `${result.rtpStats.txPackets} / ${result.rtpStats.rxPackets}` : '-'}
+              </strong>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Seq Duplicates / Out-of-Order: </span>
+              <strong style={{ color: '#fff' }}>
+                {result && result.rtpStats ? `${result.rtpStats.duplicates} / ${result.rtpStats.outOfOrder}` : '-'}
+              </strong>
+            </div>
+            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '6px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>One-Way Audio Calls: </span>
+              <strong style={{ color: (result && result.rtpStats && result.rtpStats.oneWayAudioCalls > 0) ? 'var(--accent-red)' : 'var(--accent-green)' }}>
+                {result && result.rtpStats ? result.rtpStats.oneWayAudioCalls : '0'}
+              </strong>
+            </div>
+          </div>
+
+          {/* JVM System Resource Footprint */}
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '8px', fontSize: '11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              JVM Resources: <strong>{healthStatus ? `${healthStatus.memoryUsedMb} MB used / ${healthStatus.memoryMaxMb} MB max` : '-'}</strong> | Active Threads: <strong>{healthStatus ? healthStatus.activeThreads : '-'}</strong> | Open Sockets: <strong>{healthStatus ? healthStatus.openMediaSockets : '-'}</strong>
+            </span>
+            <span style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>
+              ● HEALTHY
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Controlled Failure Injection Testing Section */}
+      <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <h4 style={{ margin: 0, fontSize: '13px', color: 'var(--accent-yellow)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Controlled Protocol Failure & Exception Injection
+        </h4>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <select
+            value={selectedFailure}
+            onChange={(e) => setSelectedFailure(e.target.value)}
+            disabled={failureLoading || isRunning}
+            style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '8px 12px', borderRadius: '6px', fontSize: '12px' }}
+          >
+            <option value="INVALID_DESTINATION_404">404 Not Found (Invalid Destination Extension 99999)</option>
+            <option value="BUSY_DESTINATION_486">486 Busy Here (User Busy / Reject)</option>
+            <option value="TRANSACTION_TIMEOUT_408">408 Request Timeout (Timer B Expiry)</option>
+            <option value="CALL_CANCELLATION">CANCEL Transaction (Call Abandonment Before 200 OK)</option>
+            <option value="REMOTE_PARTY_BYE">Remote Party Teardown (Inbound BYE Reception & 200 OK)</option>
+          </select>
+          <button
+            onClick={handleRunFailureTest}
+            disabled={failureLoading || isRunning}
+            style={{ padding: '8px 20px', background: 'var(--accent-yellow)', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: failureLoading ? 'wait' : 'pointer' }}
+          >
+            {failureLoading ? 'Running Test...' : '⚡ Inject Failure'}
+          </button>
+        </div>
+
+        {failureResult && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            background: failureResult.passed ? 'rgba(74, 222, 128, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            border: `1px solid ${failureResult.passed ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+            fontSize: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+              <span style={{ color: failureResult.passed ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                {failureResult.passed ? '✔ PROTOCOL FAILURE TEST PASSED' : '✖ PROTOCOL FAILURE TEST FAILED'}
+              </span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Duration: {failureResult.durationMs} ms | Sockets (Before: {failureResult.initialSockets}, After: {failureResult.finalSockets})
+              </span>
+            </div>
+            <div style={{ color: '#fff' }}>
+              {failureResult.details}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Campaign Call Log / Stream Table */}
+      {result && result.callMetrics && result.callMetrics.length > 0 && (
+        <div style={{ background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px' }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Campaign Call Stream ({result.callMetrics.length} Dialogs)
+          </h4>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)' }}>
+                  <th style={{ padding: '8px' }}>Call-ID</th>
+                  <th style={{ padding: '8px' }}>State</th>
+                  <th style={{ padding: '8px' }}>Setup (ms)</th>
+                  <th style={{ padding: '8px' }}>Duration (s)</th>
+                  <th style={{ padding: '8px' }}>TX / RX</th>
+                  <th style={{ padding: '8px' }}>Loss %</th>
+                  <th style={{ padding: '8px' }}>Jitter</th>
+                  <th style={{ padding: '8px' }}>MOS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.callMetrics.map((c, idx) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <td style={{ padding: '8px', fontFamily: 'monospace' }}>{c.callId ? c.callId.split('@')[0] : `call-${idx+1}`}</td>
+                    <td style={{ padding: '8px' }}>
+                      <span style={{
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        background: c.state === 'TERMINATED' || c.state === 'ESTABLISHED' ? 'rgba(74, 222, 128, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: c.state === 'TERMINATED' || c.state === 'ESTABLISHED' ? 'var(--accent-green)' : 'var(--accent-red)'
+                      }}>
+                        {c.state}
+                      </span>
+                    </td>
+                    <td style={{ padding: '8px' }}>{c.setupLatencyMs > 0 ? `${c.setupLatencyMs} ms` : '-'}</td>
+                    <td style={{ padding: '8px' }}>{c.durationMs > 0 ? `${(c.durationMs / 1000).toFixed(1)}s` : '-'}</td>
+                    <td style={{ padding: '8px' }}>{`${c.txPackets} / ${c.rxPackets}`}</td>
+                    <td style={{ padding: '8px', color: c.lossRatePercent > 0 ? 'var(--accent-red)' : 'var(--accent-green)' }}>
+                      {`${c.lossRatePercent}%`}
+                    </td>
+                    <td style={{ padding: '8px' }}>{`${c.jitterMs} ms`}</td>
+                    <td style={{ padding: '8px', fontWeight: 'bold', color: c.mosScore >= 4.0 ? 'var(--accent-green)' : 'var(--accent-yellow)' }}>
+                      {c.mosScore}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   // Settings & Status state
   const [settings, setSettings] = useState({
@@ -1355,6 +1795,12 @@ function App() {
             >
               Simulation Control
             </button>
+            <button 
+              className={`tab-btn ${activeTab === 'performance' ? 'active' : ''}`} 
+              onClick={() => { console.log('Performance tab clicked!'); setActiveTab('performance'); }}
+            >
+              Performance & Multi-Call
+            </button>
           </div>
         </div>
 
@@ -2179,6 +2625,10 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'performance' && (
+            <PerformanceTab API_BASE={API_BASE} />
           )}
         </div>
       </main>

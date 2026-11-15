@@ -35,6 +35,14 @@ Version 4 achieves full feature parity between the primary Java Desktop Client a
    * Embedded REST API daemon and Express proxy endpoints (`/api/call/*`, `/api/audio/devices`).
    * Validated against live Alcatel-Lucent OmniPCX Enterprise (OXE) PBX and MicroSIP (8/8 tests passed).
 
+5. **⚡ Performance, Multi-Call Orchestration & Compliance Engine (Phase 5)**
+   * Multi-call dialog isolation: guaranteed collision-free Call-IDs and test-bound dynamic RTP ports (42000–50000).
+   * High-precision performance campaign engine: supports Single-call, Sequential, Concurrent, CPS rate-controlled, and long-duration soak test modes.
+   * RFC 3261 transaction reliability: Timer A exponential backoff retransmission (500ms–4s), Timer B transaction timeout (16s), CANCEL request formulation, duplicate 200 OK ACK retransmission, and duplicate BYE handling.
+   * Real-time ITU-T E-model G.107 Mean Opinion Score (MOS) calculation with packet loss concealment (PLC) parameterization, jitter tracking, sequence discontinuity, and out-of-order detection.
+   * Controlled failure injection framework: automated testing for 404/488 invalid destination, 486 busy/reject, 408 timeout, CANCEL, and remote BYE with zero resource leakage.
+   * Interactive Performance Dashboard in React UI and REST API (`/api/perf/*`, `/api/health`).
+
 ---
 
 ## 📂 Project Structure

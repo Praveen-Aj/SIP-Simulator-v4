@@ -27,7 +27,7 @@ public class OxeProductionCallEngineTest {
 
     private static final String PBX_IP = "192.168.0.20";
     private static final int PBX_PORT = 5060;
-    private static final String LOCAL_IP = "192.168.0.9";
+    private static final String LOCAL_IP = SipCallEngine.resolveLocalIpTowards(PBX_IP);
     private static final int LOCAL_PORT = 5060;
     private static final String SIMULATOR_EXT = "90008";
     private static final String MICROSIP_EXT = "90001";

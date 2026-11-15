@@ -1,5 +1,6 @@
 package test;
 
+import sipinspector.Call.SipCallEngine;
 import sipinspector.Media.AudioFormatUtils;
 import sipinspector.Media.CallState;
 import sipinspector.Media.LiveAudioCodec;
@@ -32,7 +33,7 @@ public class OxeLiveEndpointTest {
 
     private static final String PBX_IP = "192.168.0.20";
     private static final int PBX_SIP_PORT = 5060;
-    private static final String LOCAL_IP = "192.168.0.9";
+    private static final String LOCAL_IP = SipCallEngine.resolveLocalIpTowards(PBX_IP);
     private static final int SIMULATOR_SIP_PORT = 5060;
     private static final int SIMULATOR_RTP_PORT = 42000;
     private static final String SIMULATOR_EXT = "90008";

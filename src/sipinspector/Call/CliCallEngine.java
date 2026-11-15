@@ -7,7 +7,9 @@ import sipinspector.GlobalSettings;
 import sipinspector.Media.AudioDeviceManager;
 import sipinspector.Media.CallState;
 import sipinspector.Media.LiveAudioCodec;
+import sipinspector.Media.LiveAudioRuntimeDiagnostics;
 import sipinspector.Media.RtpWavRecorder;
+import sipinspector.Utils.AppPaths;
 
 import java.io.File;
 import java.io.IOException;
@@ -136,10 +138,12 @@ public class CliCallEngine {
             GlobalSettings.loadSettings();
         } catch (Exception ignored) {}
 
-        String localIp = GlobalSettings.getLocalIP();
-        if (localIp == null || localIp.trim().isEmpty()) localIp = "192.168.0.9";
         String pbxIp = GlobalSettings.getRemoteIPAddr();
         if (pbxIp == null || pbxIp.trim().isEmpty()) pbxIp = "192.168.0.20";
+        String localIp = GlobalSettings.getLocalIP();
+        if (localIp == null || localIp.trim().isEmpty() || "192.168.0.9".equals(localIp)) {
+            localIp = SipCallEngine.resolveLocalIpTowards(pbxIp);
+        }
         String ext = GlobalSettings.getUsername();
         if (ext == null || ext.trim().isEmpty()) ext = "90008";
 
@@ -471,6 +475,222 @@ public class CliCallEngine {
                 } else {
                     sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
                 }
+            }
+        });
+
+        // 12. Cancel call (CANCEL before 200 OK)
+        server.createContext("/api/call/cancel", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                if (callId == null || callId.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId required\"}");
+                    return;
+                }
+                try {
+                    boolean ok = engine.cancelCall(callId);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    sendJsonResponse(exchange, 200, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
+        // 13. Start Performance Campaign
+        server.createContext("/api/perf/start", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                PerformanceTestEngine.CampaignConfig cfg = new PerformanceTestEngine.CampaignConfig();
+                String name = extractJsonField(body, "name");
+                if (name != null && !name.isEmpty()) cfg.name = name;
+
+                String mode = extractJsonField(body, "mode");
+                if (mode != null && !mode.isEmpty()) {
+                    try {
+                        cfg.mode = PerformanceTestEngine.ExecutionMode.valueOf(mode.toUpperCase());
+                    } catch (Exception ignored) {}
+                }
+
+                String caller = extractJsonField(body, "caller");
+                if (caller != null && !caller.isEmpty()) cfg.caller = caller;
+
+                String callee = extractJsonField(body, "callee");
+                if (callee != null && !callee.isEmpty()) cfg.callee = callee;
+
+                String totalCallsStr = extractJsonField(body, "totalCalls");
+                if (totalCallsStr != null && !totalCallsStr.isEmpty()) {
+                    try { cfg.totalCalls = Math.min(100, Math.max(1, Integer.parseInt(totalCallsStr))); } catch (Exception ignored) {}
+                }
+
+                String maxConcurrentStr = extractJsonField(body, "maxConcurrent");
+                if (maxConcurrentStr != null && !maxConcurrentStr.isEmpty()) {
+                    try { cfg.maxConcurrent = Math.min(10, Math.max(1, Integer.parseInt(maxConcurrentStr))); } catch (Exception ignored) {}
+                }
+
+                String cpsStr = extractJsonField(body, "callsPerSecond");
+                if (cpsStr != null && !cpsStr.isEmpty()) {
+                    try { cfg.callsPerSecond = Math.min(10.0, Math.max(0.1, Double.parseDouble(cpsStr))); } catch (Exception ignored) {}
+                }
+
+                String durationStr = extractJsonField(body, "durationSeconds");
+                if (durationStr != null && !durationStr.isEmpty()) {
+                    try { cfg.durationSeconds = Math.max(1, Integer.parseInt(durationStr)); } catch (Exception ignored) {}
+                }
+
+                String delayStr = extractJsonField(body, "delayBetweenCallsMs");
+                if (delayStr != null && !delayStr.isEmpty()) {
+                    try { cfg.delayBetweenCallsMs = Math.max(0, Integer.parseInt(delayStr)); } catch (Exception ignored) {}
+                }
+
+                String ptStr = extractJsonField(body, "payloadType");
+                if (ptStr != null && !ptStr.isEmpty()) {
+                    try { cfg.payloadType = Integer.parseInt(ptStr); } catch (Exception ignored) {}
+                }
+
+                String autoAnswerStr = extractJsonField(body, "autoAnswer");
+                cfg.autoAnswer = "true".equalsIgnoreCase(autoAnswerStr);
+
+                boolean started = PerformanceTestEngine.getInstance().startCampaign(cfg);
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("success", started);
+                resp.put("running", PerformanceTestEngine.getInstance().isRunning());
+                resp.put("campaignName", cfg.name);
+                resp.put("mode", cfg.mode.name());
+                sendJsonResponse(exchange, started ? 200 : 409, toJson(resp));
+            }
+        });
+
+        // 14. Stop Performance Campaign
+        server.createContext("/api/perf/stop", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                PerformanceTestEngine.getInstance().stopCampaign();
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("success", true);
+                resp.put("running", false);
+                sendJsonResponse(exchange, 200, toJson(resp));
+            }
+        });
+
+        // 15. Query Performance Campaign Status
+        server.createContext("/api/perf/status", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                PerformanceTestEngine enginePerf = PerformanceTestEngine.getInstance();
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("running", enginePerf.isRunning());
+                if (enginePerf.getCurrentConfig() != null) {
+                    Map<String, Object> cfgMap = new LinkedHashMap<>();
+                    cfgMap.put("name", enginePerf.getCurrentConfig().name);
+                    cfgMap.put("mode", enginePerf.getCurrentConfig().mode.name());
+                    cfgMap.put("caller", enginePerf.getCurrentConfig().caller);
+                    cfgMap.put("callee", enginePerf.getCurrentConfig().callee);
+                    cfgMap.put("totalCalls", enginePerf.getCurrentConfig().totalCalls);
+                    cfgMap.put("maxConcurrent", enginePerf.getCurrentConfig().maxConcurrent);
+                    cfgMap.put("callsPerSecond", enginePerf.getCurrentConfig().callsPerSecond);
+                    cfgMap.put("durationSeconds", enginePerf.getCurrentConfig().durationSeconds);
+                    resp.put("config", cfgMap);
+                }
+                if (enginePerf.getCurrentResult() != null) {
+                    resp.put("result", enginePerf.getCurrentResult().toMap());
+                }
+                sendJsonResponse(exchange, 200, toJson(resp));
+            }
+        });
+
+        // 16. Query Saved Performance Reports
+        server.createContext("/api/perf/results", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                File dir = new File(AppPaths.getLogsDir(), "perf_campaigns");
+                List<String> files = new ArrayList<>();
+                if (dir.exists() && dir.isDirectory()) {
+                    File[] list = dir.listFiles();
+                    if (list != null) {
+                        for (File f : list) {
+                            if (f.getName().endsWith(".json")) {
+                                files.add(f.getName());
+                            }
+                        }
+                    }
+                }
+                Collections.sort(files, Collections.reverseOrder());
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("reports", files);
+                sendJsonResponse(exchange, 200, toJson(resp));
+            }
+        });
+
+        // 17. Execute Controlled Failure Injection Test
+        server.createContext("/api/perf/failure-test", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String scenarioStr = extractJsonField(body, "scenario");
+                String caller = extractJsonField(body, "caller");
+                if (caller == null || caller.isEmpty()) caller = "90008";
+                String callee = extractJsonField(body, "callee");
+                if (callee == null || callee.isEmpty()) callee = "90001";
+
+                FailureInjectionEngine.FailureScenario scenario = FailureInjectionEngine.FailureScenario.INVALID_DESTINATION_404;
+                if (scenarioStr != null && !scenarioStr.isEmpty()) {
+                    try {
+                        scenario = FailureInjectionEngine.FailureScenario.valueOf(scenarioStr.trim().toUpperCase());
+                    } catch (Exception ignored) {}
+                }
+
+                FailureInjectionEngine.FailureTestResult res = FailureInjectionEngine.runTest(scenario, caller, callee, engine.getPbxIp());
+                sendJsonResponse(exchange, 200, toJson(res.toMap()));
+            }
+        });
+
+        // 18. System Health and Resource Status
+        server.createContext("/api/health", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                Runtime rt = Runtime.getRuntime();
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("status", "UP");
+                resp.put("engineRunning", engine.isRunning());
+                resp.put("localIp", engine.getLocalIp());
+                resp.put("localPort", engine.getLocalSipPort());
+                resp.put("pbxIp", engine.getPbxIp());
+                resp.put("pbxPort", engine.getPbxSipPort());
+                resp.put("registeredExtension", engine.getRegisteredExtension());
+                resp.put("activeCallsCount", deduplicateSessions(engine.getActiveCalls()).size());
+                resp.put("memoryUsedMb", (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024));
+                resp.put("memoryFreeMb", rt.freeMemory() / (1024 * 1024));
+                resp.put("memoryMaxMb", rt.maxMemory() / (1024 * 1024));
+                resp.put("activeThreads", Thread.activeCount());
+                resp.put("openMediaSockets", LiveAudioRuntimeDiagnostics.getOpenSockets());
+                resp.put("openMicLines", LiveAudioRuntimeDiagnostics.getOpenMicLines());
+                resp.put("openSpeakerLines", LiveAudioRuntimeDiagnostics.getOpenSpeakerLines());
+                resp.put("campaignRunning", PerformanceTestEngine.getInstance().isRunning());
+                sendJsonResponse(exchange, 200, toJson(resp));
             }
         });
 

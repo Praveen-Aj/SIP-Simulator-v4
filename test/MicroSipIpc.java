@@ -23,4 +23,10 @@ public class MicroSipIpc {
             return "{\"error\":\"" + e.getMessage() + "\"}";
         }
     }
+
+    public static void main(String[] args) {
+        String method = args.length > 0 ? args[0] : "system.status";
+        String params = args.length > 1 ? args[1] : null;
+        System.out.println(sendCommand(method, params));
+    }
 }

@@ -1537,6 +1537,86 @@ app.post('/api/audio/devices', async (req, res) => {
     }
 });
 
+// 11. Cancel call (CANCEL)
+app.post('/api/call/cancel', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/cancel', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 12. Start Performance Campaign
+app.post('/api/perf/start', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/perf/start', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 13. Stop Performance Campaign
+app.post('/api/perf/stop', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/perf/stop', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 14. Query Performance Status
+app.get('/api/perf/status', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('GET', '/api/perf/status');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 15. Query Performance Results
+app.get('/api/perf/results', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('GET', '/api/perf/results');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 16. Execute Controlled Failure Injection Test
+app.post('/api/perf/failure-test', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/perf/failure-test', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 17. System Health Status
+app.get('/api/health', async (req, res) => {
+    try {
+        const alive = await isDaemonAlive();
+        if (!alive) {
+            return res.json({ status: "DEGRADED", daemon: false });
+        }
+        const resp = await requestDaemon('GET', '/api/health');
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Serve frontend if in production
 const frontendBuildPath = path.join(__dirname, 'public');
 if (fs.existsSync(frontendBuildPath)) {

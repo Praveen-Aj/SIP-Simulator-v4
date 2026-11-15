@@ -228,3 +228,50 @@ While offline validation covers codecs, crypto, and parsing, the following gaps 
 | **Audio Hardware (DirectSound)** | Soak simulation | **Yes (Physical sound card)** | Audio line open/close requires physical microphone and speaker hardware on Windows. |
 | **Alcatel-Lucent OXE Integration** | Regex verification | **Yes (Alcatel OXE PBX)** | Proprietary CorNet/SIP interworking and ABC-F feature transparency requires physical PBX connection. |
 | **Wireshark Live Sniffing** | None | **Yes (Npcap / WinPcap)** | Packet capturing requires administrative driver privileges and Npcap installed on the host. |
+
+---
+
+## 8. Phase 5 Performance, Multi-Call & Compliance Validation
+
+### 8.1 Multi-Call Orchestration & Isolation
+- **Suite:** `test.MultiCallOrchestrationTest`
+- **Result:** **3 / 3 PASSED**
+- **Validation Summary:**
+  1. Dynamic RTP port allocation testing: 5 distinct even ports allocated without collision (`[42000, 42002, 42004, 42006, 42008]`).
+  2. Multithreaded Call-ID collision test: 8 simultaneous threads spawned and initiated calls; verified 8/8 unique Call-IDs and ports.
+  3. Session lookup resilience: verified session resolution via both full Call-ID and prefix.
+
+### 8.2 SIP Transaction & Protocol Reliability
+- **Suite:** `test.SipTransactionReliabilityTest`
+- **Result:** **3 / 3 PASSED**
+- **Validation Summary:**
+  1. RFC 3261 Timer B transaction timeout: session transitioned to FAILED with `408 Request Timeout`.
+  2. CANCEL request formulation: verified CANCEL sent with matching branch/CSeq and transition to TERMINATING.
+  3. Duplicate 200 OK handling: verified established dialog preserves media controller and dialog state under duplicate responses.
+
+### 8.3 Controlled Failure Injection & Resource Cleanup
+- **Suite:** `test.ControlledFailureRecoveryTest`
+- **Result:** **3 / 3 PASSED**
+- **Validation Summary:**
+  1. 408 Request Timeout: Timer B expiry handled deterministically, zero socket leaks.
+  2. Call Cancellation: In-flight CANCEL prior to answer handled deterministically, zero socket leaks.
+  3. 404/488 Rejection: PBX destination rejection handled with non-2xx ACK, zero socket leaks.
+
+### 8.4 Performance Test Engine & ITU-T E-Model MOS
+- **Suite:** `test.PerformanceCampaignEngineTest`
+- **Result:** **6 / 6 PASSED**
+- **Validation Summary:**
+  1. ITU-T E-model G.107 MOS accuracy verified across ideal (4.40), moderate (4.11), severe (2.13), and extreme (1.0) conditions.
+  2. Performance test engine campaign lifecycle (start, execute, stop) and safe cancellation validated.
+
+### 8.5 Live OXE PBX Production Call Engine Suite
+- **Suite:** `test.OxeProductionCallEngineTest`
+- **Target:** OXE PBX (`192.168.0.20:5060`), Host (`192.168.0.8:5060`), MicroSIP (`90001`)
+- **Result:** **8 / 8 PASSED (100%)**
+  - Test 1: Extension 90008 Registration (200 OK) — PASSED
+  - Test 2 & 3: Outbound Call Setup, Dual WAV Recording & Two-Way Audio — PASSED
+  - Test 4: Call Hold (`a=sendonly`) and Resume (`a=sendrecv`) via Re-INVITE — PASSED
+  - Test 5: Inbound Call Setup (MicroSIP -> Simulator) & Auto-Answer — PASSED
+  - Test 6: Multi-Codec Negotiation (G.722 PT=9 & PCMA PT=8) — PASSED
+  - Test 7: Inbound Call Rejection (486 Busy Here) — PASSED
+  - Test 8: Clean Deregistration (Expires: 0 -> 200 OK) — PASSED

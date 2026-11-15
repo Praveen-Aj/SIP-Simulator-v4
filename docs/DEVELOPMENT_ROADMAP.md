@@ -159,31 +159,48 @@ flowchart TD
 
 ---
 
-## 6. Phase 5: Advanced Telecom Enhancements (Priority: P4)
+## 6. Phase 5: Performance, Multi-Call Orchestration & Protocol Compliance (Priority: P0/P1)
 
-**Focus:** Future-proofing protocol support for next-generation telecommunications testing.
+**Status:** **COMPLETED & VALIDATED**
 
-### Tasks Breakdown
-1. **RTCP Sender & Receiver Reports (RFC 3550):**
-   - Implement periodic RTCP SR/RR packets on `RTP_PORT + 1` to report round-trip delay, fraction lost, and cumulative jitter.
-2. **IPv6 Dual-Stack Support:**
-   - Extend `IPAddressPanel` and socket wrappers to support standard IPv6 bracket notation (e.g. `[2001:db8::1]:5060`).
-3. **WebRTC SIP Interworking Preview:**
-   - Support SIP over Secure WebSockets (WSS) and Opus audio codec for browser-based SIP endpoint testing.
-
-### Phase 5 Metadata
-- **Estimated Effort:** 5–7 Engineering Days.
-- **Risk Level:** Low (New opt-in modules).
-- **Prerequisites:** Phases 1–4 complete.
+### Key Accomplishments
+1. **Multi-Call Orchestration & Isolation:**
+   - Guaranteed collision-free Call-IDs: `call<AtomicLong>_<ts>@<localIp>`.
+   - Test-binding dynamic RTP port allocator (`allocateRtpPort()`) testing even ports `42000-50000`.
+   - Validated with `test.MultiCallOrchestrationTest` (8 concurrent threads, zero collisions).
+2. **SIP Performance Test Engine (`PerformanceTestEngine.java`):**
+   - Implemented 5 execution modes: `SINGLE_CALL`, `SEQUENTIAL`, `CONCURRENT`, `RATE_CONTROLLED` (target CPS), `LONG_DURATION` (soak).
+   - Real-time and aggregate metrics: setup latency (min, avg, max, p95), holding duration, packet loss rate, jitter, and MOS.
+   - Long-duration soak testing with 5s resource telemetry snapshots (memory, threads, sockets).
+   - Safe cancellation (`stopCampaign()`) with systematic dialog teardown.
+3. **SIP Transaction & Protocol Reliability:**
+   - Implemented RFC 3261 Timer A exponential backoff retransmission and Timer B transaction timeout in `SipCallEngine.listenLoop()`.
+   - Implemented `cancelCall(callId)` with CANCEL request formulation, 200 OK to CANCEL, 487 to INVITE, and non-2xx ACK handling.
+   - Duplicate 200 OK retransmit ACK and duplicate BYE 200 OK handling.
+   - Validated with `test.SipTransactionReliabilityTest` (3/3 passed).
+4. **RTP Quality Analysis & ITU-T E-Model G.107 MOS Calculation:**
+   - Implemented RFC 3550 sequence difference arithmetic in `LiveAudioReceiverThread` tracking lost, duplicate, out-of-order packets and sequence discontinuities.
+   - Implemented ITU-T E-model G.107 MOS formula in `LiveAudioController.calculateMos` with Appendix I PLC parameterization ($B_{pl} = 19.0$).
+   - One-way audio stream detection.
+   - Validated with `test.PerformanceCampaignEngineTest` (6/6 passed).
+5. **Controlled Failure Injection Framework (`FailureInjectionEngine.java`):**
+   - Deterministic test scenarios: `INVALID_DESTINATION_404`, `BUSY_DESTINATION_486`, `TRANSACTION_TIMEOUT_408`, `CALL_CANCELLATION`, `REMOTE_PARTY_BYE`.
+   - Verified clean resource recovery (zero socket or thread leaks) in `test.ControlledFailureRecoveryTest` (3/3 passed).
+6. **REST API & Web UI Performance Dashboard:**
+   - Added REST endpoints in `CliCallEngine.java` and `web-app/server.js`: `/api/perf/start`, `/api/perf/stop`, `/api/perf/status`, `/api/perf/results`, `/api/perf/failure-test`, `/api/health`, `/api/call/cancel`.
+   - Added interactive `PerformanceTab` in `web-app/client/src/App.jsx` with real-time KPI tiles, call stream table, failure injector, and JVM health telemetry.
+   - Built production client assets in `web-app/public`.
+7. **Live OXE PBX & MicroSIP Production Validation:**
+   - Validated 100% pass across all 8 test cases in `test.OxeProductionCallEngineTest` against physical OXE PBX (`192.168.0.20:5060`) and MicroSIP (`90001`).
 
 ---
 
 ## 7. Roadmap Summary & Timeline
 
-| Phase | Milestone | Priority | Key Deliverables | Risk Level |
+| Phase | Milestone | Priority | Key Deliverables | Status |
 |---|---|---|---|---|
-| **Phase 1** | **Stability & Crash Prevention** | **P0** | No more PC restarts, no audio driver deadlocks, responsive high-DPI window layout. | Low |
-| **Phase 2** | **Core Protocol & Integration Fixes** | **P1** | Robust TCP framing, headless TLS cert handling, synchronized campaign reports. | Medium |
-| **Phase 3** | **Feature Completeness & Polish** | **P2** | PKCS#1 PEM support, bounded jitter buffer, Re-INVITE state tracking. | Low |
-| **Phase 4** | **Architecture & Decoupling** | **P3** | Unblocked Swing EDT, single execution runner, unified log configuration. | Low-Med |
-| **Phase 5** | **Advanced Enhancements** | **P4** | RTCP reporting, IPv6 dual-stack, WebRTC preview. | Low |
+| **Phase 1** | **Stability & Crash Prevention** | **P0** | No more PC restarts, no audio driver deadlocks, responsive high-DPI window layout. | **COMPLETED** |
+| **Phase 2** | **Core Protocol & Integration Fixes** | **P1** | Robust TCP framing, headless TLS cert handling, synchronized campaign reports. | **COMPLETED** |
+| **Phase 3** | **Feature Completeness & Polish** | **P2** | PKCS#1 PEM support, bounded jitter buffer, Re-INVITE state tracking. | **COMPLETED** |
+| **Phase 4** | **Production Call Engine & Audio Management** | **P0** | Full SIP dialog engine, live bidirectional audio, dual WAV recording, OXE two-endpoint integration. | **COMPLETED** |
+| **Phase 5** | **Performance, Multi-Call & Compliance** | **P0** | Multi-call orchestration, CPS rate control, Timer A/B, CANCEL, ITU-T MOS, failure injection, web dashboard. | **COMPLETED** |

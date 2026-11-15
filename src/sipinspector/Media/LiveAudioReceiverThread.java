@@ -63,6 +63,12 @@ public class LiveAudioReceiverThread extends Thread {
     private boolean latched = false;
     private long lastLatchedArrivalMs = 0;
     private static final long SSRC_RELATCH_MS = 2000; // re-latch if latched source silent >2s
+
+    // RTP Quality & Sequence Discontinuity tracking (RFC 3550)
+    private long lostPackets = 0;
+    private long duplicatePackets = 0;
+    private long outOfOrderPackets = 0;
+    private long sequenceDiscontinuities = 0;
     
     // RTP details
     private double jitter = 0.0;
@@ -549,6 +555,22 @@ public class LiveAudioReceiverThread extends Thread {
     public long getTimestampDriftMs() {
         return timestampDriftMs;
     }
+
+    public long getLostPackets() {
+        return lostPackets;
+    }
+
+    public long getDuplicatePackets() {
+        return duplicatePackets;
+    }
+
+    public long getOutOfOrderPackets() {
+        return outOfOrderPackets;
+    }
+
+    public long getSequenceDiscontinuities() {
+        return sequenceDiscontinuities;
+    }
     
     /**
      * Get current jitter buffer size
@@ -665,6 +687,22 @@ public class LiveAudioReceiverThread extends Thread {
                 TLSDebugLogger.log(String.format("[RTP WARN RX] SSRC changed old=0x%08X new=0x%08X", observedSsrc, ssrc));
             }
             observedSsrc = ssrc;
+        }
+
+        // RFC 3550 Sequence arithmetic & packet loss tracking
+        if (lastRxSeq >= 0) {
+            int seqDiff = (seq - lastRxSeq) & 0xFFFF;
+            if (seqDiff == 0) {
+                duplicatePackets++;
+            } else if (seqDiff > 0x8000) {
+                // Sequence is older than lastRxSeq -> out-of-order packet
+                outOfOrderPackets++;
+            } else if (seqDiff > 1) {
+                if (seqDiff < 3000) {
+                    lostPackets += (seqDiff - 1);
+                    sequenceDiscontinuities++;
+                }
+            }
         }
 
         if (!LiveAudioRuntimeDiagnostics.enabled()) {
