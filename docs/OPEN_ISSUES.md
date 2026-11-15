@@ -418,3 +418,138 @@ The following telecom features require a physical or virtual Alcatel-Lucent OXE 
 - **Impact:** Media statistics were previously static text summaries without sequence discontinuity detection or real-time trends.
 - **Resolution:**
   - Added measured TX/RX metrics, RFC 3550 sequence jump/drop/out-of-order detection, RTCP jitter, real-time sliding sparklines, and direct Call-ID drilldown into SIP Message Explorer.
+
+---
+
+## 7. Phase 8.1 Independent QA Defects & Phase 8.2 Remediations
+
+The following defects were independently identified during the Phase 8.1 QA Audit (`docs/PHASE_8_1_INDEPENDENT_QA_REPORT.md`) and systematically remediated in Phase 8.2:
+
+### DEF-01: Hardcoded RTCP RTT Metric in RTP Inspector
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/OperationTabs/RtpInspectorTab.java` (Line 562)
+- **Root Cause:**
+  `RtpInspectorTab.java` displayed a hardcoded static string literal `"< 15 ms (Direct LAN)"` regardless of network conditions or whether RTCP packets had been received.
+- **Phase 8.2 Resolution:**
+  - Removed the hardcoded string literal.
+  - Bound the RTT metric directly to `stats.get("rtcp_rtt_ms")` reported by `LiveAudioController.getStats()`.
+  - When RTCP Receiver Reports have not arrived or cannot be computed, safely displays `"RTT unavailable — no valid RTCP measurement"`.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testRtcpRttTelemetryAndQuality()` (PASS).
+
+---
+
+### DEF-02: Broken Call-ID Drilldown to SIP Message Explorer
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/OperationTabs/RtpInspectorTab.java`, `src/sipinspector/SIPInspectorMainFrame.java`, `src/sipinspector/OperationTabs/SipMessageExplorerTab.java`
+- **Root Cause:**
+  Clicking "Inspect in SIP Message Explorer" in the RTP Inspector merely navigated to the tab without populating any filter criteria, forcing the user to manually re-type the Call-ID.
+- **Phase 8.2 Resolution:**
+  - Implemented `SipMessageExplorerTab.setCallIdFilter(String callId)`.
+  - Added `SIPInspectorMainFrame.navigateToMessageExplorer(String callId)`.
+  - When the drilldown button is clicked, `RtpInspectorTab` invokes `mainFrame.navigateToMessageExplorer(callId)`, automatically populating the filter text, filtering the table, and highlighting matching rows.
+- **Test Evidence:** Verified in `Phase8WorkspaceIntelligenceTest` and interactive UI tests.
+
+---
+
+### DEF-03: Dead Packet Counter in Network & Protocol Testing Tab
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/Socket/SocketSimulationHelper.java`, `src/sipinspector/OperationTabs/SimulationTab.java`
+- **Root Cause:**
+  `SimulationTab.java` created a label `txRxPacketsLabel` initialized to `"Tx: 0 | Rx: 0"`, but the UI refresh timer never updated this label, leaving it permanently static.
+- **Phase 8.2 Resolution:**
+  - Added thread-safe atomic counters in `SocketSimulationHelper.java`: `sipPacketsProcessed`, `sipPacketsDropped`, `rtpPacketsProcessed`, and `rtpPacketsDropped` along with `resetCounters()` and `resetSimulation()`.
+  - Updated `simulateIncoming`, `simulateOutgoing`, and `simulateMediaOutgoing` to increment counters on every packet transmission or drop.
+  - Updated `SimulationTab.updateStateMonitor()` to format live metrics: `"Tx: X (Drop: D) | Rx: Y (Drop: Z) | RTP Drop: R"`.
+  - Wired `resetImpairment()` to call `SocketSimulationHelper.resetSimulation()`.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testSocketSimulationHelperCountersAndImpairments()` (PASS).
+
+---
+
+### DEF-04: Malformed 200 OK Responses to NOTIFY/OPTIONS (Duplicate `Via: Via:`)
+- **Severity:** **P1 (High)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/Call/SipCallEngine.java` (Lines 1649, 1672)
+- **Root Cause:**
+  `SIPParser.getHeader()` returns the complete header line including `Via:` and trailing `\r\n`. In `sendOkForNotify` and `sendOkForOptions`, prepending `"Via: "` and appending `"\r\n"` resulted in `Via: Via: ...\r\n\r\n`. The double CRLF prematurely terminated the SIP header block, breaking SIP parsers and causing Call-ID and CSeq to be lost in message repositories.
+- **Phase 8.2 Resolution:**
+  - Implemented RFC 3261 Section 8.2.6 compliant `getViaHeadersForResponse()` to extract and preserve all Via headers in exact request order without modifying line structure.
+  - Implemented `format200OkResponse(requestMsg, cseqMethod)` ensuring clean CRLF boundaries, zero duplicate prefixes, accurate `Content-Length: 0`, and RFC-compliant header ordering.
+  - Applied the standard formatter across `sendOkForNotify`, `sendOkForOptions`, `sendOkForBye`, `sendOkForByeWithoutSession`, and `sendOkForCancel`.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testSip200OkResponseFormattingAndIntegrity()` (PASS).
+
+---
+
+### DEF-05: Mutually Exclusive Filtering in SIP Message Explorer
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/Utils/SipMessageRepository.java`, `src/sipinspector/OperationTabs/SipMessageExplorerTab.java`
+- **Root Cause:**
+  In `SipMessageExplorerTab.applyFilter()`, an `if (!method.equals("ALL")) ... else if (!respCode.equals("ALL"))` construct prevented filtering by Method and Response Code at the same time.
+- **Phase 8.2 Resolution:**
+  - Expanded `SipMessageRepository.filter()` with a 6-parameter composite query: `filter(method, responseCode, callId, direction, transport, searchKeyword)`.
+  - Implemented strict boolean AND semantics across all filter criteria.
+  - Preserved backward-compatible 5-parameter overload.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testMessageRepositoryCompositeFiltersAndCounters()` (PASS).
+
+---
+
+### DEF-06: Fragile Substring Call-ID Matching in Campaigns Tab
+- **Severity:** **P3 (Low)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/OperationTabs/CampaignsTab.java` (Line 945)
+- **Root Cause:**
+  Call-ID extraction previously used `line.indexOf("call")`, which falsely matched console log lines containing the words "caller" or "calling".
+- **Phase 8.2 Resolution:**
+  - Implemented `CampaignsTab.extractCallIdFromLogLine()` using regex pattern `(?i)(?:Call-ID|i)[=:]\s*([^\r\n\s]+)`.
+  - Correctly matches full header `Call-ID: <id>`, compact form `i: <id>`, and key-value parameter `Call-ID=<id>`.
+  - Never matches "caller", "calling", or unrelated log text.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testCampaignFailureIntelligenceAndCallIdRegex()` (PASS).
+
+---
+
+### DEF-07: Inaccessible Orphaned Message Diff Tool
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/UI/MessageDiffDialog.java`, `src/sipinspector/SIPInspectorMainFrame.java`, `src/sipinspector/OperationTabs/SipMessageExplorerTab.java`
+- **Root Cause:**
+  `MessageDiffDialog.java` provided a working side-by-side SIP diff utility, but was never instantiated, wired to any menu, or accessible from the UI.
+- **Phase 8.2 Resolution:**
+  - Added constructors and helper setters `setMessageA(String text)` and `setMessageB(String text)` in `MessageDiffDialog.java`.
+  - Wired into `SIPInspectorMainFrame` menu: `Tools -> SIP Utilities -> Compare SIP Messages...`.
+  - Added a `Compare...` button directly in `SipMessageExplorerTab` toolbar allowing the user to select two messages from the table and open them in the diff tool.
+- **Test Evidence:** Component instantiation and layout verified.
+
+---
+
+### DEF-08: Missing Structured Settings Dialog
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `src/sipinspector/Dialogs/StructuredSettingsDialog.java`, `src/sipinspector/SIPInspectorMainFrame.java`, `src/sipinspector/GlobalSettings.java`
+- **Root Cause:**
+  `StructuredSettingsDialog.java` was claimed in Phase 8 documentation but was missing from the repository. The menu item simply redirected to the main window card.
+- **Phase 8.2 Resolution:**
+  - Created genuine 5-tab modal dialog `StructuredSettingsDialog.java` with tabs:
+    1. **Network & Sockets:** Local/PBX IP, SIP ports, transport, TOS/DiffServ, socket timeouts.
+    2. **SIP Signaling & Identity:** Default User/DisplayName, Domain, User-Agent, Min-Expires, STIR/SHAKEN, Session Timers.
+    3. **Media & Audio Codecs:** Audio device selection, RTP port range, enabled codecs (PCMA, PCMU, G.722), SRTP mode.
+    4. **Diagnostics & Logging:** File logging enable, retention days, PCAP engine, headless mode.
+    5. **Appearance & Theme:** FlatLaf theme selector (Ocean Blue, Dark, Light), window scaling.
+  - Implemented `validateSettings()` to reject invalid ports (out of 1-65535 range, inverted RTP port ranges).
+  - Wired into `GlobalSettings.saveSettings()` and connected to `Options -> Preferences / Settings...`.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testStructuredSettingsDialogValidation()` (PASS).
+
+---
+
+### DEF-09: Tautological Test Assertions in Workspace Intelligence Suite
+- **Severity:** **P2 (Medium)**
+- **Status:** **RESOLVED in Phase 8.2**
+- **File:** `test/Phase8WorkspaceIntelligenceTest.java`
+- **Root Cause:**
+  The test previously assigned string fields directly to a `CampaignItem` and asserted their equality without actually invoking `CampaignsTab.classifyFailureEvidence()`.
+- **Phase 8.2 Resolution:**
+  - Made `CampaignsTab.classifyFailureEvidence(item, lines, hardError)` public static.
+  - Rewrote the test to pass simulated raw console log traces (`488 Not Acceptable Here`, `408 Request Timeout`, `401 Unauthorized`, `RTP timeout`, internal exceptions) into the classifier and assert the resulting `failureClassification`, `failureStage`, `causeCertainty`, and `failureResponseCode`.
+- **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testCampaignFailureIntelligenceAndCallIdRegex()` (PASS).

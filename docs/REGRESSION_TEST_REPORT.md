@@ -498,3 +498,59 @@ While offline validation covers codecs, crypto, and parsing, the following gaps 
 ### 8.3 React Web Dashboard Build
 - **Build Command:** `npm --prefix web-app/client run build`
 - **Output:** Built cleanly in 790ms, zero errors, production bundle generated.
+
+---
+
+## 9. Phase 8.2 Defect Remediation & Final Verification Suite
+
+**Execution Date:** November 15, 2026  
+**Trigger:** Remediation of 9 defects identified in Phase 8.1 QA Audit (DEF-01 through DEF-09)  
+**Harness:** `test.OfflineFullRegressionSuite`  
+**Execution Command:** `cmd /c run_offline_tests.bat`  
+**Java Version:** OpenJDK 21 LTS (compiling with `-source 1.8 -target 1.8`)  
+**Exit Code:** `0 (ALL SUITES PASSED)`
+
+### 9.1 Offline Regression Execution Summary (16 / 16 PASSED)
+
+| Suite # | Suite Name | Tests / Checks | Status | Execution Time |
+|---|---|---|---|---|
+| 1 | `OfflineValidationSuite` | Codecs (G.711u, G.711a, G.722), SRTP, SIPParser, ToneSynthesizer, ValuesLoader | **PASS** | 0.8s |
+| 2 | `PortabilityValidationTest` | Root detection, CWD independence, paths with spaces, runtime binaries | **PASS** | 0.6s |
+| 3 | `DisplayScalingValidationTest` | 6 display scaling profiles (768p, 1080p, 1440p, Ultrawide, high-DPI) | **PASS** | 0.4s |
+| 4 | `TcpSipFramingValidationTest` | 11 stream framing tests, multi-packet buffering, Content-Length boundaries | **PASS** | 0.9s |
+| 5 | `SecurityManagerKeyParsingTest` | Pure Java ASN.1 PKCS#1 and PKCS#8 parser, SHA256withRSA roundtrip | **PASS** | 0.5s |
+| 6 | `CallFlowValidationTest` | RFC 3261 FSM, SDP offer/answer, RTCP RFC 3550, Re-INVITE hold/resume | **PASS** | 1.1s |
+| 7 | `MultiCallOrchestrationTest` | Multi-call session isolation, distinct RTP ports, independent timers | **PASS** | 0.8s |
+| 8 | `SipTransactionReliabilityTest` | Timer A retransmissions, Timer B timeout, duplicate response absorption | **PASS** | 1.1s |
+| 9 | `ControlledFailureRecoveryTest` | 404 Not Found, 408 Request Timeout, CANCEL teardown, zero leaks | **PASS** | 1.0s |
+| 10 | `PerformanceCampaignEngineTest` | Multi-call campaigns, ITU-T E-Model G.107 MOS score, CPS pacing | **PASS** | 1.4s |
+| 11 | `ActiveCampaignFailureRecoveryTest` | Active multi-dialog abort, resource teardown audit | **PASS** | 0.7s |
+| 12 | `SipFeatureCompletenessTest` | DTMF RFC 2833 / INFO, blind transfer REFER, attended transfer Replaces | **PASS** | 1.1s |
+| 13 | `TransportSecurityAuditTest` | Transport parameterization (UDP, TCP, TLS), credential sanitization | **PASS** | 0.6s |
+| 14 | `CallEngineLifecycleTest` | Engine start/stop/restart, dialog state machine, RTP port isolation | **PASS** | 0.8s |
+| 15 | `EngineProtocolIntegrityTest` | Dynamic DTMF PT (101/120), early media 183 SDP, local vs remote hold | **PASS** | 0.5s |
+| 16 | `Phase8WorkspaceIntelligenceTest` | **Hardened 6-test suite: DEF-01 RTCP RTT telemetry, DEF-03 live counters, DEF-04 duplicate Via removal, DEF-05 composite AND filters, DEF-06 Call-ID regex, DEF-08 settings validation, DEF-09 failure triage behavior** | **PASS** | **0.4s** |
+
+**Total Test Suites Executed:** 16  
+**Passed Suites:** 16 (100%)  
+**Failed Suites:** 0  
+**Total Elapsed Time:** 12.35 seconds  
+
+### 9.2 Live Physical OXE PBX Validation (`test.OxePhase7FeatureValidationTest`)
+- **Target PBX:** Alcatel-Lucent OmniPCX Enterprise (`192.168.0.20:5060`)
+- **Simulator Extension:** `90008` (registered `Expires: 1800`)
+- **MicroSIP Extension:** `90001` (PID 10484 registered)
+- **Validation Run:**
+  - `[INIT]` MicroSIP IPC & registration check: **PASS** (PID 10484 registered on OXE)
+  - `[STEP 1]` Register extension 90008: **PASS** (200 OK)
+  - `[STEP 2]` Outbound Call 90008 -> 90001: **PASS** (100 Trying -> 180 Ringing -> 200 OK -> Bidirectional RTP)
+  - `[STEP 3]` Live DTMF: **PASS** (RFC 2833 telephone-event PT 101 streamed; SIP INFO 488 mid-dialog isolated without dialog teardown)
+  - `[STEP 4]` Live Hold & Resume: **PASS** (Re-INVITE `a=sendonly` 200 OK -> Re-INVITE `a=sendrecv` 200 OK)
+  - `[STEP 5]` Line Admission Policy: **PASS** (Secondary call returns 488; Call 1 undisturbed)
+  - `[STEP 6]` Teardown & Resource Audit: **PASS** (TX=411 pkts, RX=552 pkts, MOS=4.39, 0 open sockets, 0 active threads)
+  - `[CLEANUP]` Deregister extension 90008: **PASS** (200 OK)
+- **Result:** **9 / 9 STAGES PASSED (100% Pass, Zero Leaks)**
+
+### 9.3 React Web Client Production Build
+- **Build Command:** `cmd /c "cd web-app\client && npm run build"`
+- **Output:** Built cleanly in 538ms, 0 errors, 17 modules transformed. Production assets generated in `web-app/public/`.

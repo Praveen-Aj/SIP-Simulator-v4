@@ -52,6 +52,29 @@ public class MessageDiffDialog extends JDialog {
         initComponents();
     }
 
+    public MessageDiffDialog(Frame parent, String messageA, String messageB) {
+        this(parent);
+        if (messageA != null) setMessageA(messageA);
+        if (messageB != null) setMessageB(messageB);
+        if (messageA != null && messageB != null && !messageA.isEmpty() && !messageB.isEmpty()) {
+            compare();
+        }
+    }
+
+    public void setMessageA(String text) {
+        if (messageAArea != null) {
+            messageAArea.setText(text != null ? text : "");
+            messageAArea.setCaretPosition(0);
+        }
+    }
+
+    public void setMessageB(String text) {
+        if (messageBArea != null) {
+            messageBArea.setText(text != null ? text : "");
+            messageBArea.setCaretPosition(0);
+        }
+    }
+
     private void initComponents() {
         setLayout(new MigLayout("fill, insets 12", "[grow][grow]", "[grow 40][][grow 60][]"));
 

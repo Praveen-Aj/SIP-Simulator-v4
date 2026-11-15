@@ -17,6 +17,7 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import net.miginfocom.swing.MigLayout;
 import sipinspector.SIPInspectorMainFrame;
+import sipinspector.UI.MessageDiffDialog;
 import sipinspector.UI.SipLadderPanel;
 import sipinspector.UI.SipLadderPanel.SipMessage;
 import sipinspector.Utils.EmojiIcon;
@@ -135,7 +136,7 @@ public class SipMessageExplorerTab extends JPanel implements SipMessageRepositor
         autoScrollCheck.setForeground(new Color(226, 232, 240));
         topToolbar.add(autoScrollCheck, "");
 
-        // Actions: Clear & Export
+        // Actions: Clear, Export & Compare
         JButton btnClear = new JButton("Clear");
         btnClear.setToolTipText("Clear all captured SIP messages");
         btnClear.addActionListener(e -> clearAllMessages());
@@ -145,6 +146,18 @@ public class SipMessageExplorerTab extends JPanel implements SipMessageRepositor
         btnExport.setToolTipText("Export message list to a text file");
         btnExport.addActionListener(e -> exportMessages());
         topToolbar.add(btnExport, "");
+
+        JButton btnCompare = new JButton("Compare...");
+        btnCompare.setToolTipText("Compare selected SIP message against another trace");
+        btnCompare.addActionListener(e -> {
+            String selectedMsg = selectedRecord != null ? selectedRecord.rawMessage : "";
+            MessageDiffDialog diffDialog = new MessageDiffDialog(mainFrame);
+            if (!selectedMsg.isEmpty()) {
+                diffDialog.setMessageA(selectedMsg);
+            }
+            diffDialog.setVisible(true);
+        });
+        topToolbar.add(btnCompare, "");
 
         add(topToolbar, BorderLayout.NORTH);
 
@@ -410,16 +423,8 @@ public class SipMessageExplorerTab extends JPanel implements SipMessageRepositor
         String transport = (String) transportCombo.getSelectedItem();
         String keyword = searchField.getText();
 
-        String mFilter = null;
-        if (method != null && !method.equals("All Types")) {
-            mFilter = method;
-        } else if (response != null && !response.equals("All Responses")) {
-            if (response.contains(" ")) {
-                mFilter = response.substring(0, response.indexOf(' ')).trim();
-            } else {
-                mFilter = response.trim();
-            }
-        }
+        String mFilter = (method != null && !method.equals("All Types")) ? method : null;
+        String rFilter = (response != null && !response.equals("All Responses")) ? response : null;
 
         String dFilter = null;
         if (direction != null) {
@@ -432,7 +437,7 @@ public class SipMessageExplorerTab extends JPanel implements SipMessageRepositor
             tFilter = transport;
         }
 
-        List<SipMessageRecord> filtered = repository.filter(mFilter, null, dFilter, tFilter, keyword);
+        List<SipMessageRecord> filtered = repository.filter(mFilter, rFilter, null, dFilter, tFilter, keyword);
 
         synchronized (displayedMessages) {
             displayedMessages.clear();
@@ -449,6 +454,18 @@ public class SipMessageExplorerTab extends JPanel implements SipMessageRepositor
 
         updateLadderCombo();
         updateLadderDiagram();
+    }
+
+    public void setCallIdFilter(String callId) {
+        if (callId == null || callId.trim().isEmpty() || callId.equalsIgnoreCase("none") || callId.equals("-")) {
+            return;
+        }
+        searchField.setText(callId.trim());
+        applyFilter();
+        if (!displayedMessages.isEmpty()) {
+            messageTable.setRowSelectionInterval(0, 0);
+            onMessageSelected(displayedMessages.get(0));
+        }
     }
 
     public void refreshMessages() {

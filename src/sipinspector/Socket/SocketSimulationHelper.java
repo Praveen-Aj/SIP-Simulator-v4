@@ -19,6 +19,32 @@ import sipinspector.Utils.TLSDebugLogger;
 public class SocketSimulationHelper {
     private static final Random random = new Random();
 
+    private static final java.util.concurrent.atomic.AtomicLong sipPacketsProcessed = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final java.util.concurrent.atomic.AtomicLong sipPacketsDropped = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final java.util.concurrent.atomic.AtomicLong rtpPacketsProcessed = new java.util.concurrent.atomic.AtomicLong(0);
+    private static final java.util.concurrent.atomic.AtomicLong rtpPacketsDropped = new java.util.concurrent.atomic.AtomicLong(0);
+
+    public static long getSipPacketsProcessed() { return sipPacketsProcessed.get(); }
+    public static long getSipPacketsDropped() { return sipPacketsDropped.get(); }
+    public static long getRtpPacketsProcessed() { return rtpPacketsProcessed.get(); }
+    public static long getRtpPacketsDropped() { return rtpPacketsDropped.get(); }
+
+    public static void resetCounters() {
+        sipPacketsProcessed.set(0);
+        sipPacketsDropped.set(0);
+        rtpPacketsProcessed.set(0);
+        rtpPacketsDropped.set(0);
+    }
+
+    public static void resetSimulation() {
+        resetCounters();
+        GlobalSettings.setSetting("sim.enabled", "false");
+        GlobalSettings.setSetting("sim.loss", "0");
+        GlobalSettings.setSetting("sim.delay", "0");
+        GlobalSettings.setSetting("sim.jitter", "0");
+        GlobalSettings.setSetting("sim.malformed", "None");
+    }
+
     public static boolean isImpairmentEnabled() {
         String enabled = GlobalSettings.getSetting("sim.enabled");
         if (enabled != null) {
@@ -63,11 +89,13 @@ public class SocketSimulationHelper {
      */
     public static boolean simulateIncoming(InetAddress sourceAddress, int sourcePort, String transportType) {
         if (!isImpairmentEnabled()) return false;
+        sipPacketsProcessed.incrementAndGet();
 
         // 1. Check loss
         int loss = getLossPercent();
         if (loss > 0) {
             if (random.nextInt(100) < loss) {
+                sipPacketsDropped.incrementAndGet();
                 if (TLSDebugLogger.isEnabled()) {
                     TLSDebugLogger.log("[SIMULATION] Dropped incoming " + transportType + " packet (loss=" + loss + "%) from " + sourceAddress + ":" + sourcePort);
                 }
@@ -136,6 +164,7 @@ public class SocketSimulationHelper {
      */
     public static boolean simulateOutgoing(InetAddress destAddress, int destPort, String transportType) {
         if (!isImpairmentEnabled()) return false;
+        sipPacketsProcessed.incrementAndGet();
 
         // 1. Check delay & jitter
         int delay = getDelayMs();
@@ -154,6 +183,7 @@ public class SocketSimulationHelper {
         int loss = getLossPercent();
         if (loss > 0) {
             if (random.nextInt(100) < loss) {
+                sipPacketsDropped.incrementAndGet();
                 if (TLSDebugLogger.isEnabled()) {
                     TLSDebugLogger.log("[SIMULATION] Dropped outgoing " + transportType + " packet (loss=" + loss + "%) to " + destAddress + ":" + destPort);
                 }
@@ -169,9 +199,11 @@ public class SocketSimulationHelper {
      */
     public static boolean simulateMediaOutgoing(InetAddress destAddress, int destPort) {
         if (!isImpairmentEnabled() || !isAffectMedia()) return false;
+        rtpPacketsProcessed.incrementAndGet();
 
         int loss = getLossPercent();
         if (loss > 0 && random.nextInt(100) < loss) {
+            rtpPacketsDropped.incrementAndGet();
             return true; // drop RTP packet
         }
 

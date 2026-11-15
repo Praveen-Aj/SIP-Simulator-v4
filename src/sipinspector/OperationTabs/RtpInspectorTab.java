@@ -559,7 +559,14 @@ public class RtpInspectorTab extends JPanel {
             lblRtcpFracLost.setText(String.format("%d / 256 (%.1f%%)", (int) (lossRate * 2.56), lossRate));
             lblRtcpCumLost.setText(lostPackets + " packets");
             lblRtcpJitter.setText(String.format("%.2f ms", jitter));
-            lblRtcpRtt.setText("< 15 ms (Direct LAN)");
+            Object rttVal = stats.get("rtcp_rtt_ms");
+            if (rttVal instanceof Number && ((Number) rttVal).longValue() > 0) {
+                lblRtcpRtt.setText(((Number) rttVal).longValue() + " ms (RTCP SR/RR)");
+                lblRtcpRtt.setForeground(new Color(74, 222, 128));
+            } else {
+                lblRtcpRtt.setText("RTT unavailable — no valid RTCP measurement");
+                lblRtcpRtt.setForeground(new Color(148, 163, 184));
+            }
 
             lastTxPackets = currentTxPackets;
             lastRxPackets = currentRxPackets;
@@ -612,12 +619,12 @@ public class RtpInspectorTab extends JPanel {
 
     private void viewInMessageExplorer() {
         String callId = lblSessionCallId.getText();
-        if (callId == null || callId.contains("none") || callId.isEmpty()) {
+        if (callId == null || callId.contains("none") || callId.trim().isEmpty() || callId.equals("-")) {
             JOptionPane.showMessageDialog(this, "No active Call-ID selected.", "Info", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         if (mainFrame != null) {
-            mainFrame.selectMainTab("SIP Message Explorer");
+            mainFrame.navigateToMessageExplorer(callId.trim());
         }
     }
 

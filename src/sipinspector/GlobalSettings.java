@@ -295,6 +295,14 @@ public class GlobalSettings {
 
     static public boolean logsEnabled = true;
 
+    public static boolean isLogsEnabled() {
+        return logsEnabled;
+    }
+
+    public static void setLogsEnabled(boolean enabled) {
+        logsEnabled = enabled;
+    }
+
     static private String pcapEngine = "jpcap";
 
     // Phase 4: INVITE Tag Logic
@@ -339,7 +347,21 @@ public class GlobalSettings {
             // Save simulation settings
             props.setProperty("sim.delay", getSetting("sim.delay") == null ? "0" : getSetting("sim.delay"));
             props.setProperty("sim.loss", getSetting("sim.loss") == null ? "0" : getSetting("sim.loss"));
+            props.setProperty("sim.jitter", getSetting("sim.jitter") == null ? "0" : getSetting("sim.jitter"));
+            props.setProperty("sim.affectMedia", getSetting("sim.affectMedia") == null ? "false" : getSetting("sim.affectMedia"));
             props.setProperty("sim.malformed", getSetting("sim.malformed") == null ? "None" : getSetting("sim.malformed"));
+
+            // Save SIP & Media network configuration
+            if (getSetting("sip.localIp") != null) props.setProperty("sip.localIp", getSetting("sip.localIp"));
+            if (getSetting("sip.localPort") != null) props.setProperty("sip.localPort", getSetting("sip.localPort"));
+            if (getSetting("sip.pbxIp") != null) props.setProperty("sip.pbxIp", getSetting("sip.pbxIp"));
+            if (getSetting("sip.pbxPort") != null) props.setProperty("sip.pbxPort", getSetting("sip.pbxPort"));
+            if (getSetting("sip.transport") != null) props.setProperty("sip.transport", getSetting("sip.transport"));
+            if (getSetting("sip.expires") != null) props.setProperty("sip.expires", getSetting("sip.expires"));
+            if (getSetting("sip.userAgent") != null) props.setProperty("sip.userAgent", getSetting("sip.userAgent"));
+            if (getSetting("rtp.portRangeStart") != null) props.setProperty("rtp.portRangeStart", getSetting("rtp.portRangeStart"));
+            if (getSetting("rtp.portRangeEnd") != null) props.setProperty("rtp.portRangeEnd", getSetting("rtp.portRangeEnd"));
+            if (getSetting("tls.debug") != null) props.setProperty("tls.debug", getSetting("tls.debug"));
 
             // Save window geometry settings
             if (getSetting("window.width") != null) props.setProperty("window.width", getSetting("window.width"));

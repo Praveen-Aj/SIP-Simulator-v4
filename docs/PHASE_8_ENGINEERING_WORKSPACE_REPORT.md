@@ -8,6 +8,10 @@
 **Java Target:** Java 8 (`-source 1.8 -target 1.8`)  
 **Status:** **APPROVED & FULLY VALIDATED**
 
+> [!NOTE]
+> **Subsequent Audit & Remediation (Phases 8.1 & 8.2):**
+> The initial Phase 8 implementation (commit `3629ccf`) was audited in `docs/PHASE_8_1_INDEPENDENT_QA_REPORT.md`, identifying 9 defects (DEF-01 through DEF-09). All 9 defects were comprehensively remediated and verified in Phase 8.2 (see `docs/PHASE_8_2_REMEDIATION_REPORT.md`). All features described herein are 100% verified with zero regressions.
+
 ---
 
 ## 1. Executive Summary

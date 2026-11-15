@@ -275,6 +275,26 @@ public class SipMessageRepository {
         }
     }
 
+    public long getTxMessageCount() {
+        long count = 0;
+        synchronized (messageList) {
+            for (SipMessageRecord rec : messageList) {
+                if ("OUT".equalsIgnoreCase(rec.direction)) count++;
+            }
+        }
+        return count;
+    }
+
+    public long getRxMessageCount() {
+        long count = 0;
+        synchronized (messageList) {
+            for (SipMessageRecord rec : messageList) {
+                if ("IN".equalsIgnoreCase(rec.direction)) count++;
+            }
+        }
+        return count;
+    }
+
     public void clear() {
         synchronized (messageList) {
             messageList.clear();
@@ -287,36 +307,82 @@ public class SipMessageRepository {
     }
 
     /**
-     * Filter messages by given criteria.
+     * Filter messages by combined criteria with strict AND semantics across active filters.
+     *
+     * @param method SIP method (e.g. "INVITE", "OPTIONS") or null/"All Types" for any
+     * @param responseCode SIP response code (e.g. "200", "488", "1xx", "2xx", "4xx") or null/"All Responses" for any
+     * @param callId Call-ID substring filter or null
+     * @param direction "IN", "OUT", or null/"ALL"
+     * @param transport "UDP", "TCP", "TLS", or null/"ALL"
+     * @param searchKeyword Free text keyword matching headers, body, endpoints, start-line, or null
      */
-    public List<SipMessageRecord> filter(String methodOrCode, String callId, String direction,
-                                        String transport, String searchKeyword) {
+    public List<SipMessageRecord> filter(String method, String responseCode, String callId,
+                                        String direction, String transport, String searchKeyword) {
         List<SipMessageRecord> result = new ArrayList<>();
-        String mFilter = (methodOrCode != null && !methodOrCode.equals("All") && !methodOrCode.equals("All Types") && !methodOrCode.equals("All Responses"))
-                ? methodOrCode.trim().toLowerCase() : null;
+        String mFilter = (method != null && !method.equalsIgnoreCase("All") && !method.equalsIgnoreCase("All Types"))
+                ? method.trim().toLowerCase() : null;
+
+        String rFilter = null;
+        if (responseCode != null && !responseCode.equalsIgnoreCase("All") && !responseCode.equalsIgnoreCase("All Responses")) {
+            String trimmed = responseCode.trim();
+            if (trimmed.contains(" ")) {
+                rFilter = trimmed.substring(0, trimmed.indexOf(' ')).trim().toLowerCase();
+            } else {
+                rFilter = trimmed.toLowerCase();
+            }
+        }
+
         String cFilter = (callId != null && !callId.trim().isEmpty()) ? callId.trim().toLowerCase() : null;
-        String dFilter = (direction != null && !direction.equalsIgnoreCase("ALL")) ? direction.trim().toUpperCase() : null;
-        String tFilter = (transport != null && !transport.equalsIgnoreCase("ALL")) ? transport.trim().toUpperCase() : null;
+        String dFilter = (direction != null && !direction.equalsIgnoreCase("ALL") && !direction.equalsIgnoreCase("All Directions"))
+                ? (direction.toUpperCase().contains("IN") ? "IN" : (direction.toUpperCase().contains("OUT") ? "OUT" : direction.trim().toUpperCase())) : null;
+        String tFilter = (transport != null && !transport.equalsIgnoreCase("ALL") && !transport.equalsIgnoreCase("All Transports"))
+                ? transport.trim().toUpperCase() : null;
         String kFilter = (searchKeyword != null && !searchKeyword.trim().isEmpty()) ? searchKeyword.trim().toLowerCase() : null;
 
         synchronized (messageList) {
             for (SipMessageRecord rec : messageList) {
-                if (dFilter != null && !rec.direction.equals(dFilter)) {
+                // Direction filter
+                if (dFilter != null && !rec.direction.equalsIgnoreCase(dFilter)) {
                     continue;
                 }
+                // Transport filter
                 if (tFilter != null && !rec.transport.equalsIgnoreCase(tFilter)) {
                     continue;
                 }
+                // Call-ID filter
                 if (cFilter != null && !rec.callId.toLowerCase().contains(cFilter)) {
                     continue;
                 }
+                // Method filter
                 if (mFilter != null) {
-                    boolean match = rec.methodOrResponse.toLowerCase().contains(mFilter)
-                            || (rec.responseCode > 0 && String.valueOf(rec.responseCode).startsWith(mFilter));
-                    if (!match) continue;
+                    boolean methodMatches = false;
+                    if (rec.isRequest) {
+                        methodMatches = rec.methodOrResponse.toLowerCase().contains(mFilter);
+                    } else {
+                        methodMatches = (rec.cseqMethod != null && rec.cseqMethod.toLowerCase().contains(mFilter))
+                                || (rec.cseq != null && rec.cseq.toLowerCase().contains(mFilter));
+                    }
+                    if (!methodMatches) continue;
                 }
+                // Response code filter
+                if (rFilter != null) {
+                    if (rec.isRequest) {
+                        continue; // Requests do not match response code filters
+                    }
+                    boolean codeMatches = false;
+                    if (rFilter.endsWith("xx") && rFilter.length() == 3) {
+                        char category = rFilter.charAt(0);
+                        codeMatches = String.valueOf(rec.responseCode).charAt(0) == category;
+                    } else {
+                        codeMatches = String.valueOf(rec.responseCode).startsWith(rFilter)
+                                || rec.methodOrResponse.toLowerCase().contains(rFilter);
+                    }
+                    if (!codeMatches) continue;
+                }
+                // Free text keyword filter
                 if (kFilter != null) {
                     boolean match = rec.rawMessage.toLowerCase().contains(kFilter)
+                            || rec.callId.toLowerCase().contains(kFilter)
                             || rec.source.toLowerCase().contains(kFilter)
                             || rec.destination.toLowerCase().contains(kFilter)
                             || rec.startLine.toLowerCase().contains(kFilter);
@@ -326,5 +392,25 @@ public class SipMessageRepository {
             }
         }
         return result;
+    }
+
+    /**
+     * Backward-compatible 5-argument filter.
+     */
+    public List<SipMessageRecord> filter(String methodOrCode, String callId, String direction,
+                                        String transport, String searchKeyword) {
+        if (methodOrCode == null || methodOrCode.equalsIgnoreCase("All") || methodOrCode.equalsIgnoreCase("All Types") || methodOrCode.equalsIgnoreCase("All Responses")) {
+            return filter(null, null, callId, direction, transport, searchKeyword);
+        }
+        String trimmed = methodOrCode.trim();
+        if (!trimmed.isEmpty() && Character.isDigit(trimmed.charAt(0))) {
+            return filter(null, trimmed, callId, direction, transport, searchKeyword);
+        } else {
+            return filter(trimmed, null, callId, direction, transport, searchKeyword);
+        }
+    }
+
+    public List<SipMessageRecord> getMessagesByCallId(String callId) {
+        return filter(null, null, callId, null, null, null);
     }
 }

@@ -4,6 +4,83 @@ All notable changes for the SIP Simulator project (originally SIP Inspector) are
 
 ---
 
+## [8.2] - November 2026
+
+### QA Defect Remediation & Engineering Consistency
+- **DEF-01 Fixed (RTCP RTT Telemetry):** In `RtpInspectorTab.java`, eliminated the hardcoded `"< 15 ms (Direct LAN)"` string literal. Bound the RTT metric directly to `stats.get("rtcp_rtt_ms")` reported by `LiveAudioController.getStats()`. When RTCP reports have not arrived, gracefully displays `"RTT unavailable — no valid RTCP measurement"`.
+- **DEF-02 Fixed (Call-ID Drilldown Navigation):** In `RtpInspectorTab.java` and `SipMessageExplorerTab.java`, wired the "Inspect in SIP Message Explorer" button to pre-populate the Call-ID filter in `SipMessageExplorerTab.setCallIdFilter(callId)`, automatically filter the message table, and select the corresponding Call-ID row.
+- **DEF-03 Fixed (Live Impairment Packet Counters):** In `SocketSimulationHelper.java` and `SimulationTab.java`, implemented atomic packet counters (`sipPacketsProcessed`, `sipPacketsDropped`, `rtpPacketsProcessed`, `rtpPacketsDropped`). Wired the UI refresh timer to update `txRxPacketsLabel` in real time with actual processed and dropped packet metrics.
+- **DEF-04 Fixed (SIP 200 OK Response Formatting):** In `SipCallEngine.java`, resolved the `Via: Via:` duplicate header defect on `200 OK` responses to incoming NOTIFY, OPTIONS, BYE, and CANCEL requests. Implemented RFC 3261 Section 8.2.6 compliant `format200OkResponse()` and `getViaHeadersForResponse()` to preserve multi-Via headers and maintain exact CRLF boundaries.
+- **DEF-05 Fixed (Composite AND Filtering in Message Explorer):** In `SipMessageRepository.java` and `SipMessageExplorerTab.java`, replaced the mutually exclusive Method/Response-code branching with composite AND filtering (`filter(method, responseCode, callId, direction, transport, searchKeyword)`). Both Method and Response Code filters can now be applied concurrently.
+- **DEF-06 Fixed (Call-ID Regex Extraction):** In `CampaignsTab.java`, replaced fragile substring matching (`line.indexOf("call")` which erroneously matched "caller" and "calling") with robust regex pattern `(?i)(?:Call-ID|i)[=:]\s*([^\r\n\s]+)`.
+- **DEF-07 Fixed (Message Diff Dialog Integration):** Integrated `MessageDiffDialog.java` into the application. Wired into `Tools -> SIP Utilities -> Compare SIP Messages...` and added a `Compare...` button on the `SipMessageExplorerTab` toolbar.
+- **DEF-08 Fixed (Structured Settings Dialog):** Implemented `src/sipinspector/Dialogs/StructuredSettingsDialog.java`, providing a full 5-tab modal preferences dialog (Network & Sockets, SIP Signaling & Identity, Media & Audio Codecs, Diagnostics & Logging, Appearance & Theme) with field validation, live reset, and persistent saving via `GlobalSettings`. Wired to `Options -> Preferences / Settings...`.
+- **DEF-09 Fixed (Genuine Test Assertions):** Rewrote `test/Phase8WorkspaceIntelligenceTest.java` with 6 genuine behavior-level test cases, verifying composite filtering, live counters, failure triage classification logic (`CampaignsTab.classifyFailureEvidence()`), 200 OK response formatting (zero duplicate Via), RTCP RTT telemetry, and settings validation.
+
+---
+
+## [8.1] - November 2026
+
+### Independent QA Audit & Acceptance
+- Executed comprehensive independent quality assurance audit (`docs/PHASE_8_1_INDEPENDENT_QA_REPORT.md`) against target commit `3629ccf`.
+- Validated live physical registration and bidirectional audio call against Alcatel-Lucent OmniPCX Enterprise (OXE R101.1) and MicroSIP.
+- Discovered 9 specific defects (DEF-01 through DEF-09) spanning protocol formatting, UI binding, and test assertion fidelity.
+- Issued conditional acceptance pending Phase 8.2 remediation.
+
+---
+
+## [8.0] - November 2026
+
+### Engineering Workspace Consolidation & Diagnostic Intelligence
+- **Campaigns Workspace Redesign:** Implemented real-time KPI summary cards, structured test case matrix, and **Evidence-Based Failure Analysis Triage Panel** with automated classification (`PBX_REJECTION`, `PROTOCOL_ERROR`, `MEDIA_FAILURE`, `TIMEOUT`, `CONFIG_ERROR`, `NETWORK_UNREACHABLE`), certainty rating, and concrete investigation steps.
+- **Unified Network & Protocol Testing Workspace:** Transformed `SimulationTab.java` into a 4-panel test harness featuring Network Impairment (delay, loss, jitter affecting signaling and media), SIP Fault Injection, SIP State Observability Monitor, and Comparative Simulation workflow with CSV export.
+- **RTP Inspector Workspace:** Upgraded media telemetry with active session selector, measured TX/RX packet metrics, RFC 3550 sequence discontinuity detection, duplicate packet accounting, out-of-order tracking, RTCP jitter/loss, and 60-sample real-time sliding sparklines.
+- **SIP Message Explorer:** Implemented central in-memory ring repository (`SipMessageRepository`) capturing all transport datagrams without duplication, multi-criteria filtering, structured headers/SDP/raw tabs, and embedded real-time `SipLadderPanel` visual call flow ladder.
+- **Desktop vs. Web Responsibility Model:** Formally established operational separation: Desktop Swing UI for authoring, manual calling, deep diagnostics; React Web UI for operational monitoring and campaign execution.
+
+---
+
+## [7.1] - November 2026
+
+### Independent Source Audit & Portability Remediation
+- Dynamic DTMF negotiation supporting RFC 4733 dynamic payload types (PT 101, PT 120 on OXE).
+- Early media qualification requiring active unicast RTP port > 0 in 183 Session Progress.
+- Independent local (`a=sendonly`) and remote (`a=recvonly`) hold/resume state tracking.
+- Network interface decoupling: replaced hardcoded IP literals with dynamic local IP discovery.
+- Expanded master offline regression test suite to 15 suites.
+
+---
+
+## [7.0] - November 2026
+
+### End-to-End Productization & Operational Validation
+- Validated live against physical Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) and MicroSIP 3.22.16.
+- Established live bidirectional audio (G.711 A-law PCMA PT=8) with ITU-T G.107 MOS score 4.39.
+- Verified in-call RFC 2833 DTMF and mid-dialog Re-INVITE Hold/Resume.
+- Validated PBX single-line admission control policy (488 Not Acceptable Here) with clean dialog isolation.
+- Published clean packaging and deployment artifacts in `Github/`.
+
+---
+
+## [6.0] - November 2026
+
+### Live Performance Qualification & Operational Hardening
+- Validated multi-call performance campaigns with CPS pacing and setup latency percentiles (p50, p95, p99).
+- Hardened failure recovery against 408 Request Timeout (Timer B), 487 Request Terminated (CANCEL), and 404 Not Found.
+- Hardened audio pipeline against DirectSound resource exhaustion.
+
+---
+
+## [5.0] - November 2026
+
+### Multi-Call Orchestration & Telecom Compliance
+- Multi-call orchestration engine supporting sequential, concurrent, and soak campaign executions.
+- Mid-dialog RFC compliance (RFC 3261 Section 14.1 and RFC 6086 Section 4.2.2).
+- ITU-T E-Model G.107 Mean Opinion Score (MOS) calculation.
+- Automated HTML and JSON performance report generator.
+
+---
+
 ## [4.0] - June 2026
 
 ### Major Features

@@ -333,3 +333,54 @@ flowchart TD
    - Expanded offline regression suite to 16 suites: 16/16 PASSED (100% in 12.7s).
    - Verified React web client production build with zero errors.
    - Executed live OXE PBX validation (`test.OxePhase7FeatureValidationTest`): 9/9 stages PASSED cleanly against physical OXE PBX (`192.168.0.20`) and MicroSIP (`90001`).
+
+---
+
+## 12. Phase 8.1: Independent QA Audit & Protocol Acceptance
+
+**Status:** **AUDIT COMPLETED — CONDITIONAL ACCEPTANCE**  
+**Document:** `docs/PHASE_8_1_INDEPENDENT_QA_REPORT.md`  
+**Target Commit Audited:** `3629ccf`  
+**Parent Commit:** `494c45a`  
+
+An independent, read-only quality assurance audit evaluated Phase 8 against real hardware (Alcatel-Lucent OmniPCX Enterprise PBX at `192.168.0.20:5060` and MicroSIP 3.22.16 on `90001`). The audit confirmed core SIP signaling and media operation (registration, bidirectional audio, MOS 4.39, DTMF, Re-INVITE hold/resume, and zero socket leaks). However, it uncovered 9 specific defects (DEF-01 through DEF-09) requiring targeted engineering remediation.
+
+---
+
+## 13. Phase 8.2: QA Defect Remediation, Git Reconciliation & Documentation Alignment
+
+**Status:** **COMPLETED, VERIFIED & COMMITTED**  
+**Target Java:** Java 8 (`-source 1.8 -target 1.8`)  
+**Working Branch:** `stability/feature-validation`  
+
+### Key Accomplishments & Defect Fixes
+1. **DEF-01 Resolved (RTCP RTT Telemetry):**
+   - Eliminated hardcoded string literal `"< 15 ms (Direct LAN)"` in `RtpInspectorTab.java`.
+   - Bound telemetry display directly to real-time `stats.get("rtcp_rtt_ms")` from `LiveAudioController.getStats()`. When RTCP reports are absent, safely displays `"RTT unavailable — no valid RTCP measurement"`.
+2. **DEF-02 Resolved (Call-ID Drilldown Navigation):**
+   - In `RtpInspectorTab.java`, wired "Inspect in SIP Message Explorer" button to pass Call-ID into `SipMessageExplorerTab.setCallIdFilter(callId)` via `SIPInspectorMainFrame.navigateToMessageExplorer(callId)`.
+   - Automatically populates search filter, selects matching row, and updates header inspector.
+3. **DEF-03 Resolved (Live Impairment Packet Counters):**
+   - Implemented thread-safe atomic counters in `SocketSimulationHelper.java`: `sipPacketsProcessed`, `sipPacketsDropped`, `rtpPacketsProcessed`, and `rtpPacketsDropped`.
+   - Wired UI refresh timer in `SimulationTab.java` to update `txRxPacketsLabel` with real-time processed and dropped counts.
+4. **DEF-04 Resolved (SIP 200 OK Response Formatting):**
+   - Corrected duplicate `Via: Via:` and empty lines in `SipCallEngine.java` (`sendOkForNotify`, `sendOkForOptions`, `sendOkForBye`, `sendOkForCancel`).
+   - Implemented RFC 3261 compliant response formatter `format200OkResponse()` and `getViaHeadersForResponse()` to preserve multi-Via headers and maintain strict CRLF delimitation.
+5. **DEF-05 Resolved (Composite AND Filtering in Message Explorer):**
+   - Fixed mutually exclusive filter branching in `SipMessageExplorerTab.java` and `SipMessageRepository.java`.
+   - Implemented composite AND filtering across Method, Response Code, Call-ID, Direction, Transport, and Keyword search parameters simultaneously.
+6. **DEF-06 Resolved (Call-ID Regex Extraction):**
+   - Replaced substring matching in `CampaignsTab.java` with regex pattern `(?i)(?:Call-ID|i)[=:]\s*([^\r\n\s]+)` to avoid false positive matches on words like "caller" and "calling".
+7. **DEF-07 Resolved (Message Diff Dialog Integration):**
+   - Wired previously orphaned `MessageDiffDialog.java` into `Tools -> SIP Utilities -> Compare SIP Messages...` and added a `Compare...` toolbar button in `SipMessageExplorerTab`.
+8. **DEF-08 Resolved (Structured Settings Dialog):**
+   - Implemented genuine 5-tab modal dialog `StructuredSettingsDialog.java` (Network & Sockets, SIP Signaling & Identity, Media & Audio Codecs, Diagnostics & Logging, Appearance & Theme) with field validation and persistent saving via `GlobalSettings`.
+   - Wired into `Options -> Preferences / Settings...`.
+9. **DEF-09 Resolved (Genuine Test Assertions):**
+   - Rewrote `Phase8WorkspaceIntelligenceTest.java` with 6 genuine behavior-level test cases, verifying composite filtering, live counters, failure triage classification logic (`CampaignsTab.classifyFailureEvidence()`), 200 OK response formatting (zero duplicate Via), RTCP RTT telemetry, and settings validation.
+
+### Full Verification Results
+- **Core Build (`cmd /c build.bat`):** 100% Clean Java 8 compilation. `SIP_Simulator_v4.jar` generated.
+- **Offline Full Regression Suite (`cmd /c run_offline_tests.bat`):** **16 / 16 Suites PASSED** (100% Pass in 12.35s).
+- **React Web Client (`npm run build`):** 100% Clean build (0 errors, built in 538ms).
+- **Live OXE PBX Integration (`test.OxePhase7FeatureValidationTest`):** **9 / 9 Stages PASSED** against physical Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`) and MicroSIP (`90001`) with bidirectional audio streaming (MOS 4.39) and zero socket leaks.

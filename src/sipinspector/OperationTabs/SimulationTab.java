@@ -433,9 +433,11 @@ public class SimulationTab extends JPanel {
         jitterSlider.setValue(0);
         chkAffectMedia.setSelected(false);
         malformedCombo.setSelectedIndex(0);
+        SocketSimulationHelper.resetCounters();
         saveSettings();
         updateImpairmentStatus();
         updateFaultStatus();
+        updateStateMonitor();
     }
 
     private void updateImpairmentStatus() {
@@ -544,6 +546,26 @@ public class SimulationTab extends JPanel {
         dialogCountLabel.setForeground(dialogCount > 0 ? new Color(74, 222, 128) : new Color(148, 163, 184));
 
         dialogsModel.updateSessions(sessions);
+
+        // Signaling & Impairment Packet Counters
+        long tx = sipinspector.Utils.SipMessageRepository.getInstance().getTxMessageCount();
+        long rx = sipinspector.Utils.SipMessageRepository.getInstance().getRxMessageCount();
+        long sipDropped = SocketSimulationHelper.getSipPacketsDropped();
+        long rtpDropped = SocketSimulationHelper.getRtpPacketsDropped();
+        boolean impActive = SocketSimulationHelper.isImpairmentEnabled();
+
+        StringBuilder pktText = new StringBuilder();
+        pktText.append("Tx: ").append(tx).append(" | Rx: ").append(rx);
+        if (impActive || (sipDropped + rtpDropped > 0)) {
+            pktText.append(" | Dropped: ").append(sipDropped + rtpDropped)
+                   .append(" (SIP: ").append(sipDropped).append(", RTP: ").append(rtpDropped).append(")");
+        }
+        txRxPacketsLabel.setText(pktText.toString());
+        if (sipDropped + rtpDropped > 0) {
+            txRxPacketsLabel.setForeground(new Color(251, 191, 36)); // amber
+        } else {
+            txRxPacketsLabel.setForeground(Color.WHITE);
+        }
 
         // Media State
         LiveAudioController audio = LiveAudioController.getActiveInstance();

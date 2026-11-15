@@ -1643,23 +1643,74 @@ public class SipCallEngine {
         signalingSocket.send(pkt);
     }
 
-    private void sendOkForNotify(MyPacket inPkt, String notifyMsg, CallSession session) throws Exception {
+    /**
+     * Extracts all Via header lines from incoming request message, preserving their exact
+     * ordering and parameters per RFC 3261 Section 8.2.6.2.
+     * Each returned header is guaranteed to end with \r\n and contain no duplicate 'Via: Via:' prefixes.
+     */
+    public static String getViaHeadersForResponse(String reqMsg, String fallbackIp, int fallbackPort) {
+        if (reqMsg != null) {
+            int endOfHeaders = reqMsg.indexOf("\r\n\r\n");
+            if (endOfHeaders < 0) {
+                endOfHeaders = reqMsg.indexOf("\n\n");
+            }
+            String headerSection = endOfHeaders >= 0 ? reqMsg.substring(0, endOfHeaders) : reqMsg;
+            String[] lines = headerSection.split("\\r?\\n");
+            StringBuilder vias = new StringBuilder();
+            for (String line : lines) {
+                String trimmed = line.trim();
+                String lower = trimmed.toLowerCase();
+                if (lower.startsWith("via:") || lower.startsWith("v:")) {
+                    vias.append(trimmed).append("\r\n");
+                }
+            }
+            if (vias.length() > 0) {
+                return vias.toString();
+            }
+        }
+        return "Via: SIP/2.0/UDP " + fallbackIp + ":" + fallbackPort + ";branch=z9hG4bK\r\n";
+    }
+
+    /**
+     * Formats an RFC 3261 compliant 200 OK SIP response for incoming requests (OPTIONS, NOTIFY, BYE, CANCEL).
+     */
+    public static String format200OkResponse(String reqMsg, String localTag, String pbxIp, int pbxSipPort) {
         StringBuilder ok = new StringBuilder();
         ok.append("SIP/2.0 200 OK\r\n");
-        ok.append("Via: ").append(SIPParser.getHeader(notifyMsg, "Via", "v")).append("\r\n");
-        ok.append("From: ").append(SIPParser.getHeader(notifyMsg, "From", "f")).append("\r\n");
-        ok.append("To: ").append(SIPParser.getHeader(notifyMsg, "To", "t"));
-        if (!SIPParser.getHeader(notifyMsg, "To", "t").contains("tag=") && session != null) {
-            ok.append(";tag=").append(session.localTag);
+        ok.append(getViaHeadersForResponse(reqMsg, pbxIp, pbxSipPort));
+
+        String fromVal = SIPParser.getHeaderValue(reqMsg, "From", "f");
+        ok.append("From: ").append(fromVal != null ? fromVal : "").append("\r\n");
+
+        String toVal = SIPParser.getHeaderValue(reqMsg, "To", "t");
+        if (toVal == null) toVal = "";
+        if (!toVal.toLowerCase().contains("tag=") && localTag != null && !localTag.isEmpty()) {
+            toVal = toVal + ";tag=" + localTag;
         }
-        ok.append("\r\n");
-        ok.append("Call-ID: ").append(SIPParser.getHeaderValue(notifyMsg, "Call-ID", "i")).append("\r\n");
-        ok.append("CSeq: ").append(SIPParser.getHeaderValue(notifyMsg, "CSeq")).append("\r\n");
+        ok.append("To: ").append(toVal).append("\r\n");
+
+        String callId = SIPParser.getHeaderValue(reqMsg, "Call-ID", "i");
+        ok.append("Call-ID: ").append(callId != null ? callId : "").append("\r\n");
+
+        String cseq = SIPParser.getHeaderValue(reqMsg, "CSeq");
+        ok.append("CSeq: ").append(cseq != null ? cseq : "").append("\r\n");
+
+        String cseqUpper = (cseq != null) ? cseq.toUpperCase() : "";
+        if (cseqUpper.contains("OPTIONS")) {
+            ok.append("Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS\r\n");
+            ok.append("Supported: replaces, timer, 100rel\r\n");
+        }
         ok.append("User-Agent: SIP Simulator v4\r\n");
         ok.append("Content-Length: 0\r\n\r\n");
+        return ok.toString();
+    }
+
+    private void sendOkForNotify(MyPacket inPkt, String notifyMsg, CallSession session) throws Exception {
+        String tag = (session != null && session.localTag != null) ? session.localTag : null;
+        String okStr = format200OkResponse(notifyMsg, tag, pbxIp, pbxSipPort);
 
         if (signalingSocket != null) {
-            MyPacket pkt = new MyPacket(ok.toString());
+            MyPacket pkt = new MyPacket(okStr);
             pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
             pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
             signalingSocket.send(pkt);
@@ -1667,20 +1718,11 @@ public class SipCallEngine {
     }
 
     private void sendOkForOptions(MyPacket inPkt, String optionsMsg) throws Exception {
-        StringBuilder ok = new StringBuilder();
-        ok.append("SIP/2.0 200 OK\r\n");
-        ok.append("Via: ").append(SIPParser.getHeader(optionsMsg, "Via", "v")).append("\r\n");
-        ok.append("From: ").append(SIPParser.getHeader(optionsMsg, "From", "f")).append("\r\n");
-        ok.append("To: ").append(SIPParser.getHeader(optionsMsg, "To", "t")).append(";tag=tagopt").append(System.currentTimeMillis() % 10000).append("\r\n");
-        ok.append("Call-ID: ").append(SIPParser.getHeaderValue(optionsMsg, "Call-ID", "i")).append("\r\n");
-        ok.append("CSeq: ").append(SIPParser.getHeaderValue(optionsMsg, "CSeq")).append("\r\n");
-        ok.append("Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS\r\n");
-        ok.append("Supported: replaces, timer, 100rel\r\n");
-        ok.append("User-Agent: SIP Simulator v4\r\n");
-        ok.append("Content-Length: 0\r\n\r\n");
+        String tag = "tagopt" + (System.currentTimeMillis() % 10000);
+        String okStr = format200OkResponse(optionsMsg, tag, pbxIp, pbxSipPort);
 
         if (signalingSocket != null) {
-            MyPacket pkt = new MyPacket(ok.toString());
+            MyPacket pkt = new MyPacket(okStr);
             pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
             pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
             signalingSocket.send(pkt);
@@ -1749,61 +1791,26 @@ public class SipCallEngine {
     }
 
     private void sendOkForBye(CallSession session, String byeMsg) throws Exception {
-        String cseq = SIPParser.getHeaderValue(byeMsg, "CSeq");
-        String viaHdr = SIPParser.getHeader(byeMsg, "Via", "v");
-        String branch = SIPParser.getParamValue(viaHdr, "branch");
-        String ok =
-                "SIP/2.0 200 OK\r\n" +
-                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + (branch != null ? branch : "z9hG4bK") + "\r\n" +
-                "From: " + SIPParser.getHeaderValue(byeMsg, "From") + "\r\n" +
-                "To: " + SIPParser.getHeaderValue(byeMsg, "To") + "\r\n" +
-                "Call-ID: " + session.callId + "\r\n" +
-                "CSeq: " + (cseq != null ? cseq : (session.cseq + " BYE")) + "\r\n" +
-                "Content-Length: 0\r\n\r\n";
-
-        MyPacket pkt = new MyPacket(ok);
+        String okStr = format200OkResponse(byeMsg, null, pbxIp, pbxSipPort);
+        MyPacket pkt = new MyPacket(okStr);
         pkt.setAddress(InetAddress.getByName(pbxIp));
         pkt.setPort(pbxSipPort);
         signalingSocket.send(pkt);
     }
 
     private void sendOkForByeWithoutSession(String byeMsg) throws Exception {
-        String cseq = SIPParser.getHeaderValue(byeMsg, "CSeq");
-        String viaHdr = SIPParser.getHeader(byeMsg, "Via", "v");
-        String branch = SIPParser.getParamValue(viaHdr, "branch");
-        String callId = SIPParser.getHeaderValue(byeMsg, "Call-ID", "i");
-        String ok =
-                "SIP/2.0 200 OK\r\n" +
-                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + (branch != null ? branch : "z9hG4bK") + "\r\n" +
-                "From: " + SIPParser.getHeaderValue(byeMsg, "From") + "\r\n" +
-                "To: " + SIPParser.getHeaderValue(byeMsg, "To") + "\r\n" +
-                "Call-ID: " + (callId != null ? callId : "") + "\r\n" +
-                "CSeq: " + (cseq != null ? cseq : "1 BYE") + "\r\n" +
-                "Content-Length: 0\r\n\r\n";
-
-        MyPacket pkt = new MyPacket(ok);
+        String okStr = format200OkResponse(byeMsg, null, pbxIp, pbxSipPort);
+        MyPacket pkt = new MyPacket(okStr);
         pkt.setAddress(InetAddress.getByName(pbxIp));
         pkt.setPort(pbxSipPort);
         signalingSocket.send(pkt);
     }
 
     private void sendOkForCancel(MyPacket inPkt, String cancelMsg) throws Exception {
-        String cseq = SIPParser.getHeaderValue(cancelMsg, "CSeq");
-        String viaHdr = SIPParser.getHeader(cancelMsg, "Via", "v");
-        String branch = SIPParser.getParamValue(viaHdr, "branch");
-        String callId = SIPParser.getHeaderValue(cancelMsg, "Call-ID", "i");
-        String ok =
-                "SIP/2.0 200 OK\r\n" +
-                "Via: SIP/2.0/UDP " + pbxIp + ":" + pbxSipPort + ";branch=" + (branch != null ? branch : "z9hG4bK") + "\r\n" +
-                "From: " + SIPParser.getHeaderValue(cancelMsg, "From") + "\r\n" +
-                "To: " + SIPParser.getHeaderValue(cancelMsg, "To") + "\r\n" +
-                "Call-ID: " + (callId != null ? callId : "") + "\r\n" +
-                "CSeq: " + (cseq != null ? cseq : "1 CANCEL") + "\r\n" +
-                "Content-Length: 0\r\n\r\n";
-
-        MyPacket pkt = new MyPacket(ok);
-        pkt.setAddress(InetAddress.getByName(pbxIp));
-        pkt.setPort(pbxSipPort);
+        String okStr = format200OkResponse(cancelMsg, null, pbxIp, pbxSipPort);
+        MyPacket pkt = new MyPacket(okStr);
+        pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
+        pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
         signalingSocket.send(pkt);
     }
 

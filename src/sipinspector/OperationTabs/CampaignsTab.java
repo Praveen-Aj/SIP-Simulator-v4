@@ -941,12 +941,10 @@ public class CampaignsTab extends JPanel {
         for (String line : lines) {
             if (line.contains("CAMPAIGN_RESULT: PASS")) sawPassMarker = true;
             if (line.contains("CAMPAIGN_RESULT: FAIL")) sawFailMarker = true;
-            if (line.contains("Call-ID:") || line.contains("call")) {
-                int idx = line.indexOf("call");
-                if (idx >= 0 && item.failureCallId.isEmpty()) {
-                    int end = line.indexOf(" ", idx);
-                    if (end < 0) end = line.length();
-                    item.failureCallId = line.substring(idx, Math.min(idx + 45, end)).trim();
+            if (item.failureCallId.isEmpty()) {
+                String extractedCid = extractCallIdFromLogLine(line);
+                if (extractedCid != null && !extractedCid.isEmpty()) {
+                    item.failureCallId = extractedCid;
                 }
             }
             if (line.contains("CSeq:") && item.failureCSeq.isEmpty()) {
@@ -985,11 +983,24 @@ public class CampaignsTab extends JPanel {
         }
     }
 
-    private void classifyFailureEvidence(CampaignItem item, List<String> lines, String hardError) {
-        String allText = String.join(" ", lines);
+    private static final java.util.regex.Pattern CALL_ID_LOG_PATTERN =
+            java.util.regex.Pattern.compile("(?i)(?:Call-ID|i)[=:]\\s*([^\\r\\n\\s]+)");
+
+    public static String extractCallIdFromLogLine(String line) {
+        if (line == null) return null;
+        java.util.regex.Matcher m = CALL_ID_LOG_PATTERN.matcher(line);
+        if (m.find()) {
+            return m.group(1).trim();
+        }
+        return null;
+    }
+
+    public static void classifyFailureEvidence(CampaignItem item, List<String> lines, String hardError) {
+        String allText = (lines != null) ? String.join(" ", lines) : "";
 
         if (hardError != null && !hardError.isEmpty()) {
             item.failureClassification = "Internal application exception";
+            item.failureStage = "Subprocess Startup";
             item.causeCertainty = "Confirmed cause";
             item.failureReason = "Subprocess execution failed: " + hardError;
             item.suggestedInvestigation = "• Check JVM heap and classpath permissions.\n• Ensure Java 8 is present.";
@@ -998,6 +1009,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("Address already in use") || allText.contains("BindException")) {
             item.failureClassification = "Socket binding failure";
+            item.failureStage = "Socket Binding";
             item.causeCertainty = "Confirmed cause";
             item.failureReason = "Local SIP/RTP socket port conflict detected.";
             item.suggestedInvestigation = "• Check for lingering background processes holding ports 15060/15070.\n• Wait 5s for OS socket TIME_WAIT cleanup.";
@@ -1006,6 +1018,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("488") || allText.contains("Not Acceptable Here")) {
             item.failureClassification = "Unexpected SIP response (488 Not Acceptable Here)";
+            item.failureStage = "INVITE Negotiation";
             item.causeCertainty = "Confirmed cause";
             item.failureResponseCode = 488;
             item.failureMethod = "INVITE";
@@ -1016,6 +1029,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("401 Unauthorized") || allText.contains("407 Proxy Authentication")) {
             item.failureClassification = "Authentication failure";
+            item.failureStage = "SIP Authentication";
             item.causeCertainty = "Confirmed cause";
             item.failureResponseCode = allText.contains("401") ? 401 : 407;
             item.failureReason = "PBX challenged credentials with 401/407 and MD5 digest was missing or rejected.";
@@ -1025,6 +1039,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("408") || allText.contains("Request Timeout") || allText.contains("Timer B")) {
             item.failureClassification = "SIP transaction timeout (Timer B)";
+            item.failureStage = "Transaction Timeout";
             item.causeCertainty = "Confirmed cause";
             item.failureResponseCode = 408;
             item.failureReason = "Remote PBX/subscriber failed to respond within 32-second Timer B window.";
@@ -1034,6 +1049,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("404 Not Found") || allText.contains("User not found")) {
             item.failureClassification = "Unexpected SIP response (404 Not Found)";
+            item.failureStage = "INVITE Routing";
             item.causeCertainty = "Confirmed cause";
             item.failureResponseCode = 404;
             item.failureReason = "Dialed extension number does not exist on target PBX.";
@@ -1043,6 +1059,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("486 Busy") || allText.contains("Busy Here")) {
             item.failureClassification = "Unexpected SIP response (486 Busy Here)";
+            item.failureStage = "Call Delivery";
             item.causeCertainty = "Confirmed cause";
             item.failureResponseCode = 486;
             item.failureReason = "Called endpoint reported busy.";
@@ -1052,6 +1069,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("SDP") || allText.contains("m=audio 0")) {
             item.failureClassification = "SDP negotiation failure";
+            item.failureStage = "SDP Negotiation";
             item.causeCertainty = "Probable cause";
             item.failureReason = "SDP offer/answer codec or transport port negotiation rejected.";
             item.suggestedInvestigation = "• Ensure PCMA/PCMU/G.722 codecs are supported by both endpoints.";
@@ -1060,6 +1078,7 @@ public class CampaignsTab extends JPanel {
 
         if (allText.contains("RTP timeout") || allText.contains("no media")) {
             item.failureClassification = "Media failure / RTP timeout";
+            item.failureStage = "In-Call Media";
             item.causeCertainty = "Probable cause";
             item.failureReason = "Signaling completed but no bidirectional RTP packets were received.";
             item.suggestedInvestigation = "• Verify firewall allows UDP ports 42000-50000.\n• Check NAT/routing.";
@@ -1068,6 +1087,7 @@ public class CampaignsTab extends JPanel {
 
         // Generic fallback
         item.failureClassification = "Scenario execution failure";
+        item.failureStage = "Scenario Execution";
         item.causeCertainty = "Probable cause";
         item.failureReason = "Expected outcome '" + item.expectedStatus + "' was not satisfied by scenario run.";
         item.suggestedInvestigation = "• Inspect execution console logs for raw SIP response traces.";

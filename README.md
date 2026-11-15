@@ -84,6 +84,15 @@ flowchart TD
     OXE <--> MicroSIP
 ```
 
+### Desktop vs. Web Execution Architecture (Independent Engines)
+
+> [!IMPORTANT]
+> **Independent Execution Engines & Port Allocation:**
+> - The **Java Swing Desktop Application** (`SIP_Simulator_v4.jar`) runs an in-process SIP engine (`sipinspector.Call.SipCallEngine`) that binds directly to the local SIP interface (defaulting to UDP/TCP `5060` or TLS `5061`).
+> - The **Web Dashboard Daemon** (`web-app/server.js`) operates an Express REST service (port `3001`) that spawns standalone child CLI processes (`sipinspector.Media.CliSipLegTest` and `CliCallEngine`) on demand to execute campaigns and scenarios.
+> - The Desktop application and Web daemon **operate as independent, separate engines and do NOT share memory, registration state, or socket bindings**.
+> - Running both simultaneously on the same host attempting to bind the same port (e.g. `5060`) will produce a socket bind collision (`java.net.BindException: Address already in use`). For simultaneous operation, configure alternate SIP ports (e.g., `5065` / `5070`) or run one interface at a time.
+
 ---
 
 ## 4. Technology Stack

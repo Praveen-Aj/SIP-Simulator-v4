@@ -141,6 +141,7 @@ public class SIPInspectorMainFrame
     private JMenuItem stopCaptureItem;
     private JTabbedPane ControlTabbedPane;
     private JTabbedPane mainTabbedPane;
+    private sipinspector.OperationTabs.SipMessageExplorerTab sipMessageExplorerTab;
     private ButtonGroup ConnType;
     private JMenuItem Exit;
     private JMenu FileMenu;
@@ -1014,7 +1015,8 @@ public class SIPInspectorMainFrame
         this.mainTabbedPane.addTab("Campaigns", new CampaignsTab(this));
         this.mainTabbedPane.addTab("Network & Protocol Testing", new SimulationTab(this));
         this.mainTabbedPane.addTab("RTP Inspector", new RtpInspectorTab(this));
-        this.mainTabbedPane.addTab("SIP Message Explorer", new sipinspector.OperationTabs.SipMessageExplorerTab(this));
+        this.sipMessageExplorerTab = new sipinspector.OperationTabs.SipMessageExplorerTab(this);
+        this.mainTabbedPane.addTab("SIP Message Explorer", this.sipMessageExplorerTab);
 
         this.cardPanel.add((Component) this.mainTabbedPane, "program_card");
         JPanel jPanel5 = new JPanel();
@@ -1130,12 +1132,7 @@ public class SIPInspectorMainFrame
 
         JMenuItem preferencesMenuItem = new JMenuItem("Preferences / Settings...", EmojiIcon.getOptionsIcon());
         preferencesMenuItem.setToolTipText("Configure Network, SIP, Media, Diagnostics and Appearance settings");
-        preferencesMenuItem.addActionListener(e -> {
-            if (this.SettingsTabbedPane != null) {
-                this.SettingsTabbedPane.setSelectedIndex(1);
-            }
-            ((CardLayout) this.cardPanel.getLayout()).show(this.cardPanel, "starting_card");
-        });
+        preferencesMenuItem.addActionListener(e -> new sipinspector.Dialogs.StructuredSettingsDialog(SIPInspectorMainFrame.this).setVisible(true));
         this.OptionsMenu.add(preferencesMenuItem);
 
         this.MainMenuBar.add(this.OptionsMenu);
@@ -1388,6 +1385,17 @@ public class SIPInspectorMainFrame
                 }
             }
         }
+    }
+
+    public void navigateToMessageExplorer(String callId) {
+        selectMainTab("SIP Message Explorer");
+        if (this.sipMessageExplorerTab != null) {
+            this.sipMessageExplorerTab.setCallIdFilter(callId);
+        }
+    }
+
+    public sipinspector.OperationTabs.SipMessageExplorerTab getMessageExplorerTab() {
+        return this.sipMessageExplorerTab;
     }
 
     public void toggleFullScreen() {
