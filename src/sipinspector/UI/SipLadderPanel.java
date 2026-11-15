@@ -72,6 +72,15 @@ public class SipLadderPanel extends JPanel {
         repaint();
     }
 
+    public void setMessages(List<SipMessage> msgs) {
+        this.messages = msgs != null ? new ArrayList<>(msgs) : new ArrayList<>();
+        computeHosts();
+        this.selectedMessage = null;
+        updatePreferredSize();
+        revalidate();
+        repaint();
+    }
+
     public void clear() {
         this.messages.clear();
         this.hosts.clear();

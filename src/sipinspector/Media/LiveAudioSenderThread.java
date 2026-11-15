@@ -205,6 +205,11 @@ public class LiveAudioSenderThread extends Thread {
                         outLen = outPacket.length;
                     }
                     
+                    // Simulate media impairment (drop/delay) if enabled
+                    if (sipinspector.Socket.SocketSimulationHelper.simulateMediaOutgoing(remoteAddress, remotePort)) {
+                        continue;
+                    }
+
                     // Send RTP packet
                     DatagramPacket packet = new DatagramPacket(
                         outPacket, 

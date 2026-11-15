@@ -207,6 +207,7 @@ flowchart TD
 | **Phase 6** | **Live Performance Qualification & Operational Hardening** | **P0** | Live concurrent OXE qualification, G.107 one-way delay refinement, p50/p95/p99 latency metrics, HTML reporting, offline regression harness. | **COMPLETED** |
 | **Phase 7** | **End-to-End Productization & Feature Completeness** | **P0** | DTMF (RFC 2833 & INFO), REFER Transfer (RFC 3515/3891), Hold/Resume, Early Media, Call Waiting, Identity Headers, React Phone tab, 14 offline & live OXE test suites. | **COMPLETED** |
 | **Phase 7.1** | **Source Audit, Protocol Integrity & Portability Remediation** | **P0** | Dynamic DTMF PT (101/120) negotiation, independent hold tracking, 183 early media SDP qualification, removal of hardcoded IPs, 15/15 offline test suites, live OXE validation. | **COMPLETED** |
+| **Phase 8** | **Engineering Workspace Consolidation & Diagnostic Intelligence** | **P0** | Campaigns failure triage & classification, unified Network & Protocol Testing, RTP Inspector with RFC 3550 & sparklines, central SIP Message Explorer with ladder panel, Tools/Preferences consolidation, 16/16 offline suites, live OXE validation. | **COMPLETED** |
 
 ---
 
@@ -288,3 +289,47 @@ flowchart TD
    - Validated live against physical OXE PBX (`192.168.0.20:5060`) and MicroSIP (`90001`): 9/9 stages passed cleanly with zero socket or thread leaks.
 
 
+
+---
+
+## 11. Phase 8: Engineering Workspace Consolidation & Diagnostic Intelligence (Priority: P0)
+
+**Status:** **COMPLETED & VALIDATED**
+
+### Key Accomplishments
+1. **Workstream A: Campaigns Workspace Redesign & Failure Intelligence (`CampaignsTab.java`):**
+   - Implemented real-time KPI summary tiles: `Total Runs`, `Passed`, `Failed`, `Blocked`, `Pending`, `Running`, and cumulative `Duration`.
+   - Enhanced test case table with columns `Test Case | Expected | Actual | Status | Duration` and custom status renderers.
+   - Built **Evidence-Based Failure Analysis Triage Panel**: automatically parses test failures and displays Failure Stage, Classification (`PBX_REJECTION`, `PROTOCOL_ERROR`, `MEDIA_FAILURE`, `TIMEOUT`, `CONFIG_ERROR`, `NETWORK_UNREACHABLE`), Cause Certainty, Failure Reason, Concrete Investigation Steps, and Supporting Traces.
+   - Multi-level execution console with level filtering (`ALL`, `ERROR`, `WARN`, `INFO`, `DEBUG`), keyword search, and auto-scroll control.
+   - Preserved state integrity: test cases transition cleanly through `PENDING` -> `RUNNING` -> `PASS` / `FAIL` / `BLOCKED`.
+2. **Workstream B: Network & Protocol Testing Workspace (`SimulationTab.java`, `SocketSimulationHelper.java`):**
+   - Transformed the legacy simulation tab into a unified 4-panel engineering workspace:
+     1. **Network Impairment Panel:** Latency delay (0–2000ms), packet loss rate (0–100%), and jitter (0–500ms) with active toggle, reset, and live traffic affected counters.
+     2. **RTP Media Impairment:** Added `affectMedia` toggle routing live RTP audio through `SocketSimulationHelper.simulateMediaOutgoing()` to induce audio packet loss and jitter.
+     3. **SIP Fault Injection:** Injects corrupted headers (`CSeq`, `Call-ID`, `Via`, `Expires`, `Content-Length`, `Max-Forwards`, `Request-URI`).
+     4. **SIP State Observability Monitor:** Displays active dialogs, Call-IDs, remote endpoints, codecs, and socket allocations.
+     5. **Comparative Simulation Workflow:** Baseline vs. Impaired vs. Recovery snapshot tracking with CSV export.
+3. **Workstream C: RTP Inspector Workspace (`RtpInspectorTab.java`):**
+   - Active call session selector for live or recently completed dialogs.
+   - Measured Transmit (TX) and Receive (RX) metrics: packet counts, bytes, bitrates, audio codecs, payload types, local and remote RTP ports.
+   - RFC 3550 sequence discontinuity detection, duplicate packet accounting, out-of-order packet tracking, RTCP jitter, packet loss percentage, and ITU-T E-model G.107 MOS score.
+   - Live 60-sample sliding window telemetry sparklines for packet rate, jitter, and loss.
+   - Direct Call-ID link navigating into the SIP Message Explorer tab.
+4. **Workstream D: SIP Message Explorer (`SipMessageExplorerTab.java`, `SipMessageRepository.java`):**
+   - Central thread-safe bounded ring buffer (5,000 capacity) capturing all incoming and outgoing datagrams and stream segments from `MySocketAbstract` across `UDP`, `TCP`, and `TLS` without duplication.
+   - Live searchable and filterable message table with quick filters for Method, Status Code, Direction, Transport, Call-ID, and free text.
+   - Message Inspector panel providing structured headers table, SDP body inspector, and raw text viewer.
+   - Embedded `SipLadderPanel` rendering interactive visual sequence ladder call flows in real time.
+5. **Workstream E: Options & Tools Consolidation (`SIPInspectorMainFrame.java`):**
+   - Added structured `Preferences...` modal dialog categorizing settings into Network & Sockets, SIP Signaling & Identity, Media & Audio Codecs, and Logging.
+   - Reorganized `Tools` menu into 4 logical groups: *SIP Utilities*, *Diagnostics*, *Reporting*, and *External Interfaces*.
+6. **Workstream F: Desktop vs. Web Responsibility Model:**
+   - Formalized clear boundaries: Desktop Swing application serves as the primary authoring, configuration, manual execution, deep-dive diagnostic, and protocol debugging workstation; the React Web UI serves as an operational monitoring dashboard, campaign executor, and reporting viewer.
+7. **Workstream G: UI Consistency & Dark Theme:**
+   - Standardized on Slate-900 / Slate-800 dark telecom theme with high information density and monospace typography.
+8. **Automated Testing & Live Verification:**
+   - Implemented `test.Phase8WorkspaceIntelligenceTest` (4/4 PASS).
+   - Expanded offline regression suite to 16 suites: 16/16 PASSED (100% in 12.7s).
+   - Verified React web client production build with zero errors.
+   - Executed live OXE PBX validation (`test.OxePhase7FeatureValidationTest`): 9/9 stages PASSED cleanly against physical OXE PBX (`192.168.0.20`) and MicroSIP (`90001`).

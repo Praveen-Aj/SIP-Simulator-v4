@@ -91,6 +91,9 @@ public class OfflineFullRegressionSuite {
         // 15. Phase 7.1: Engine Protocol Integrity & Remediation Audit
         runner.run("EngineProtocolIntegrityTest", () -> EngineProtocolIntegrityTest.main(new String[0]));
 
+        // 16. Phase 8: Engineering Workspace Consolidation & Diagnostic Intelligence
+        runner.run("Phase8WorkspaceIntelligenceTest", () -> Phase8WorkspaceIntelligenceTest.main(new String[0]));
+
         long elapsed = System.currentTimeMillis() - startTime;
         System.out.println("\n================================================================================");
         System.out.println("   OFFLINE REGRESSION MASTER SUMMARY");

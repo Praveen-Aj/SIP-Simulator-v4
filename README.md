@@ -36,6 +36,14 @@ The platform has been validated end-to-end against physical enterprise telephony
   Supports Single-call, Sequential, Concurrent, CPS rate-controlled, and Soak testing modes with setup latency percentiles ($p50, p95, p99$) and automated HTML/JSON report generation.
 - **Visual Signaling Ladder Diagram:**
   Interactive SVG/HTML message flow sequence diagram with color-coded message arrows, CSeq identifiers, and instant detail inspection.
+- **Evidence-Based Campaign Failure Intelligence:**
+  Automated root-cause triage classifying failures into `PBX_REJECTION`, `PROTOCOL_ERROR`, `MEDIA_FAILURE`, `TIMEOUT`, `CONFIG_ERROR`, and `NETWORK_UNREACHABLE` with failure stage detection, certainty rating, and suggested investigation steps.
+- **Unified Network & Protocol Testing:**
+  Full impairment injection (latency delay, packet loss, jitter) affecting both SIP signaling and RTP media streams, malformed SIP header injection (`CSeq`, `Call-ID`, `Via`, `Expires`, `Content-Length`, `Max-Forwards`), live observability monitor, and comparative baseline/impaired/recovery test runs with CSV export.
+- **RTP Inspector & Media Telemetry:**
+  Deep media inspection displaying measured TX/RX metrics, RFC 3550 sequence discontinuity detection, duplicate packet accounting, out-of-order tracking, RTCP jitter/loss, real-time sliding sparklines, and direct Call-ID drilldown into SIP Message Explorer.
+- **SIP Message Explorer:**
+  Central in-memory ring repository capturing all transport signaling (`UDP`, `TCP`, `TLS`), multi-criteria filtering, structured header inspector, SDP parser, and embedded dynamic call flow ladder.
 
 ---
 
@@ -146,9 +154,9 @@ To execute the comprehensive offline test harness:
 run_offline_tests.bat
 ```
 - **Harness:** `test.OfflineFullRegressionSuite`
-- **Suites:** 14 test suites covering 80+ unit and integration tests.
-- **Coverage:** Codecs, SRTP, TCP framing, scaling, call flows, multi-dialog isolation, Timer A/B, failure recovery, G.107 MOS calculation, DTMF encoding, credential sanitization, and lifecycle rebind.
-- **Result:** **14 / 14 Suites PASSED (100% Pass in ~12.5s).**
+- **Suites:** 16 test suites covering 90+ unit, integration, and workspace intelligence tests.
+- **Coverage:** Codecs, SRTP, TCP framing, scaling, call flows, multi-dialog isolation, Timer A/B, failure recovery, G.107 MOS calculation, DTMF encoding, credential sanitization, lifecycle rebind, `SipMessageRepository` ring buffer, `SocketSimulationHelper` network/media impairments, `CampaignItem` failure intelligence, and RFC 3550 sequence discontinuity detection.
+- **Result:** **16 / 16 Suites PASSED (100% Pass in ~12.7s).**
 
 ### 2. Live OXE PBX Integration Suite
 To execute live end-to-end verification against the physical PBX:
@@ -253,7 +261,8 @@ srtpCryptoLine=a\=crypto\:1 AES_CM_128_HMAC_SHA1_80 inline\:AQIDBAUGBwgJCgsMDQ4P
 - [x] **Phase 6:** Live Performance Qualification (Live concurrent OXE qualification, latency percentiles, HTML reporting).
 - [x] **Phase 7:** End-to-End Productization (RFC 2833/INFO DTMF, REFER transfer, Replaces, Early Media, Hold/Resume, React Phone tab, 14 offline regression suites).
 - [x] **Phase 7.1:** Independent Source Audit, Protocol Integrity, Test Reliability & Portability Remediation (RFC 4733 dynamic DTMF PT negotiation, early media validation, independent hold arbitration, mid-dialog 4xx isolation, removal of hardcoded IPs, false-positive elimination, 15 master offline suites 100% pass, live OXE validation 100% pass).
-- [ ] **Phase 8:** Advanced Enterprise Telecom Extensions & WebRTC Interoperability (Upcoming).
+- [x] **Phase 8:** Engineering Workspace Consolidation & Diagnostic Intelligence (Campaigns triage & failure analysis, Network Impairment & Protocol Testing, RTP Inspector with RFC 3550 & sparklines, SIP Message Explorer with ladder panel, Tools/Options consolidation, Desktop vs Web responsibility model, 16 offline regression suites 100% pass, live OXE validation 100% pass).
+- [ ] **Phase 9:** Advanced Enterprise Telecom Extensions & WebRTC Interoperability (Upcoming).
 
 ---
 

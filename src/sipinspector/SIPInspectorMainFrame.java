@@ -1012,20 +1012,9 @@ public class SIPInspectorMainFrame
         this.mainTabbedPane.addTab("Edit Values", editValuesTab);
         this.mainTabbedPane.addTab("Logs", new LogsTab(this));
         this.mainTabbedPane.addTab("Campaigns", new CampaignsTab(this));
-        this.mainTabbedPane.addTab("Simulation", new SimulationTab(this));
-        this.mainTabbedPane.addTab("RTP Inspector", new RtpInspectorTab());
-
-        // Message Search & Filter - own tab (next to RTP Inspector), acts on the
-        // SIP message tree shown in the Scenario Editor tab.
-        JPanel messageSearchTabPanel = new JPanel(new BorderLayout());
-        JLabel messageSearchTitle = new JLabel("Search & filter the SIP messages in the current scenario");
-        messageSearchTitle.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        messageSearchTitle.setFont(messageSearchTitle.getFont().deriveFont(Font.BOLD, 13f));
-        messageSearchTabPanel.add(messageSearchTitle, BorderLayout.NORTH);
-        MessageSearchPanel messageSearchPanel = new MessageSearchPanel(this.MsgTree);
-        messageSearchPanel.setOnSearchPerformed(() -> this.mainTabbedPane.setSelectedIndex(scenarioEditorTabIndex));
-        messageSearchTabPanel.add(messageSearchPanel, BorderLayout.CENTER);
-        this.mainTabbedPane.addTab("Message Search", messageSearchTabPanel);
+        this.mainTabbedPane.addTab("Network & Protocol Testing", new SimulationTab(this));
+        this.mainTabbedPane.addTab("RTP Inspector", new RtpInspectorTab(this));
+        this.mainTabbedPane.addTab("SIP Message Explorer", new sipinspector.OperationTabs.SipMessageExplorerTab(this));
 
         this.cardPanel.add((Component) this.mainTabbedPane, "program_card");
         JPanel jPanel5 = new JPanel();
@@ -1126,25 +1115,7 @@ public class SIPInspectorMainFrame
             }
         });
         this.OptionsMenu.add(this.LoggingCheckBoxMenuItem);
-        this.RemoteRTPMenuItem.setText("Remote RTP...");
-        this.RemoteRTPMenuItem.addActionListener(new ActionListener() {
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.RemoteRTPMenuItemActionPerformed(actionEvent);
-            }
-        });
-        this.OptionsMenu.add(this.RemoteRTPMenuItem);
-        this.QoSMenuItem.setText("QoS");
-        this.QoSMenuItem.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.QoSMenuItemActionPerformed(actionEvent);
-            }
-        });
-        this.OptionsMenu.add(this.QoSMenuItem);
-        this.OptionsMenu.addSeparator();
         JMenuItem fullScreenMenuItem = new JMenuItem("Toggle Full Screen");
         fullScreenMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F11, 0));
         fullScreenMenuItem.setToolTipText("Toggle Full Screen / Normal window mode (F11)");
@@ -1155,89 +1126,94 @@ public class SIPInspectorMainFrame
             }
         });
         this.OptionsMenu.add(fullScreenMenuItem);
+        this.OptionsMenu.addSeparator();
+
+        JMenuItem preferencesMenuItem = new JMenuItem("Preferences / Settings...", EmojiIcon.getOptionsIcon());
+        preferencesMenuItem.setToolTipText("Configure Network, SIP, Media, Diagnostics and Appearance settings");
+        preferencesMenuItem.addActionListener(e -> {
+            if (this.SettingsTabbedPane != null) {
+                this.SettingsTabbedPane.setSelectedIndex(1);
+            }
+            ((CardLayout) this.cardPanel.getLayout()).show(this.cardPanel, "starting_card");
+        });
+        this.OptionsMenu.add(preferencesMenuItem);
+
         this.MainMenuBar.add(this.OptionsMenu);
+
+        // --- Tools Menu Organized by Category (Workstream E) ---
         this.ToolsMenu.setText("Tools");
         this.ToolsMenu.setIcon(EmojiIcon.getToolsIcon());
-        this.SDPCalculator.setText("SDP Calculator");
-        this.SDPCalculator.setIcon(EmojiIcon.getStatsIcon());
-        this.SDPCalculator.addActionListener(new ActionListener() {
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.SDPCalculatorActionPerformed(actionEvent);
-            }
-        });
-        this.ToolsMenu.add(this.SDPCalculator);
+        // Category 1: SIP Utilities
+        JMenu sipUtilsSubmenu = new JMenu("SIP Utilities");
+        sipUtilsSubmenu.setIcon(EmojiIcon.getTemplateIcon());
+
         JMenuItem messageTemplatesItem = new JMenuItem("Message Templates", EmojiIcon.getTemplateIcon());
         messageTemplatesItem.setToolTipText("Browse pre-built SIP message templates and copy them to the clipboard");
-        messageTemplatesItem.addActionListener(new ActionListener() {
+        messageTemplatesItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.showMessageTemplates());
+        sipUtilsSubmenu.add(messageTemplatesItem);
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.showMessageTemplates();
-            }
-        });
-        this.ToolsMenu.add(messageTemplatesItem);
         JMenuItem messageDiffItem = new JMenuItem("Compare SIP Messages...", EmojiIcon.getCompareIcon());
         messageDiffItem.setToolTipText("Diff two SIP messages header-by-header (interop failure triage)");
-        messageDiffItem.addActionListener(new ActionListener() {
+        messageDiffItem.addActionListener(actionEvent -> new MessageDiffDialog(SIPInspectorMainFrame.this).setVisible(true));
+        sipUtilsSubmenu.add(messageDiffItem);
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                new MessageDiffDialog(SIPInspectorMainFrame.this).setVisible(true);
-            }
-        });
-        this.ToolsMenu.add(messageDiffItem);
-        JMenuItem jMenuItem7 = new JMenuItem("Export Statistics", EmojiIcon.getSaveIcon());
-        jMenuItem7.setToolTipText("Export statistics to CSV");
-        jMenuItem7.addActionListener(new ActionListener() {
+        this.SDPCalculator.setText("SDP Calculator");
+        this.SDPCalculator.setIcon(EmojiIcon.getStatsIcon());
+        this.SDPCalculator.addActionListener(actionEvent -> SIPInspectorMainFrame.this.SDPCalculatorActionPerformed(actionEvent));
+        sipUtilsSubmenu.add(this.SDPCalculator);
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.exportStatistics();
-            }
-        });
-        this.ToolsMenu.add(jMenuItem7);
-        JMenuItem jMenuItem8 = new JMenuItem("Open Logs Folder...");
-        jMenuItem8.setToolTipText("Open transport debug logs folder");
-        jMenuItem8.addActionListener(new ActionListener() {
+        this.ToolsMenu.add(sipUtilsSubmenu);
 
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.openLogsFolder();
-            }
-        });
-        this.ToolsMenu.add(jMenuItem8);
-        this.ToolsMenu.addSeparator();
-        JMenuItem webDashboardItem = new JMenuItem("Launch Web Dashboard");
-        webDashboardItem.setToolTipText("Start the web server (if needed) and open the dashboard in your browser");
-        webDashboardItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                launchWebDashboard();
-            }
-        });
-        this.ToolsMenu.add(webDashboardItem);
-        this.ToolsMenu.addSeparator();
+        // Category 2: Diagnostics
+        JMenu diagSubmenu = new JMenu("Diagnostics");
+        diagSubmenu.setIcon(EmojiIcon.getStatsIcon());
+
         startCaptureItem = new JMenuItem("Start Packet Capture...");
         startCaptureItem.setToolTipText("Capture SIP signaling to a .pcap file (open in Wireshark)");
-        startCaptureItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.startPacketCapture();
-            }
-        });
-        this.ToolsMenu.add(startCaptureItem);
+        startCaptureItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.startPacketCapture());
+        diagSubmenu.add(startCaptureItem);
+
         stopCaptureItem = new JMenuItem("Stop Packet Capture");
         stopCaptureItem.setEnabled(false);
         stopCaptureItem.setToolTipText("Stop the active .pcap capture");
-        stopCaptureItem.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent actionEvent) {
-                SIPInspectorMainFrame.this.stopPacketCapture();
-            }
-        });
-        this.ToolsMenu.add(stopCaptureItem);
+        stopCaptureItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.stopPacketCapture());
+        diagSubmenu.add(stopCaptureItem);
+        diagSubmenu.addSeparator();
+
+        this.RemoteRTPMenuItem.setText("Remote RTP...");
+        this.RemoteRTPMenuItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.RemoteRTPMenuItemActionPerformed(actionEvent));
+        diagSubmenu.add(this.RemoteRTPMenuItem);
+
+        this.QoSMenuItem.setText("QoS Settings...");
+        this.QoSMenuItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.QoSMenuItemActionPerformed(actionEvent));
+        diagSubmenu.add(this.QoSMenuItem);
+
+        this.ToolsMenu.add(diagSubmenu);
+
+        // Category 3: Reporting
+        JMenu reportSubmenu = new JMenu("Reporting");
+        reportSubmenu.setIcon(EmojiIcon.getSaveIcon());
+
+        JMenuItem exportStatsItem = new JMenuItem("Export Statistics (CSV)", EmojiIcon.getSaveIcon());
+        exportStatsItem.setToolTipText("Export session statistics to CSV");
+        exportStatsItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.exportStatistics());
+        reportSubmenu.add(exportStatsItem);
+
+        JMenuItem openLogsItem = new JMenuItem("Open Logs Folder...");
+        openLogsItem.setToolTipText("Open transport debug logs folder in system explorer");
+        openLogsItem.addActionListener(actionEvent -> SIPInspectorMainFrame.this.openLogsFolder());
+        reportSubmenu.add(openLogsItem);
+
+        this.ToolsMenu.add(reportSubmenu);
+        this.ToolsMenu.addSeparator();
+
+        // Category 4: External Interfaces
+        JMenuItem webDashboardItem = new JMenuItem("Launch Web Dashboard");
+        webDashboardItem.setToolTipText("Start the web server (if needed) and open the dashboard in your browser");
+        webDashboardItem.addActionListener(actionEvent -> launchWebDashboard());
+        this.ToolsMenu.add(webDashboardItem);
+
         this.MainMenuBar.add(this.ToolsMenu);
         this.HelpMenu.setText("Help");
         this.HelpMenu.setIcon(EmojiIcon.getHelpIcon());
@@ -1403,6 +1379,17 @@ public class SIPInspectorMainFrame
      * Toggles exclusive full-screen mode on the monitor displaying the window,
      * cleanly restoring previous dimensions and decorations on toggle off.
      */
+    public void selectMainTab(String tabTitle) {
+        if (this.mainTabbedPane != null && tabTitle != null) {
+            for (int i = 0; i < this.mainTabbedPane.getTabCount(); i++) {
+                if (tabTitle.equalsIgnoreCase(this.mainTabbedPane.getTitleAt(i))) {
+                    this.mainTabbedPane.setSelectedIndex(i);
+                    return;
+                }
+            }
+        }
+    }
+
     public void toggleFullScreen() {
         java.awt.GraphicsDevice gd = this.getGraphicsConfiguration().getDevice();
         if (gd == null) return;

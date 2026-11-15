@@ -97,6 +97,10 @@ public abstract class MySocketAbstract {
 
         capturePacket(packet, true);
         updateOutgoingStatistics(packet);
+        try {
+            String localEp = getLocalAddress() != null ? getLocalAddress().getHostAddress() + ":" + getLocalPort() : "";
+            sipinspector.Utils.SipMessageRepository.getInstance().recordPacket(packet, true, getTransportType(), localEp);
+        } catch (Exception ignore) {}
     }
 
     public void logIncomingMsg(MyPacket packet) {
@@ -121,6 +125,10 @@ public abstract class MySocketAbstract {
 
         capturePacket(packet, false);
         updateIncomingStatistics(packet);
+        try {
+            String localEp = getLocalAddress() != null ? getLocalAddress().getHostAddress() + ":" + getLocalPort() : "";
+            sipinspector.Utils.SipMessageRepository.getInstance().recordPacket(packet, false, getTransportType(), localEp);
+        } catch (Exception ignore) {}
     }
 
     public abstract void setQos();

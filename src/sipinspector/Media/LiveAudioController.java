@@ -633,6 +633,12 @@ public class LiveAudioController {
         return stats;
     }
 
+    public double getEstimatedMos() {
+        Map<String, Object> stats = getStats();
+        Object m = stats.get("mos_score");
+        return m instanceof Number ? ((Number) m).doubleValue() : 4.39;
+    }
+
     /**
      * ITU-T E-model G.107 MOS calculation.
      * Computes R-factor based on delay (derived from 10ms propagation + 20ms packetization + 2*jitter)

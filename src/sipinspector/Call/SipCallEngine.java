@@ -454,6 +454,10 @@ public class SipCallEngine {
         return registeredExtension;
     }
 
+    public Map<String, CallSession> getActiveSessions() {
+        return Collections.unmodifiableMap(new HashMap<>(activeSessions));
+    }
+
     public CallSession getCallSession(String callId) {
         if (callId == null) return null;
         CallSession s = activeSessions.get(callId);

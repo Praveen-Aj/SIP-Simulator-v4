@@ -388,3 +388,33 @@ The following telecom features require a physical or virtual Alcatel-Lucent OXE 
 3. **Inconsistent Logging Paths:**
    - Traces were previously scattered between `<Desktop>/SIP Simulator logs/`, workspace `logs/`, and temporary system directories.
    - *Status (Phase 1A/1B):* **RESOLVED** via centralized `sipinspector.Utils.AppPaths.getLogsDir()` and `AppPaths.resolve()`, prioritizing desktop logs while providing automatic fallback to project-relative `logs/` for headless/server environments.
+
+---
+
+## 6. Phase 8 Engineering Consolidation & Diagnostic Hardening
+
+### RESOLVED-010: Fragmented Diagnostic Views and Disconnected Message Search
+- **Status:** **RESOLVED in Phase 8**
+- **Impact:** Previous `Message Search` dialog was separate from live socket logging and lacked real-time updates and call ladder synchronization.
+- **Resolution:**
+  - Implemented `SipMessageRepository` central thread-safe ring buffer capturing all signaling from `MySocketAbstract`.
+  - Replaced `Message Search` with full `SIP Message Explorer` tab featuring live table, structured headers/SDP/raw tabs, multi-criteria filters, and embedded real-time `SipLadderPanel` visual call flow.
+
+### RESOLVED-011: Campaign Execution Ambiguity & Unclassified Failures
+- **Status:** **RESOLVED in Phase 8**
+- **Impact:** Campaigns previously gave raw pass/fail counts without root cause analysis or failure classification.
+- **Resolution:**
+  - Implemented Evidence-Based Failure Analysis Triage Panel in `CampaignsTab.java` with automatic failure classification (`PBX_REJECTION`, `PROTOCOL_ERROR`, `MEDIA_FAILURE`, `TIMEOUT`, `CONFIG_ERROR`, `NETWORK_UNREACHABLE`), failure stage detection, certainty rating, and suggested investigation steps.
+  - Added multi-level console logs with level filtering (`ALL`, `ERROR`, `WARN`, `INFO`, `DEBUG`).
+
+### RESOLVED-012: Simulation Tab Isolation & Missing Media Impairment
+- **Status:** **RESOLVED in Phase 8**
+- **Impact:** Legacy simulation tab only applied delays to certain socket types without media stream impairment or state observability.
+- **Resolution:**
+  - Redesigned as unified `Network & Protocol Testing` tab with Network Impairment (delay, loss, jitter), RTP Media Impairment toggle (`affectMedia`), SIP Fault Injection, SIP State Observability Monitor, and Comparative Results workflow (Baseline vs. Impaired vs. Recovery) with CSV export.
+
+### RESOLVED-013: Missing Real-Time Media Diagnostics in RTP Inspector
+- **Status:** **RESOLVED in Phase 8**
+- **Impact:** Media statistics were previously static text summaries without sequence discontinuity detection or real-time trends.
+- **Resolution:**
+  - Added measured TX/RX metrics, RFC 3550 sequence jump/drop/out-of-order detection, RTCP jitter, real-time sliding sparklines, and direct Call-ID drilldown into SIP Message Explorer.

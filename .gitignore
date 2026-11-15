@@ -38,8 +38,7 @@ config/uploaded_temp.pcap
 *.pcap.tmp
 
 # Generated Audio Recordings (Runtime captures)
-recordings/tx_*.wav
-recordings/rx_*.wav
+recordings/*.wav
 recordings/*.tmp
 
 # Environment & Local Overrides
