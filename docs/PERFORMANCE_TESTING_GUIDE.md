@@ -247,3 +247,24 @@ When conducting tests against a production OXE PBX:
 2. **Cap call rates:** Avoid setting CPS $> 2.0$ against live PBX hardware to prevent CPU exhaustion on the PBX call server.
 3. **Never modify MicroSIP 90001 credentials:** Endpoint B must remain undisturbed on extension 90001.
 4. **Always clean up active dialogs:** In the event of test interruption, call `POST /api/perf/stop` or invoke `MicroSipIpc.sendCommand("call.hangup", "{}")`.
+
+---
+
+## 11. Phase 7 Interactive Call Control & Phone REST API Reference
+
+SIP Simulator v4 provides real-time in-call manipulation, DTMF keypad generation, and transfer capabilities via the Express REST API and Web Dashboard:
+
+| Endpoint | Method | Payload | Description |
+|---|---|---|---|
+| `/api/call/start` | POST | `{"caller":"90008","callee":"90001","codec":"PCMA"}` | Initiates a live SIP call. |
+| `/api/call/hangup` | POST | `{"callId":"call1_..."}` | Terminates active call with BYE. |
+| `/api/call/hold` | POST | `{"callId":"call1_..."}` | Places call on hold via Re-INVITE `a=sendonly`. |
+| `/api/call/resume` | POST | `{"callId":"call1_..."}` | Resumes held call via Re-INVITE `a=sendrecv`. |
+| `/api/call/dtmf` | POST | `{"callId":"call1_...","digit":"5","method":"RFC2833"}` | Transmits DTMF digit (0–9, *, #, A–D) via RFC 2833 telephone-event or SIP INFO. |
+| `/api/call/transfer` | POST | `{"callId":"call1_...","target":"90002","replacesCallId":""}` | Initiates blind or attended call transfer via SIP `REFER` (RFC 3515 / RFC 3891). |
+| `/api/call/active` | GET | *None* | Retrieves all active call sessions with real-time audio statistics, DTMF, and hold state. |
+| `/api/engine/status` | GET | *None* | Queries registration status, engine state, active transport, and registered extension. |
+| `/api/engine/register` | POST | `{"extension":"90008","expires":1800}` | Registers extension with PBX (Expires: 1800). |
+| `/api/engine/unregister` | POST | `{"extension":"90008"}` | Unregisters extension with PBX (`Expires: 0`). |
+| `/api/engine/restart` | POST | *None* | Gracefully restarts signaling socket listener and resets session state. |
+

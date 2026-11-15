@@ -50,6 +50,17 @@ Version 4 achieves full feature parity between the primary Java Desktop Client a
    * **Dual HTML & JSON Reporting:** Automatic styled HTML reports (`logs/perf_campaigns/*.html`) and raw JSON metrics, served via `/api/perf/reports/:filename`.
    * **Automated Regression Suites:** `run_offline_tests.bat` executing 11 suites (67 unit/integration tests, 100% PASS in 12.2s) and `run_oxe_live_tests.bat` executing live PBX stages.
 
+7. **🎯 End-to-End Productization, SIP Feature Completeness & Operational Validation (Phase 7)**
+   * **RFC 2833 / RFC 4733 DTMF:** In-band telephone-event RTP generator (Payload Type 101, 8kHz clock) transmitting incremental in-progress packets and 3 redundant end packets ($E=1$, duration 800) for all digits 0–9, *, #, A–D.
+   * **SIP INFO DTMF (RFC 2976 / RFC 6086):** In-call out-of-band signaling with `application/dtmf-relay` (`Signal=X`, `Duration=160`).
+   * **Call Transfer (Blind & Attended):** RFC 3515 `REFER` implementation with `Refer-To: <sip:...>` and RFC 3891 `Replaces` query parameter for attended transfer.
+   * **Call Hold & Resume:** Re-INVITE state machine with `a=sendonly` (and `c=0.0.0.0` detection), local response `a=recvonly`, and resume `a=sendrecv`.
+   * **Early Media & Provisional States:** 183 Session Progress with SDP body detection, early media state transition, and background audio streaming.
+   * **Identity & Privacy Headers:** RFC 3323 & RFC 3325 headers (`P-Asserted-Identity`, `Remote-Party-ID`, `Diversion`, `Privacy`, display name) extracted and mapped to REST state.
+   * **Interactive Phone Dashboard:** New "Live Phone & Controls" tab in React UI with PBX registration status banner, dialer, DTMF keypad (0–9, *, #, A–D), mode toggle (RFC2833 vs INFO), live audio KPI tiles, hold/resume, mute, and transfer drawer.
+   * **Protocol & RFC Compliance:** RFC 3261 Section 14.1 & RFC 6086 Section 4.2.2 compliance preventing mid-dialog 4xx failures from aborting active calls; OXE registration policy (`Min-Expires: 1800`).
+   * **Expanded Test Harnesses:** 14 offline regression suites (100% PASS in ~12.5s) and master live OXE feature validation suite (`test.OxePhase7FeatureValidationTest` 9/9 PASS, `test.OxeLiveConcurrentCallTest` 5/5 PASS).
+
 ---
 
 ## 📂 Project Structure

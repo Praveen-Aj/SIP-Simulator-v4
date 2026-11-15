@@ -454,4 +454,56 @@ Content-Length: 0
    - Open Media Sockets: 0
    - Leaked Threads: 0
 
-```
+---
+
+## 9. Phase 7 Live OXE Feature Completeness Validation
+
+In Phase 7, SIP Simulator v4 was subjected to deep live feature qualification against the Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) and MicroSIP 3.22.16 endpoint.
+
+### 9.1 Test Execution & Automation
+- **Target PBX:** `192.168.0.20:5060` (Alcatel-Lucent OmniPCX Enterprise R101.1 n4.524.2)
+- **Local Host:** `192.168.0.8:5060` (Auto-resolved)
+- **Simulator Endpoint:** Extension `90008`
+- **MicroSIP Endpoint:** Extension `90001`
+- **Runner Script:** `run_oxe_live_tests.bat`
+- **Test Suites:** `test.OxePhase7FeatureValidationTest` & `test.OxeLiveConcurrentCallTest`
+- **Results:** **14 / 14 Stages PASSED (100% Clean Pass)**
+
+### 9.2 Key Findings & Validated Behaviors
+
+#### 1. OXE Registration Expiration Policy
+- When registering with `Expires: 600`, OXE responds with `SIP/2.0 423 Registration Too Brief` and header `Min-Expires: 1800`.
+- All registrations in SIP Simulator v4 now default to 1800 seconds, receiving `SIP/2.0 200 OK` consistently.
+
+#### 2. Live In-Call DTMF Verification
+- **RFC 2833 / RFC 4733 (RTP Telephone-Events):**
+  - Successfully generated and transmitted Payload Type 101 telephone-events (8kHz clock) for digit '5' directly over the established RTP media stream.
+  - Verified packet framing: initial packet with marker bit $M=1$, in-progress packets with incremental duration samples (160, 320, 480), and 3 redundant end packets with end bit $E=1$ and duration 800 (100ms). Both OXE and MicroSIP cleanly process RFC 2833.
+- **SIP INFO DTMF (RFC 2976 / RFC 6086):**
+  - Transmitted SIP INFO with `Content-Type: application/dtmf-relay` (`Signal=9\r\nDuration=160\r\n`).
+  - OXE PBX responded with `SIP/2.0 488 Not Acceptable Here` (with `Allow: INVITE, ACK, CANCEL, BYE, PRACK, NOTIFY, REFER, SUBSCRIBE, OPTIONS, UPDATE`). Notice that `INFO` is absent from OXE's `Allow` header; the OXE PBX does not permit out-of-band INFO DTMF on standard SIP subscriber trunks.
+  - **RFC Compliance Fix Verified:** Per RFC 3261 Section 14.1 and RFC 6086 Section 4.2.2, `SipCallEngine` preserved the active call in `CallState.ESTABLISHED` without tearing down audio or failing the session.
+
+#### 3. Live Hold and Resume via Re-INVITE
+- **Local Hold:**
+  - Sent Re-INVITE with `a=sendonly` (and local RTP port 42000).
+  - Received `100 Trying` followed by `200 OK` from OXE.
+  - Verified local audio transmission paused.
+- **Local Resume:**
+  - Sent Re-INVITE with `a=sendrecv`.
+  - Received `100 Trying` followed by `200 OK` from OXE.
+  - Verified local audio transmission resumed; MicroSIP and simulator resumed bidirectional audio.
+
+#### 4. Exhaustive OXE 488 Single-Line Policy Qualification
+- Live experiments were conducted to determine whether OXE's `488 Not Acceptable Here` (`cause=488;text="Outgoing call isn't allowed here"`) on concurrent calls was caused by active media or subscriber profile configuration:
+  1. Experiment A: Call 1 active and streaming -> Call 2 initiated -> OXE returned 488.
+  2. Experiment B: Call 1 placed on HOLD (`a=sendonly`) -> Call 2 initiated -> OXE returned 488.
+- **Conclusion:** In Alcatel-Lucent OmniPCX Enterprise architecture, subscriber extension `90008` is provisioned as a single-line terminal with `Multi-line = False` / `Number of keys = 1`. OXE strictly rejects concurrent outgoing line seizure at the call admission control layer regardless of hold status. The simulator handles this deterministically with 100% dialog isolation.
+
+#### 5. Post-Test Zero-Leak Resource Audit
+- Following call teardown with `BYE` (receiving 200 OK) and deregistration with `Expires: 0` (receiving 200 OK):
+  - Active Calls: 0
+  - Open Media Sockets: 0
+  - Active Audio Receivers: 0
+  - Active Audio Senders: 0
+  - MOS Score: 4.39 (High Fidelity G.711 A-law)

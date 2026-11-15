@@ -505,6 +505,119 @@ public class CliCallEngine {
             }
         });
 
+        // 12.1. Resume Call
+        server.createContext("/api/call/resume", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                if (callId == null || callId.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId required\"}");
+                    return;
+                }
+                try {
+                    boolean ok = engine.resumeCall(callId);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    resp.put("isOnHold", false);
+                    sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
+        // 12.2. Send DTMF (RFC 2833 or SIP INFO)
+        server.createContext("/api/call/dtmf", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                String digitStr = extractJsonField(body, "digit");
+                String method = extractJsonField(body, "method");
+                if (method == null || method.isEmpty()) method = "RFC2833";
+
+                if (callId == null || callId.isEmpty() || digitStr == null || digitStr.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId and digit required\"}");
+                    return;
+                }
+                char digit = digitStr.charAt(0);
+                try {
+                    boolean ok = engine.sendDtmf(callId, digit, method);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    resp.put("digit", String.valueOf(digit));
+                    resp.put("method", method);
+                    sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
+        // 12.3. Transfer Call (SIP REFER Blind or Attended)
+        server.createContext("/api/call/transfer", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                String target = extractJsonField(body, "target");
+                String replacesCallId = extractJsonField(body, "replacesCallId");
+
+                if (callId == null || callId.isEmpty() || target == null || target.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId and target required\"}");
+                    return;
+                }
+                try {
+                    boolean ok = engine.transferCall(callId, target, replacesCallId);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    resp.put("target", target);
+                    resp.put("replacesCallId", replacesCallId);
+                    sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
+        // 12.4. Restart Call Engine Daemon
+        server.createContext("/api/engine/restart", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                try {
+                    boolean ok = engine.restartEngine();
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("running", engine.isRunning());
+                    resp.put("localIp", engine.getLocalIp());
+                    resp.put("transport", engine.getTransportType());
+                    sendJsonResponse(exchange, 200, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
         // 13. Start Performance Campaign
         server.createContext("/api/perf/start", new HttpHandler() {
             @Override

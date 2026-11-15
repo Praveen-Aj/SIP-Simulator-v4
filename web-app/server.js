@@ -1548,6 +1548,72 @@ app.post('/api/call/cancel', async (req, res) => {
     }
 });
 
+// 11.1. Resume Call (Re-INVITE a=sendrecv)
+app.post('/api/call/resume', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/resume', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 11.2. Send DTMF (RFC 2833 or SIP INFO)
+app.post('/api/call/dtmf', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/dtmf', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 11.3. Transfer Call (SIP REFER Blind or Attended)
+app.post('/api/call/transfer', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/call/transfer', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 11.4. Register Extension
+app.post('/api/engine/register', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/engine/register', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 11.5. Unregister Extension
+app.post('/api/engine/unregister', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/engine/unregister', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 11.6. Restart Call Engine Daemon
+app.post('/api/engine/restart', async (req, res) => {
+    try {
+        await ensureCallEngineDaemon();
+        const resp = await requestDaemon('POST', '/api/engine/restart', req.body);
+        res.status(resp.status).json(resp.data);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // 12. Start Performance Campaign
 app.post('/api/perf/start', async (req, res) => {
     try {

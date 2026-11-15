@@ -18,16 +18,24 @@ echo Using Java: %JAVA_CMD%
 
 echo.
 echo Compiling tests...
-javac -source 1.8 -target 1.8 -cp "build;lib/*" -d build test/OxeLiveConcurrentCallTest.java test/OxeProductionCallEngineTest.java
+javac -source 1.8 -target 1.8 -cp "build;lib/*" -d build test/MicroSipIpc.java test/OxePhase7FeatureValidationTest.java test/OxeLiveConcurrentCallTest.java test/OxeProductionCallEngineTest.java
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Live test compilation failed!
     exit /b %ERRORLEVEL%
 )
 
 echo.
+echo Executing Live OXE Feature Validation Suite (Phase 7)...
+"%JAVA_CMD%" -cp "build;lib/*" test.OxePhase7FeatureValidationTest
+set "EXIT_CODE=%ERRORLEVEL%"
+if %EXIT_CODE% neq 0 goto :report
+
+echo.
 echo Executing Live OXE Concurrent Qualification...
 "%JAVA_CMD%" -cp "build;lib/*" test.OxeLiveConcurrentCallTest
 set "EXIT_CODE=%ERRORLEVEL%"
+
+:report
 
 if %EXIT_CODE% equ 0 (
     echo.

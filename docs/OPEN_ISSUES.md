@@ -237,14 +237,15 @@ Each issue is classified with:
 
 ### ISSUE-012: PBX Single-Line Outgoing Policy Enforcement on Live OXE Extension
 - **Severity:** **P2 (Telecom Specific / Informational)**
-- **Status:** **VERIFIED & QUALIFIED in Phase 6**
-- **File:** `test/OxeLiveConcurrentCallTest.java`
-- **Root Cause:**
-  When initiating a second simultaneous outbound call from extension 90008 to extension 90001 while Call 1 was active and streaming audio, Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) returned `SIP/2.0 488 Not Acceptable Here` with `Reason: SIP;cause=488;text="Outgoing call isn't allowed here"`.
+- **Status:** **COMPREHENSIVELY QUALIFIED & VERIFIED in Phase 7**
+- **File:** `test/OxePhase7FeatureValidationTest.java`, `test/OxeLiveConcurrentCallTest.java`
+- **Root Cause & Diagnosis:**
+  When initiating a second simultaneous outbound call from extension 90008 to extension 90001 while Call 1 is established (or even when Call 1 is placed on HOLD with `a=sendonly`), Alcatel-Lucent OmniPCX Enterprise (OXE R101.1 n4.524.2) returns `SIP/2.0 488 Not Acceptable Here` with `Reason: SIP;cause=488;text="Outgoing call isn't allowed here"`.
+  Investigation confirmed this is an architectural PBX subscriber profile policy in OXE: extension 90008 is configured as a single-line terminal (`Multi-line = False` / `Number of keys = 1`), and extension 90001 has no secondary line appearance. OXE rejects simultaneous outgoing line seizure at the call admission control level.
 - **Resolution & Qualification:**
-  1. Identified that OXE PBX subscriber profile for extension 90008 enforces single-line outgoing concurrency.
-  2. Verified dialog isolation in `SipCallEngine`: Call 1 maintained established dialog, active audio, and zero jitter interruption during Call 2 rejection.
-  3. Validated clean teardown and post-test zero resource leakage in `test.OxeLiveConcurrentCallTest`.
+  1. Verified dialog isolation in `SipCallEngine`: Call 1 maintained established dialog, active audio, and zero jitter interruption during Call 2 rejection.
+  2. Tested Re-INVITE Hold (`a=sendonly`) followed by Call 2: confirmed that OXE still rejects Call 2 with 488, proving the constraint is subscriber profile line seizure, not media port conflict.
+  3. Validated clean teardown and post-test zero resource leakage in both `test.OxePhase7FeatureValidationTest` and `test.OxeLiveConcurrentCallTest`.
 
 ---
 
@@ -258,6 +259,28 @@ Each issue is classified with:
   1. Centralized cleanup into `cleanupSessionMaps(session, callId)`, removing normalized prefix, full ID, and original call ID atomically.
   2. Updated `getActiveCalls()` to deduplicate sessions using `LinkedHashSet<CallSession>`.
   3. Verified in `test.ActiveCampaignFailureRecoveryTest` and `test.OfflineFullRegressionSuite` (zero lingering calls).
+
+---
+
+### ISSUE-014: Mid-Dialog Request Failure Prematurely Terminated Established Dialogs
+- **Severity:** **P1 (High / Protocol Compliance)**
+- **Status:** **RESOLVED in Phase 7**
+- **File:** `src/sipinspector/Call/SipCallEngine.java` (Line 1379–1410)
+- **Root Cause:**
+  When `handleIncomingResponse` received a 4xx, 5xx, or 6xx failure response, it unconditionally called `session.setState(CallState.FAILED)`, stopped media, and cleaned up session maps. When testing in-call SIP INFO DTMF on OXE (which returns `488 Not Acceptable Here` because OXE does not support INFO for DTMF), this bug incorrectly aborted the active call.
+- **RFC Compliance Fix:**
+  Per RFC 3261 Section 14.1 and RFC 6086 Section 4.2.2, rejection of a mid-dialog request (e.g. INFO, REFER, or Re-INVITE) fails only that sub-transaction; the established dialog MUST remain active. Updated `handleIncomingResponse` so that if `session.state == CallState.ESTABLISHED`, mid-dialog 4xx/5xx/6xx responses are logged/acknowledged without changing session state or terminating audio media.
+
+---
+
+### ISSUE-015: OXE SIP Registration Minimum Expires Policy
+- **Severity:** **P2 (Telecom Specific / Interoperability)**
+- **Status:** **RESOLVED in Phase 7**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`, `test/OxePhase7FeatureValidationTest.java`
+- **Root Cause:**
+  When registering with `Expires: 600`, OXE PBX rejects the registration with `SIP/2.0 423 Registration Too Brief` and header `Min-Expires: 1800`.
+- **Resolution:**
+  Updated default registration expiration parameter to 1800 seconds across `SipCallEngine.register()`, CLI engine, and all live test suites, achieving 100% reliable 200 OK registrations.
 
 ---
 

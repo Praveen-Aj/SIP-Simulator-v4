@@ -527,4 +527,76 @@ public class LiveAudioSenderThread extends Thread {
         lastSentSeq = seq;
         lastSentTs = ts;
     }
+
+    /**
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF packets (PT=101).
+     */
+    public synchronized void sendDtmf(char digit) {
+        int eventId = getDtmfEventId(digit);
+        if (eventId < 0) return;
+
+        int dtmfTs = this.timestamp;
+        int volume = 10; // Standard 10 dBm0 volume
+
+        // Send 3 in-progress packets (160, 320, 480 samples) and 3 end packets (800 samples = 100ms)
+        int[] durations = { 160, 320, 480, 800, 800, 800 };
+        boolean[] ends = { false, false, false, true, true, true };
+
+        for (int i = 0; i < durations.length; i++) {
+            boolean marker = (i == 0);
+            byte[] dtmfPayload = new byte[4];
+            dtmfPayload[0] = (byte)(eventId & 0xFF);
+            dtmfPayload[1] = (byte)((ends[i] ? 0x80 : 0x00) | (volume & 0x3F));
+            dtmfPayload[2] = (byte)((durations[i] >> 8) & 0xFF);
+            dtmfPayload[3] = (byte)(durations[i] & 0xFF);
+
+            sequence = (sequence + 1) & 0xFFFF;
+            byte[] packet = new byte[RTP_HEADER_SIZE + 4];
+            packet[0] = (byte)0x80;
+            packet[1] = (byte)((marker ? 0x80 : 0x00) | 101); // PT=101
+            packet[2] = (byte)((sequence >> 8) & 0xFF);
+            packet[3] = (byte)(sequence & 0xFF);
+            packet[4] = (byte)((dtmfTs >> 24) & 0xFF);
+            packet[5] = (byte)((dtmfTs >> 16) & 0xFF);
+            packet[6] = (byte)((dtmfTs >> 8) & 0xFF);
+            packet[7] = (byte)(dtmfTs & 0xFF);
+            packet[8] = (byte)((ssrc >> 24) & 0xFF);
+            packet[9] = (byte)((ssrc >> 16) & 0xFF);
+            packet[10] = (byte)((ssrc >> 8) & 0xFF);
+            packet[11] = (byte)(ssrc & 0xFF);
+            System.arraycopy(dtmfPayload, 0, packet, RTP_HEADER_SIZE, 4);
+
+            try {
+                byte[] outPacket = packet;
+                int outLen = packet.length;
+                if (useSrtp && GlobalSettings.isSdpUseSavp() && srtp != null) {
+                    outPacket = srtp.protectRtp(packet, outLen);
+                    outLen = outPacket.length;
+                }
+                DatagramPacket dgp = new DatagramPacket(outPacket, outLen, remoteAddress, remotePort);
+                socket.send(dgp);
+                packetsSent++;
+                bytesSent += outLen;
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.logf("[DTMF TX] Sent digit %c packet %d/%d (end=%b)", digit, i + 1, durations.length, ends[i]);
+                }
+                Thread.sleep(20);
+            } catch (Exception ex) {
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.log("[DTMF TX ERROR] " + ex.getMessage());
+                }
+            }
+        }
+    }
+
+    public static int getDtmfEventId(char digit) {
+        if (digit >= '0' && digit <= '9') return digit - '0';
+        if (digit == '*') return 10;
+        if (digit == '#') return 11;
+        if (digit == 'A' || digit == 'a') return 12;
+        if (digit == 'B' || digit == 'b') return 13;
+        if (digit == 'C' || digit == 'c') return 14;
+        if (digit == 'D' || digit == 'd') return 15;
+        return -1;
+    }
 }

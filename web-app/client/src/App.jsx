@@ -949,6 +949,620 @@ function PerformanceTab({ API_BASE }) {
   );
 }
 
+function LiveCallTab({ API_BASE }) {
+  const [engineStatus, setEngineStatus] = useState(null);
+  const [activeCalls, setActiveCalls] = useState([]);
+  const [audioDevices, setAudioDevices] = useState({ inputDevices: [], outputDevices: [], selectedInput: '', selectedOutput: '' });
+  const [caller, setCaller] = useState('90008');
+  const [callee, setCallee] = useState('90001');
+  const [codec, setCodec] = useState(8);
+  const [transport, setTransport] = useState('UDP');
+  const [dtmfMethod, setDtmfMethod] = useState('RFC2833');
+  const [transferTarget, setTransferTarget] = useState('90001');
+  const [transferCallId, setTransferCallId] = useState(null);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const fetchCallsAndStatus = async () => {
+    try {
+      const sRes = await fetch(`${API_BASE}/api/call/engine/status`);
+      if (sRes.ok) setEngineStatus(await sRes.json());
+      const cRes = await fetch(`${API_BASE}/api/call/active`);
+      if (cRes.ok) {
+        const cData = await cRes.json();
+        setActiveCalls(cData.activeCalls || []);
+      }
+    } catch (e) {}
+  };
+
+  const fetchAudioDevices = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/audio/devices`);
+      if (res.ok) setAudioDevices(await res.json());
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchCallsAndStatus();
+    fetchAudioDevices();
+    const iv = setInterval(fetchCallsAndStatus, 1500);
+    return () => clearInterval(iv);
+  }, [API_BASE]);
+
+  const handleRegister = async () => {
+    setBusy(true);
+    setStatusMsg(`Registering extension ${caller} on OXE...`);
+    try {
+      const res = await fetch(`${API_BASE}/api/engine/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extension: caller, expires: 1800 })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `Extension ${caller} registered successfully (200 OK)!` : (`Registration failed: ${data.error || 'Server error'}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Registration error: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUnregister = async () => {
+    setBusy(true);
+    setStatusMsg(`Deregistering extension ${caller}...`);
+    try {
+      const res = await fetch(`${API_BASE}/api/engine/unregister`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extension: caller })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `Deregistered extension ${caller}.` : (`Deregistration failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRestartEngine = async () => {
+    setBusy(true);
+    setStatusMsg('Restarting Call Engine Daemon...');
+    try {
+      const res = await fetch(`${API_BASE}/api/engine/restart`, { method: 'POST' });
+      const data = await res.json();
+      setStatusMsg(data.success ? 'Call Engine restarted cleanly.' : (`Restart failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Restart error: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDial = async () => {
+    setBusy(true);
+    setStatusMsg(`Dialing ${callee} from ${caller} (PT=${codec}, ${transport})...`);
+    try {
+      const res = await fetch(`${API_BASE}/api/call/dial`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caller, callee, payloadType: parseInt(codec) })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `Call initiated! Call-ID: ${data.callId}` : (`Call failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Dial error: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAnswer = async (callId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/call/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? 'Call answered.' : (`Answer failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleReject = async (callId, code, reason) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/call/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId, statusCode: code, reason })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `Call rejected (${code} ${reason}).` : (`Reject failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleHangup = async (callId) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/call/hangup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? 'Call terminated (BYE sent).' : (`Hangup failed: ${data.error}`));
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleHoldToggle = async (callId, currentlyOnHold) => {
+    try {
+      const url = currentlyOnHold ? `${API_BASE}/api/call/resume` : `${API_BASE}/api/call/hold`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId, action: currentlyOnHold ? 'resume' : 'hold' })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? (currentlyOnHold ? 'Call resumed (sendrecv).' : 'Call placed on hold (sendonly).') : 'Hold/Resume failed');
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleMuteToggle = async (callId, currentlyMuted) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/call/mute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId, muted: !currentlyMuted })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? (currentlyMuted ? 'Microphone unmuted.' : 'Microphone muted (comfort silence).') : 'Mute failed');
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleSendDtmf = async (callId, digit) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/call/dtmf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId, digit, method: dtmfMethod })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `Sent DTMF '${digit}' via ${dtmfMethod}.` : 'DTMF transmission failed');
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleTransfer = async (callId, replacesCallId) => {
+    if (!transferTarget) return;
+    setStatusMsg(`Transferring call ${callId} to ${transferTarget}...`);
+    try {
+      const res = await fetch(`${API_BASE}/api/call/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callId, target: transferTarget, replacesCallId })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? `REFER sent to transfer to ${transferTarget}.` : (`Transfer failed: ${data.error}`));
+      setTransferCallId(null);
+      fetchCallsAndStatus();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const handleApplyAudioDevices = async (inDev, outDev) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/audio/devices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inputDevice: inDev, outputDevice: outDev })
+      });
+      const data = await res.json();
+      setStatusMsg(data.success ? 'Audio devices updated.' : 'Audio device update failed');
+      fetchAudioDevices();
+    } catch (e) {
+      setStatusMsg(`Error: ${e.message}`);
+    }
+  };
+
+  const dtmfKeys = ['1', '2', '3', 'A', '4', '5', '6', 'B', '7', '8', '9', 'C', '*', '0', '#', 'D'];
+
+  const incomingCalls = activeCalls.filter(c => c.direction === 'INBOUND' && c.state === 'RINGING');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto', padding: '4px' }}>
+      {/* 1. PBX Registration & Engine Status Bar */}
+      <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              backgroundColor: engineStatus?.registeredExtension ? 'var(--accent-green)' : (engineStatus?.running ? 'var(--accent-cyan)' : 'var(--accent-red)')
+            }}></span>
+            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>
+              {engineStatus?.registeredExtension ? `Registered: ${engineStatus.registeredExtension}` : (engineStatus?.running ? 'Engine Active (Unregistered)' : 'Engine Idle')}
+            </span>
+          </div>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+            Local: {engineStatus?.localIp || '192.168.0.8'}:{engineStatus?.localSipPort || 5060} | Target PBX: {engineStatus?.pbxIp || '192.168.0.20'}:5060 [{transport}]
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={handleRegister}
+            disabled={busy}
+            style={{ padding: '6px 14px', background: 'var(--accent-green)', color: '#000', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+          >
+            Register Ext {caller}
+          </button>
+          <button
+            onClick={handleUnregister}
+            disabled={busy}
+            style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer', fontSize: '12px' }}
+          >
+            Unregister
+          </button>
+          <button
+            onClick={handleRestartEngine}
+            disabled={busy}
+            style={{ padding: '6px 14px', background: 'rgba(0,240,255,0.1)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+          >
+            Restart Daemon
+          </button>
+        </div>
+      </div>
+
+      {statusMsg && (
+        <div style={{ background: 'rgba(0,240,255,0.08)', border: '1px solid var(--accent-cyan)', borderRadius: '8px', padding: '10px 16px', fontSize: '12px', color: 'var(--accent-cyan)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{statusMsg}</span>
+          <span style={{ cursor: 'pointer', fontWeight: 'bold' }} onClick={() => setStatusMsg('')}>✕</span>
+        </div>
+      )}
+
+      {/* 2. Inbound Call / Call Waiting Alert Card */}
+      {incomingCalls.map(inc => (
+        <div key={inc.callId} style={{ background: 'linear-gradient(135deg, rgba(255,183,3,0.15) 0%, rgba(20,26,42,0.9) 100%)', border: '1px solid var(--accent-orange)', borderRadius: '12px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', animation: 'pulse 2s infinite' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ background: 'var(--accent-orange)', color: '#000', fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '4px' }}>
+                {inc.isCallWaiting ? 'CALL WAITING' : 'INCOMING CALL'}
+              </span>
+              <span style={{ fontSize: '16px', fontWeight: 'bold' }}>From: {inc.caller} {inc.remoteDisplayName ? `(${inc.remoteDisplayName})` : ''}</span>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+              Call-ID: {inc.callId} {inc.pAssertedIdentity ? `| PAI: ${inc.pAssertedIdentity}` : ''}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => handleAnswer(inc.callId)}
+              style={{ padding: '8px 18px', background: 'var(--accent-green)', color: '#000', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+            >
+              Answer Call
+            </button>
+            <button
+              onClick={() => handleReject(inc.callId, 486, 'Busy Here')}
+              style={{ padding: '8px 18px', background: 'var(--accent-red)', color: '#fff', fontWeight: 'bold', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+            >
+              Reject (486)
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* 3. Main Workspace: Dialer (Left) + Active Calls (Right) */}
+      <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: '400px' }}>
+        {/* Left Column: Outbound Dialer & Device Settings */}
+        <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Dialer Card */}
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--accent-cyan)', margin: 0 }}>Initiate Call</h4>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Caller (Extension)</label>
+              <input
+                type="text"
+                value={caller}
+                onChange={e => setCaller(e.target.value)}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '8px', borderRadius: '6px', fontSize: '13px' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Destination (Callee)</label>
+              <input
+                type="text"
+                value={callee}
+                onChange={e => setCallee(e.target.value)}
+                placeholder="e.g. 90001"
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '8px', borderRadius: '6px', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Audio Codec</label>
+                <select
+                  value={codec}
+                  onChange={e => setCodec(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '8px', borderRadius: '6px', fontSize: '12px' }}
+                >
+                  <option value={8}>PCMA (PT=8)</option>
+                  <option value={0}>PCMU (PT=0)</option>
+                  <option value={9}>G.722 (PT=9)</option>
+                </select>
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Transport</label>
+                <select
+                  value={transport}
+                  onChange={e => setTransport(e.target.value)}
+                  style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '8px', borderRadius: '6px', fontSize: '12px' }}
+                >
+                  <option value="UDP">UDP</option>
+                  <option value="TCP">TCP</option>
+                  <option value="TLS">TLS (5061)</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={handleDial}
+              disabled={busy}
+              style={{ width: '100%', padding: '12px', background: 'var(--accent-green)', color: '#000', fontWeight: 'bold', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '14px', marginTop: '6px' }}
+            >
+              📞 Dial Call
+            </button>
+          </div>
+
+          {/* Audio Hardware Devices Card */}
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <h4 style={{ fontSize: '13px', textTransform: 'uppercase', color: 'var(--accent-cyan)', margin: 0 }}>Audio Hardware</h4>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Input (Microphone)</label>
+              <select
+                value={audioDevices.selectedInput || ''}
+                onChange={e => handleApplyAudioDevices(e.target.value, audioDevices.selectedOutput)}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '6px', fontSize: '11px' }}
+              >
+                {audioDevices.inputDevices.map((d, i) => <option key={i} value={d}>{d}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Output (Speaker)</label>
+              <select
+                value={audioDevices.selectedOutput || ''}
+                onChange={e => handleApplyAudioDevices(audioDevices.selectedInput, e.target.value)}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '6px', fontSize: '11px' }}
+              >
+                {audioDevices.outputDevices.map((d, i) => <option key={i} value={d}>{d}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>DTMF Mode:</span>
+              <button
+                onClick={() => setDtmfMethod(prev => prev === 'RFC2833' ? 'INFO' : 'RFC2833')}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--accent-cyan)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+              >
+                {dtmfMethod === 'RFC2833' ? 'RFC 2833 (RTP)' : 'SIP INFO'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Active Call Dialogs */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {activeCalls.length === 0 ? (
+            <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed var(--border-color)', borderRadius: '12px', padding: '48px 24px', textAlign: 'center', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              <div style={{ fontSize: '36px', marginBottom: '12px' }}>☎</div>
+              <h3 style={{ fontSize: '16px', color: 'var(--text-primary)', marginBottom: '6px' }}>No Active Calls</h3>
+              <p style={{ fontSize: '13px', maxWidth: '420px', lineHeight: '1.4' }}>
+                Use the dialer on the left to initiate an outbound call to MicroSIP 90001, or initiate an incoming call from MicroSIP to 90008.
+              </p>
+            </div>
+          ) : (
+            activeCalls.map(c => (
+              <div key={c.callId} style={{ background: 'rgba(20,26,42,0.8)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Call Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: c.state === 'ESTABLISHED' ? 'rgba(57,255,20,0.15)' : (c.state === 'RINGING' ? 'rgba(255,183,3,0.15)' : 'rgba(0,240,255,0.15)'),
+                        color: c.state === 'ESTABLISHED' ? 'var(--accent-green)' : (c.state === 'RINGING' ? 'var(--accent-orange)' : 'var(--accent-cyan)'),
+                        border: `1px solid ${c.state === 'ESTABLISHED' ? 'var(--accent-green)' : (c.state === 'RINGING' ? 'var(--accent-orange)' : 'var(--accent-cyan)')}`
+                      }}>
+                        {c.isOnHold ? 'ON HOLD' : c.state}
+                      </span>
+                      <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                        {c.direction === 'OUTBOUND' ? 'Outgoing to ' : 'Incoming from '} {c.direction === 'OUTBOUND' ? c.callee : c.caller}
+                      </span>
+                      {c.isMuted && <span style={{ fontSize: '11px', background: 'var(--accent-red)', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>MUTED</span>}
+                      {c.isRemoteHold && <span style={{ fontSize: '11px', background: 'var(--accent-orange)', color: '#000', padding: '2px 6px', borderRadius: '4px' }}>REMOTE HELD</span>}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', fontFamily: 'monospace' }}>
+                      Call-ID: {c.callId} | Codec: {c.codec} (PT={c.payloadType}) | Duration: {c.durationSeconds}s
+                    </div>
+                  </div>
+
+                  {/* Call Action Buttons */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      onClick={() => handleHoldToggle(c.callId, c.isOnHold)}
+                      style={{ padding: '6px 12px', background: c.isOnHold ? 'var(--accent-green)' : 'rgba(255,183,3,0.2)', color: c.isOnHold ? '#000' : 'var(--accent-orange)', border: '1px solid var(--accent-orange)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      {c.isOnHold ? '▶ Resume' : '⏸ Hold'}
+                    </button>
+                    <button
+                      onClick={() => handleMuteToggle(c.callId, c.isMuted)}
+                      style={{ padding: '6px 12px', background: c.isMuted ? 'var(--accent-red)' : 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+                    >
+                      {c.isMuted ? '🎙 Unmute' : '🔇 Mute'}
+                    </button>
+                    <button
+                      onClick={() => setTransferCallId(prev => prev === c.callId ? null : c.callId)}
+                      style={{ padding: '6px 12px', background: 'rgba(0,240,255,0.1)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)', borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}
+                    >
+                      ⮂ Transfer
+                    </button>
+                    <button
+                      onClick={() => handleHangup(c.callId)}
+                      style={{ padding: '6px 14px', background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      ⏹ Hangup
+                    </button>
+                  </div>
+                </div>
+
+                {/* Transfer Drawer (Collapsible) */}
+                {transferCallId === c.callId && (
+                  <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid var(--accent-cyan)', borderRadius: '8px', padding: '12px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>Refer Transfer:</span>
+                    <input
+                      type="text"
+                      placeholder="Target ext e.g. 90001"
+                      value={transferTarget}
+                      onChange={e => setTransferTarget(e.target.value)}
+                      style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '6px', borderRadius: '4px', fontSize: '12px', width: '140px' }}
+                    />
+                    <button
+                      onClick={() => handleTransfer(c.callId, null)}
+                      style={{ padding: '6px 12px', background: 'var(--accent-cyan)', color: '#000', fontWeight: 'bold', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+                    >
+                      Blind Transfer
+                    </button>
+                    <button
+                      onClick={() => setTransferCallId(null)}
+                      style={{ padding: '6px 10px', background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+
+                {/* Live Media KPIs Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>TX Packets</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--accent-cyan)', marginTop: '2px' }}>
+                      {c.mediaStats?.packets_sent || 0}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>RX Packets</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--accent-green)', marginTop: '2px' }}>
+                      {c.mediaStats?.packets_received || 0}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Loss Rate</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {c.mediaStats?.loss_rate_percent || 0}%
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Jitter (ms)</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '2px' }}>
+                      {c.mediaStats?.rx_jitter_ms ? Number(c.mediaStats.rx_jitter_ms).toFixed(1) : '0.0'} ms
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>MOS Score</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--accent-green)', marginTop: '2px' }}>
+                      {c.mediaStats?.mos_score || 4.39}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DTMF Keypad & Inbound Telemetry */}
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  {/* DTMF Keypad (4x4) */}
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px' }}>Send DTMF ({dtmfMethod}):</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 38px)', gap: '6px' }}>
+                      {dtmfKeys.map(k => (
+                        <button
+                          key={k}
+                          onClick={() => handleSendDtmf(c.callId, k)}
+                          style={{
+                            width: '38px',
+                            height: '34px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-primary)',
+                            borderRadius: '6px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            fontSize: '13px'
+                          }}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* DTMF Reception & Audio Recording Details */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '220px' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '8px', fontSize: '12px' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Received DTMF: </span>
+                      <strong style={{ color: 'var(--accent-green)', letterSpacing: '2px', fontFamily: 'monospace' }}>
+                        {c.receivedDtmf || 'None'}
+                      </strong>
+                    </div>
+
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', display: 'flex', gap: '16px' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-secondary)' }}>TX Audio: </span>
+                        {c.txWavPath ? <span style={{ color: 'var(--accent-cyan)' }}>tx_{c.callId.substring(0, 8)}.wav</span> : 'Active'}
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-secondary)' }}>RX Audio: </span>
+                        {c.rxWavPath ? <span style={{ color: 'var(--accent-cyan)' }}>rx_{c.callId.substring(0, 8)}.wav</span> : 'Active'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Settings & Status state
   const [settings, setSettings] = useState({
@@ -1801,6 +2415,12 @@ function App() {
             >
               Performance & Multi-Call
             </button>
+            <button 
+              className={`tab-btn ${activeTab === 'phone' ? 'active' : ''}`} 
+              onClick={() => { console.log('Live Phone tab clicked!'); setActiveTab('phone'); }}
+            >
+              Live Phone & Controls
+            </button>
           </div>
         </div>
 
@@ -2629,6 +3249,10 @@ function App() {
 
           {activeTab === 'performance' && (
             <PerformanceTab API_BASE={API_BASE} />
+          )}
+
+          {activeTab === 'phone' && (
+            <LiveCallTab API_BASE={API_BASE} />
           )}
         </div>
       </main>

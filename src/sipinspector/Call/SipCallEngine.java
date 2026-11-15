@@ -10,6 +10,9 @@ import sipinspector.Media.LiveAudioSenderThread;
 import sipinspector.Media.RtcpMonitor;
 import sipinspector.Media.RtpWavRecorder;
 import sipinspector.MyPacket;
+import sipinspector.Socket.MySocketAbstract;
+import sipinspector.Socket.TCPClientSocket;
+import sipinspector.Socket.TLSClientSocket_V6;
 import sipinspector.Socket.UDPClientSocket;
 import sipinspector.Utils.AppPaths;
 import sipinspector.Utils.SIPParser;
@@ -46,7 +49,8 @@ public class SipCallEngine {
         return instance;
     }
 
-    private UDPClientSocket signalingSocket = null;
+    private MySocketAbstract signalingSocket = null;
+    private String transportType = "UDP";
     private Thread listenerThread = null;
     private volatile boolean running = false;
 
@@ -111,7 +115,20 @@ public class SipCallEngine {
         public String codecName = "PCMA";
 
         public volatile boolean isOnHold = false;
+        public volatile boolean isRemoteHold = false;
         public volatile boolean isMuted = false;
+        public volatile boolean isCallWaiting = false;
+
+        // Identity & Header Telemetry
+        public String remoteDisplayName = "";
+        public String pAssertedIdentity = "";
+        public String remotePartyId = "";
+        public String diversion = "";
+        public String privacy = "";
+        public String replacesDialog = null;
+        public String referredBy = null;
+        public String transport = "UDP";
+        public final StringBuilder receivedDtmf = new StringBuilder();
 
         public LiveAudioController mediaController = null;
         public String txWavPath = null;
@@ -181,7 +198,18 @@ public class SipCallEngine {
             m.put("remoteRtpIp", remoteRtpIp);
             m.put("remoteRtpPort", remoteRtpPort);
             m.put("isOnHold", isOnHold);
+            m.put("isRemoteHold", isRemoteHold);
             m.put("isMuted", isMuted);
+            m.put("isCallWaiting", isCallWaiting);
+            m.put("remoteDisplayName", remoteDisplayName);
+            m.put("pAssertedIdentity", pAssertedIdentity);
+            m.put("remotePartyId", remotePartyId);
+            m.put("diversion", diversion);
+            m.put("privacy", privacy);
+            m.put("replacesDialog", replacesDialog);
+            m.put("referredBy", referredBy);
+            m.put("transport", transport);
+            m.put("receivedDtmf", receivedDtmf.toString());
             m.put("txWavPath", txWavPath);
             m.put("rxWavPath", rxWavPath);
             m.put("durationSeconds", establishedTimeMs > 0 ? (System.currentTimeMillis() - establishedTimeMs) / 1000L : 0);
@@ -201,36 +229,72 @@ public class SipCallEngine {
     }
 
     /**
-     * Start the signaling listener and initialize SIP Call Engine.
+     * Start the signaling listener and initialize SIP Call Engine (defaulting to UDP).
      */
     public synchronized boolean startEngine(String localIp, int localSipPort, String pbxIp, int pbxSipPort) {
+        return startEngine(localIp, localSipPort, pbxIp, pbxSipPort, "UDP");
+    }
+
+    /**
+     * Start the signaling listener and initialize SIP Call Engine with specified transport (UDP, TCP, TLS).
+     */
+    public synchronized boolean startEngine(String localIp, int localSipPort, String pbxIp, int pbxSipPort, String transport) {
+        if (transport == null || transport.trim().isEmpty()) transport = "UDP";
+        this.transportType = transport.trim().toUpperCase();
+
         if (running && signalingSocket != null) {
             return true;
         }
 
         this.pbxIp = (pbxIp != null && !pbxIp.trim().isEmpty()) ? pbxIp.trim() : "192.168.0.20";
-        this.pbxSipPort = pbxSipPort > 0 ? pbxSipPort : 5060;
+        this.pbxSipPort = pbxSipPort > 0 ? pbxSipPort : ("TLS".equalsIgnoreCase(this.transportType) ? 5061 : 5060);
         this.localSipPort = localSipPort > 0 ? localSipPort : 5060;
 
         String candidateIp = (localIp != null && !localIp.trim().isEmpty() && !"auto".equalsIgnoreCase(localIp.trim()))
                 ? localIp.trim() : resolveLocalIpTowards(this.pbxIp);
 
         try {
-            signalingSocket = new UDPClientSocket(InetAddress.getByName(candidateIp), this.localSipPort);
-            this.localIp = candidateIp;
+            if ("TCP".equalsIgnoreCase(this.transportType)) {
+                TCPClientSocket tcp = new TCPClientSocket(InetAddress.getByName(candidateIp), 0);
+                if (tcp.open(InetAddress.getByName(this.pbxIp), this.pbxSipPort)) {
+                    signalingSocket = tcp;
+                    this.localIp = candidateIp;
+                    this.localSipPort = tcp.getLocalPort();
+                } else {
+                    throw new IOException("TCP connection to " + this.pbxIp + ":" + this.pbxSipPort + " failed");
+                }
+            } else if ("TLS".equalsIgnoreCase(this.transportType)) {
+                TLSClientSocket_V6 tls = new TLSClientSocket_V6(InetAddress.getByName(candidateIp), 0);
+                if (tls.open(InetAddress.getByName(this.pbxIp), this.pbxSipPort)) {
+                    signalingSocket = tls;
+                    this.localIp = candidateIp;
+                    this.localSipPort = tls.getLocalPort();
+                } else {
+                    throw new IOException("TLS connection to " + this.pbxIp + ":" + this.pbxSipPort + " failed");
+                }
+            } else {
+                signalingSocket = new UDPClientSocket(InetAddress.getByName(candidateIp), this.localSipPort);
+                this.localIp = candidateIp;
+            }
         } catch (Exception e) {
-            String autoIp = resolveLocalIpTowards(this.pbxIp);
-            if (!autoIp.equals(candidateIp)) {
-                try {
-                    signalingSocket = new UDPClientSocket(InetAddress.getByName(autoIp), this.localSipPort);
-                    this.localIp = autoIp;
-                } catch (Exception ex2) {
-                    System.err.println("SipCallEngine start failed on fallback " + autoIp + ": " + ex2.getMessage());
+            if ("UDP".equalsIgnoreCase(this.transportType)) {
+                String autoIp = resolveLocalIpTowards(this.pbxIp);
+                if (!autoIp.equals(candidateIp)) {
+                    try {
+                        signalingSocket = new UDPClientSocket(InetAddress.getByName(autoIp), this.localSipPort);
+                        this.localIp = autoIp;
+                    } catch (Exception ex2) {
+                        System.err.println("SipCallEngine start failed on fallback " + autoIp + ": " + ex2.getMessage());
+                        running = false;
+                        return false;
+                    }
+                } else {
+                    System.err.println("SipCallEngine start failed on " + candidateIp + ": " + e.getMessage());
                     running = false;
                     return false;
                 }
             } else {
-                System.err.println("SipCallEngine start failed on " + candidateIp + ": " + e.getMessage());
+                System.err.println("SipCallEngine start failed on " + candidateIp + " (" + this.transportType + "): " + e.getMessage());
                 running = false;
                 return false;
             }
@@ -249,8 +313,8 @@ public class SipCallEngine {
             listenerThread.start();
 
             if (TLSDebugLogger.isEnabled()) {
-                TLSDebugLogger.logf("[CALL ENGINE] Engine started on %s:%d, target PBX=%s:%d",
-                        this.localIp, this.localSipPort, this.pbxIp, this.pbxSipPort);
+                TLSDebugLogger.logf("[CALL ENGINE] Engine started on %s:%d [%s], target PBX=%s:%d",
+                        this.localIp, this.localSipPort, this.transportType, this.pbxIp, this.pbxSipPort);
             }
             return true;
         } catch (Exception e) {
@@ -289,12 +353,36 @@ public class SipCallEngine {
         }
     }
 
+    /**
+     * Restart the engine with clean resource release.
+     */
+    public synchronized boolean restartEngine() {
+        String savedLocalIp = this.localIp;
+        int savedLocalPort = this.localSipPort;
+        String savedPbxIp = this.pbxIp;
+        int savedPbxPort = this.pbxSipPort;
+        String savedTransport = this.transportType;
+        stopEngine();
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException ignored) {}
+        return startEngine(savedLocalIp, savedLocalPort, savedPbxIp, savedPbxPort, savedTransport);
+    }
+
     public boolean isRunning() {
         return running;
     }
 
-    public UDPClientSocket getSignalingSocket() {
+    public MySocketAbstract getSocket() {
         return signalingSocket;
+    }
+
+    public UDPClientSocket getSignalingSocket() {
+        return (signalingSocket instanceof UDPClientSocket) ? (UDPClientSocket) signalingSocket : null;
+    }
+
+    public String getTransportType() {
+        return transportType;
     }
 
     public String getLocalIp() {
@@ -439,18 +527,20 @@ public class SipCallEngine {
 
         String sdpOffer = buildSdpOffer(localIp, rtpPort, session.payloadType);
         session.inviteBranch = "z9hG4bKinv" + System.currentTimeMillis() + "_" + seqNum;
+        session.transport = transportType;
 
         String inviteMsg =
                 "INVITE sip:" + callee + "@" + targetIp + " SIP/2.0\r\n" +
-                "Via: SIP/2.0/UDP " + localIp + ":" + localSipPort + ";rport;branch=" + session.inviteBranch + "\r\n" +
+                "Via: SIP/2.0/" + transportType + " " + localIp + ":" + localSipPort + ";rport;branch=" + session.inviteBranch + "\r\n" +
                 "Max-Forwards: 70\r\n" +
                 "From: \"" + caller + "\" <sip:" + caller + "@" + targetIp + ">;tag=" + session.localTag + "\r\n" +
                 "To: \"" + callee + "\" <sip:" + callee + "@" + targetIp + ">\r\n" +
                 "Call-ID: " + fullCallId + "\r\n" +
                 "CSeq: " + session.cseq + " INVITE\r\n" +
-                "Contact: \"" + caller + "\" <sip:" + caller + "@" + localIp + ":" + localSipPort + ";transport=udp>\r\n" +
+                "Contact: \"" + caller + "\" <sip:" + caller + "@" + localIp + ":" + localSipPort + ";transport=" + transportType.toLowerCase() + ">\r\n" +
                 "Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS\r\n" +
-                "Supported: replaces, timer\r\n" +
+                "Supported: replaces, timer, 100rel\r\n" +
+                "P-Asserted-Identity: \"" + caller + "\" <sip:" + caller + "@" + targetIp + ">\r\n" +
                 "User-Agent: SIP Simulator v4\r\n" +
                 "Content-Type: application/sdp\r\n" +
                 "Content-Length: " + sdpOffer.getBytes().length + "\r\n\r\n" +
@@ -542,7 +632,7 @@ public class SipCallEngine {
      * Place an established call on hold using Re-INVITE with a=sendonly.
      */
     public synchronized boolean holdCall(String callId) throws Exception {
-        CallSession session = activeSessions.get(callId);
+        CallSession session = getCallSession(callId);
         if (session == null || session.state != CallState.ESTABLISHED) {
             return false;
         }
@@ -562,7 +652,7 @@ public class SipCallEngine {
      * Resume a held call using Re-INVITE with a=sendrecv.
      */
     public synchronized boolean resumeCall(String callId) throws Exception {
-        CallSession session = activeSessions.get(callId);
+        CallSession session = getCallSession(callId);
         if (session == null || session.state != CallState.ESTABLISHED) {
             return false;
         }
@@ -592,13 +682,142 @@ public class SipCallEngine {
     }
 
     /**
-     * Send DTMF telephone-event via RFC 2833.
+     * Send DTMF telephone-event via RFC 2833 / RFC 4733 (default).
      */
     public synchronized boolean sendDtmf(String callId, char digit) {
-        CallSession session = activeSessions.get(callId);
+        return sendDtmf(callId, digit, "RFC2833");
+    }
+
+    /**
+     * Send DTMF digit using specified method ("RFC2833" or "INFO").
+     */
+    public synchronized boolean sendDtmf(String callId, char digit, String method) {
+        CallSession session = getCallSession(callId);
         if (session == null || session.state != CallState.ESTABLISHED) return false;
 
-        // Formulate RFC 2833 RTP packet and transmit via session media socket
+        if ("INFO".equalsIgnoreCase(method)) {
+            try {
+                return sendInfoDtmf(callId, digit, 160);
+            } catch (Exception e) {
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.log("[DTMF INFO ERROR] " + e.getMessage());
+                }
+                return false;
+            }
+        } else {
+            // RFC 2833 / 4733 RTP telephone-event
+            if (session.mediaController != null) {
+                return session.mediaController.sendDtmf(digit);
+            } else {
+                try {
+                    java.net.DatagramSocket s = new java.net.DatagramSocket();
+                    LiveAudioController.sendDtmfDirect(digit, s, InetAddress.getByName(session.remoteRtpIp), session.remoteRtpPort);
+                    s.close();
+                    return true;
+                } catch (Exception ex) {
+                    if (TLSDebugLogger.isEnabled()) {
+                        TLSDebugLogger.log("[DTMF 2833 ERROR] " + ex.getMessage());
+                    }
+                    return false;
+                }
+            }
+        }
+    }
+
+    /**
+     * Send DTMF via SIP INFO (RFC 6086 / RFC 2976).
+     */
+    public synchronized boolean sendInfoDtmf(String callId, char digit, int durationMs) throws Exception {
+        CallSession session = getCallSession(callId);
+        if (session == null || session.state != CallState.ESTABLISHED) return false;
+
+        session.cseq++;
+        String targetUri = session.remoteContact != null ? session.remoteContact : ("sip:" + (session.direction == CallDirection.OUTBOUND ? session.callee : session.caller) + "@" + pbxIp);
+        if (targetUri.startsWith("<") && targetUri.contains(">")) {
+            targetUri = targetUri.substring(1, targetUri.indexOf('>'));
+        }
+
+        String body = "Signal=" + digit + "\r\nDuration=" + (durationMs > 0 ? durationMs : 160) + "\r\n";
+
+        StringBuilder info = new StringBuilder();
+        info.append("INFO ").append(targetUri).append(" SIP/2.0\r\n");
+        info.append("Via: SIP/2.0/").append(transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKinfo").append(System.currentTimeMillis()).append("\r\n");
+        info.append("Max-Forwards: 70\r\n");
+        if (session.direction == CallDirection.OUTBOUND) {
+            info.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            info.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        } else {
+            info.append("From: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            info.append("To: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        }
+        info.append("Call-ID: ").append(session.callId).append("\r\n");
+        info.append("CSeq: ").append(session.cseq).append(" INFO\r\n");
+        info.append("Content-Type: application/dtmf-relay\r\n");
+        info.append("Content-Length: ").append(body.getBytes().length).append("\r\n\r\n");
+        info.append(body);
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(info.toString());
+            pkt.setAddress(InetAddress.getByName(session.targetIp != null ? session.targetIp : pbxIp));
+            pkt.setPort(session.targetPort > 0 ? session.targetPort : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
+        return true;
+    }
+
+    /**
+     * Transfer an established call using SIP REFER (RFC 3515).
+     * Supports both Blind transfer (replacesCallId=null) and Attended transfer (with Replaces).
+     */
+    public synchronized boolean transferCall(String callId, String targetExtension, String replacesCallId) throws Exception {
+        CallSession session = getCallSession(callId);
+        if (session == null || session.state != CallState.ESTABLISHED) return false;
+
+        session.cseq++;
+        String targetUri = session.remoteContact != null ? session.remoteContact : ("sip:" + (session.direction == CallDirection.OUTBOUND ? session.callee : session.caller) + "@" + pbxIp);
+        if (targetUri.startsWith("<") && targetUri.contains(">")) {
+            targetUri = targetUri.substring(1, targetUri.indexOf('>'));
+        }
+
+        StringBuilder referTo = new StringBuilder();
+        referTo.append("<sip:").append(targetExtension).append("@").append(pbxIp);
+        if (replacesCallId != null && !replacesCallId.trim().isEmpty()) {
+            CallSession repSession = getCallSession(replacesCallId);
+            if (repSession != null) {
+                referTo.append("?Replaces=").append(repSession.callId)
+                        .append("%3Bto-tag%3D").append(repSession.remoteTag)
+                        .append("%3Bfrom-tag%3D").append(repSession.localTag);
+            } else {
+                referTo.append("?Replaces=").append(replacesCallId.trim());
+            }
+        }
+        referTo.append(">");
+
+        StringBuilder refer = new StringBuilder();
+        refer.append("REFER ").append(targetUri).append(" SIP/2.0\r\n");
+        refer.append("Via: SIP/2.0/").append(transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKref").append(System.currentTimeMillis()).append("\r\n");
+        refer.append("Max-Forwards: 70\r\n");
+        if (session.direction == CallDirection.OUTBOUND) {
+            refer.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            refer.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        } else {
+            refer.append("From: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            refer.append("To: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        }
+        refer.append("Call-ID: ").append(session.callId).append("\r\n");
+        refer.append("CSeq: ").append(session.cseq).append(" REFER\r\n");
+        refer.append("Refer-To: ").append(referTo).append("\r\n");
+        refer.append("Referred-By: <sip:").append(session.caller != null ? session.caller : registeredExtension).append("@").append(pbxIp).append(">\r\n");
+        refer.append("Contact: <sip:").append(registeredExtension != null ? registeredExtension : "90008").append("@").append(localIp).append(":").append(localSipPort).append(";transport=").append(transportType.toLowerCase()).append(">\r\n");
+        refer.append("User-Agent: SIP Simulator v4\r\n");
+        refer.append("Content-Length: 0\r\n\r\n");
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(refer.toString());
+            pkt.setAddress(InetAddress.getByName(session.targetIp != null ? session.targetIp : pbxIp));
+            pkt.setPort(session.targetPort > 0 ? session.targetPort : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
         return true;
     }
 
@@ -924,8 +1143,9 @@ public class SipCallEngine {
         method = method.toUpperCase();
 
         if ("INVITE".equals(method)) {
-            // Check if existing session (Re-INVITE)
-            if (session != null) {
+            // Check if existing session and matching local tag (Re-INVITE)
+            String toTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "To", "t"), "tag");
+            if (session != null && session.localTag != null && session.localTag.equals(toTag)) {
                 handleReInvite(session, msg);
                 return;
             }
@@ -939,12 +1159,33 @@ public class SipCallEngine {
             newSession.inviteBranch = SIPParser.getParamValue(SIPParser.getHeader(msg, "Via", "v"), "branch");
             newSession.remoteTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "From", "f"), "tag");
             newSession.remoteContact = SIPParser.getHeaderValue(msg, "Contact");
+            newSession.transport = transportType;
 
             // Extract Record-Route headers
             newSession.recordRoutes.clear();
             for (String line : msg.split("\r?\n")) {
                 if (line.toLowerCase().startsWith("record-route:") || line.toLowerCase().startsWith("r:")) {
                     newSession.recordRoutes.add(line.substring(line.indexOf(':') + 1).trim());
+                }
+            }
+
+            // Parse Identity & Special Headers
+            extractIdentityHeaders(newSession, msg);
+
+            // Check Replaces header (RFC 3891)
+            String replaces = SIPParser.getHeaderValue(msg, "Replaces");
+            if (replaces != null && !replaces.trim().isEmpty()) {
+                newSession.replacesDialog = replaces.trim();
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.logf("[CALL ENGINE] Inbound INVITE contains Replaces: %s", replaces);
+                }
+            }
+
+            // Check Call Waiting (if another call is already active)
+            for (CallSession s : activeSessions.values()) {
+                if (s != newSession && (s.state == CallState.ESTABLISHED || s.state == CallState.EARLY_MEDIA || s.state == CallState.CALLING)) {
+                    newSession.isCallWaiting = true;
+                    break;
                 }
             }
 
@@ -964,6 +1205,68 @@ public class SipCallEngine {
             } catch (Exception ex) {
                 System.err.println("Error sending ringing: " + ex.getMessage());
             }
+
+        } else if ("INFO".equals(method)) {
+            // SIP INFO DTMF (RFC 6086 / RFC 2976)
+            String body = getMessageBody(msg);
+            char digit = '?';
+            if (body != null) {
+                for (String line : body.split("\r?\n")) {
+                    if (line.toLowerCase().startsWith("signal=")) {
+                        String s = line.substring(7).trim();
+                        if (!s.isEmpty()) digit = s.charAt(0);
+                    }
+                }
+            }
+            if (session != null && digit != '?') {
+                session.receivedDtmf.append(digit);
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.logf("[SIP INFO DTMF] Received digit '%c' on call %s", digit, session.callId);
+                }
+            }
+            try {
+                sendOkForInfo(pkt, msg, session);
+            } catch (Exception ignored) {}
+
+        } else if ("REFER".equals(method)) {
+            // SIP REFER Call Transfer (RFC 3515)
+            String referTo = SIPParser.getHeaderValue(msg, "Refer-To");
+            if (TLSDebugLogger.isEnabled()) {
+                TLSDebugLogger.logf("[SIP REFER] Received transfer request for call %s -> Refer-To: %s", callId, referTo);
+            }
+            try {
+                sendAcceptedForRefer(pkt, msg, session);
+                if (session != null) {
+                    sendNotify(session, "refer;id=1", "active;expires=60", "SIP/2.0 100 Trying\r\n");
+                }
+            } catch (Exception ex) {
+                System.err.println("Error responding to REFER: " + ex.getMessage());
+            }
+
+        } else if ("NOTIFY".equals(method)) {
+            // SIP NOTIFY (RFC 3515 Refer Event or Subscription)
+            try {
+                sendOkForNotify(pkt, msg, session);
+            } catch (Exception ignored) {}
+
+            String event = SIPParser.getHeaderValue(msg, "Event");
+            String body = getMessageBody(msg);
+            if (event != null && event.toLowerCase().contains("refer") && body != null && body.contains("200 OK")) {
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.logf("[SIP NOTIFY] Transfer target answered (200 OK); hanging up original call %s", callId);
+                }
+                if (session != null) {
+                    try {
+                        hangupCall(session.callId);
+                    } catch (Exception ignored) {}
+                }
+            }
+
+        } else if ("OPTIONS".equals(method)) {
+            // SIP OPTIONS ping / health check from PBX
+            try {
+                sendOkForOptions(pkt, msg);
+            } catch (Exception ignored) {}
 
         } else if ("CANCEL".equals(method)) {
             try {
@@ -1007,12 +1310,25 @@ public class SipCallEngine {
             session.lastResponseCode = code;
             session.lastResponseTxt = msg;
 
+            extractIdentityHeaders(session, msg);
+
             if ("100".equals(code)) {
                 session.setState(CallState.PROCEEDING);
-            } else if ("180".equals(code) || "183".equals(code)) {
+            } else if ("180".equals(code)) {
                 session.setState(CallState.RINGING);
                 session.remoteTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "To", "t"), "tag");
-            } else if ("200".equals(code)) {
+            } else if ("183".equals(code)) {
+                session.remoteTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "To", "t"), "tag");
+                if (msg.contains("v=0")) {
+                    parseSdpBody(session, msg);
+                    session.setState(CallState.EARLY_MEDIA);
+                    if (!session.isOnHold) {
+                        startMediaForSession(session);
+                    }
+                } else {
+                    session.setState(CallState.RINGING);
+                }
+            } else if ("200".equals(code) || "202".equals(code)) {
                 String cseq = SIPParser.getHeaderValue(msg, "CSeq");
                 if (cseq != null && cseq.toUpperCase().contains("INVITE")) {
                     session.remoteTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "To", "t"), "tag");
@@ -1051,13 +1367,36 @@ public class SipCallEngine {
                     if (TLSDebugLogger.isEnabled()) {
                         TLSDebugLogger.logf("[CALL ENGINE] 200 OK received for CANCEL on call %s", session.callId);
                     }
+                } else if (cseq != null && cseq.toUpperCase().contains("REFER")) {
+                    if (TLSDebugLogger.isEnabled()) {
+                        TLSDebugLogger.logf("[CALL ENGINE] %s Accepted received for REFER on call %s", code, session.callId);
+                    }
+                } else if (cseq != null && cseq.toUpperCase().contains("INFO")) {
+                    if (TLSDebugLogger.isEnabled()) {
+                        TLSDebugLogger.logf("[CALL ENGINE] 200 OK received for INFO on call %s", session.callId);
+                    }
                 }
             } else if (code.startsWith("4") || code.startsWith("5") || code.startsWith("6")) {
                 System.out.println("<<< [SIP FAILURE " + code + "]:\n" + msg);
                 String startLine = SIPParser.getStartline(msg);
+                String cseq = SIPParser.getHeaderValue(msg, "CSeq");
+
+                // Mid-dialog request failure per RFC 3261 Section 14.1 & RFC 6086 Section 4.2.2
+                // A failure response to a mid-dialog request (e.g. INFO, REFER, Re-INVITE) DOES NOT terminate the established call.
+                if (session.state == CallState.ESTABLISHED) {
+                    if (cseq != null && cseq.toUpperCase().contains("INFO")) {
+                        System.out.println(">>> [CALL ENGINE] Mid-dialog INFO rejected with " + code + "; dialog remains ESTABLISHED.");
+                    } else if (cseq != null && cseq.toUpperCase().contains("INVITE")) {
+                        System.out.println(">>> [CALL ENGINE] Mid-dialog Re-INVITE rejected with " + code + "; acknowledging and preserving ESTABLISHED dialog.");
+                        sendNon2xxAck(session, msg);
+                    } else if (cseq != null && cseq.toUpperCase().contains("REFER")) {
+                        System.out.println(">>> [CALL ENGINE] Mid-dialog REFER rejected with " + code + "; dialog remains ESTABLISHED.");
+                    }
+                    return;
+                }
+
                 session.failureReason = (startLine != null && !startLine.isEmpty()) ? startLine : ("SIP " + code);
                 session.setState(CallState.FAILED);
-                String cseq = SIPParser.getHeaderValue(msg, "CSeq");
                 if (cseq != null && (cseq.toUpperCase().contains("INVITE") || cseq.toUpperCase().contains("CANCEL"))) {
                     sendNon2xxAck(session, msg);
                 }
@@ -1096,22 +1435,30 @@ public class SipCallEngine {
     private void handleReInvite(CallSession session, String msg) {
         parseSdpBody(session, msg);
         boolean remoteHold = msg.contains("a=sendonly") || msg.contains("c=IN IP4 0.0.0.0");
-        session.isOnHold = remoteHold;
+        session.isRemoteHold = remoteHold;
+
+        if (session.mediaController != null) {
+            if (remoteHold) {
+                session.mediaController.pauseAudio();
+            } else {
+                session.mediaController.resumeAudio();
+            }
+        }
 
         try {
-            String sdp = remoteHold ? buildSdpHold(localIp, session.localRtpPort, session.payloadType)
+            String sdp = remoteHold ? buildSdpRecvOnly(localIp, session.localRtpPort, session.payloadType)
                     : buildSdpOffer(localIp, session.localRtpPort, session.payloadType);
 
             StringBuilder ok = new StringBuilder();
             ok.append("SIP/2.0 200 OK\r\n");
             String viaHdr = SIPParser.getHeader(msg, "Via", "v");
             String branch = SIPParser.getParamValue(viaHdr, "branch");
-            ok.append("Via: SIP/2.0/UDP ").append(pbxIp).append(":").append(pbxSipPort).append(";branch=").append(branch != null ? branch : "z9hG4bK").append("\r\n");
+            ok.append("Via: SIP/2.0/").append(transportType).append(" ").append(pbxIp).append(":").append(pbxSipPort).append(";branch=").append(branch != null ? branch : "z9hG4bK").append("\r\n");
             ok.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
             ok.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
             ok.append("Call-ID: ").append(session.callId).append("\r\n");
             ok.append("CSeq: ").append(SIPParser.getHeaderValue(msg, "CSeq")).append("\r\n");
-            ok.append("Contact: <sip:").append(session.callee).append("@").append(localIp).append(":").append(localSipPort).append(";transport=udp>\r\n");
+            ok.append("Contact: <sip:").append(session.callee).append("@").append(localIp).append(":").append(localSipPort).append(";transport=").append(transportType.toLowerCase()).append(">\r\n");
             ok.append("Content-Type: application/sdp\r\n");
             ok.append("Content-Length: ").append(sdp.getBytes().length).append("\r\n\r\n");
             ok.append(sdp);
@@ -1123,6 +1470,191 @@ public class SipCallEngine {
         } catch (Exception ex) {
             System.err.println("Error replying to Re-INVITE: " + ex.getMessage());
         }
+    }
+
+    public static String getMessageBody(String msg) {
+        if (msg == null) return null;
+        int idx = msg.indexOf("\r\n\r\n");
+        if (idx != -1) return msg.substring(idx + 4);
+        idx = msg.indexOf("\n\n");
+        if (idx != -1) return msg.substring(idx + 2);
+        return null;
+    }
+
+    public static void extractIdentityHeaders(CallSession session, String msg) {
+        if (session == null || msg == null) return;
+        String pai = SIPParser.getHeaderValue(msg, "P-Asserted-Identity");
+        if (pai != null && !pai.isEmpty()) session.pAssertedIdentity = pai.trim();
+
+        String rpid = SIPParser.getHeaderValue(msg, "Remote-Party-ID");
+        if (rpid != null && !rpid.isEmpty()) session.remotePartyId = rpid.trim();
+
+        String div = SIPParser.getHeaderValue(msg, "Diversion");
+        if (div != null && !div.isEmpty()) session.diversion = div.trim();
+
+        String priv = SIPParser.getHeaderValue(msg, "Privacy");
+        if (priv != null && !priv.isEmpty()) session.privacy = priv.trim();
+
+        String fromHdr = SIPParser.getHeader(msg, "From", "f");
+        if (fromHdr != null) {
+            int q1 = fromHdr.indexOf('"');
+            int q2 = fromHdr.lastIndexOf('"');
+            if (q1 >= 0 && q2 > q1) {
+                session.remoteDisplayName = fromHdr.substring(q1 + 1, q2).trim();
+            }
+        }
+    }
+
+    private void sendOkForInfo(MyPacket inPkt, String infoMsg, CallSession session) throws Exception {
+        StringBuilder ok = new StringBuilder();
+        ok.append("SIP/2.0 200 OK\r\n");
+        ok.append("Via: ").append(SIPParser.getHeader(infoMsg, "Via", "v")).append("\r\n");
+        ok.append("From: ").append(SIPParser.getHeader(infoMsg, "From", "f")).append("\r\n");
+        ok.append("To: ").append(SIPParser.getHeader(infoMsg, "To", "t"));
+        if (!SIPParser.getHeader(infoMsg, "To", "t").contains("tag=") && session != null) {
+            ok.append(";tag=").append(session.localTag);
+        }
+        ok.append("\r\n");
+        ok.append("Call-ID: ").append(SIPParser.getHeaderValue(infoMsg, "Call-ID", "i")).append("\r\n");
+        ok.append("CSeq: ").append(SIPParser.getHeaderValue(infoMsg, "CSeq")).append("\r\n");
+        ok.append("User-Agent: SIP Simulator v4\r\n");
+        ok.append("Content-Length: 0\r\n\r\n");
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(ok.toString());
+            pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
+            pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
+    }
+
+    private void sendAcceptedForRefer(MyPacket inPkt, String referMsg, CallSession session) throws Exception {
+        StringBuilder acc = new StringBuilder();
+        acc.append("SIP/2.0 202 Accepted\r\n");
+        acc.append("Via: ").append(SIPParser.getHeader(referMsg, "Via", "v")).append("\r\n");
+        acc.append("From: ").append(SIPParser.getHeader(referMsg, "From", "f")).append("\r\n");
+        acc.append("To: ").append(SIPParser.getHeader(referMsg, "To", "t"));
+        if (!SIPParser.getHeader(referMsg, "To", "t").contains("tag=") && session != null) {
+            acc.append(";tag=").append(session.localTag);
+        }
+        acc.append("\r\n");
+        acc.append("Call-ID: ").append(SIPParser.getHeaderValue(referMsg, "Call-ID", "i")).append("\r\n");
+        acc.append("CSeq: ").append(SIPParser.getHeaderValue(referMsg, "CSeq")).append("\r\n");
+        acc.append("Contact: <sip:").append(registeredExtension != null ? registeredExtension : "90008").append("@").append(localIp).append(":").append(localSipPort).append(";transport=").append(transportType.toLowerCase()).append(">\r\n");
+        acc.append("User-Agent: SIP Simulator v4\r\n");
+        acc.append("Content-Length: 0\r\n\r\n");
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(acc.toString());
+            pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
+            pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
+    }
+
+    private void sendNotify(CallSession session, String event, String subState, String body) throws Exception {
+        if (session == null || signalingSocket == null) return;
+        session.cseq++;
+        String targetUri = session.remoteContact != null ? session.remoteContact : ("sip:" + (session.direction == CallDirection.OUTBOUND ? session.callee : session.caller) + "@" + pbxIp);
+        if (targetUri.startsWith("<") && targetUri.contains(">")) {
+            targetUri = targetUri.substring(1, targetUri.indexOf('>'));
+        }
+
+        StringBuilder notif = new StringBuilder();
+        notif.append("NOTIFY ").append(targetUri).append(" SIP/2.0\r\n");
+        notif.append("Via: SIP/2.0/").append(transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKnot").append(System.currentTimeMillis()).append("\r\n");
+        notif.append("Max-Forwards: 70\r\n");
+        if (session.direction == CallDirection.OUTBOUND) {
+            notif.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            notif.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        } else {
+            notif.append("From: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
+            notif.append("To: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
+        }
+        notif.append("Call-ID: ").append(session.callId).append("\r\n");
+        notif.append("CSeq: ").append(session.cseq).append(" NOTIFY\r\n");
+        notif.append("Event: ").append(event).append("\r\n");
+        notif.append("Subscription-State: ").append(subState).append("\r\n");
+        notif.append("Content-Type: message/sipfrag\r\n");
+        notif.append("Content-Length: ").append(body.getBytes().length).append("\r\n\r\n");
+        notif.append(body);
+
+        MyPacket pkt = new MyPacket(notif.toString());
+        pkt.setAddress(InetAddress.getByName(session.targetIp != null ? session.targetIp : pbxIp));
+        pkt.setPort(session.targetPort > 0 ? session.targetPort : pbxSipPort);
+        signalingSocket.send(pkt);
+    }
+
+    private void sendOkForNotify(MyPacket inPkt, String notifyMsg, CallSession session) throws Exception {
+        StringBuilder ok = new StringBuilder();
+        ok.append("SIP/2.0 200 OK\r\n");
+        ok.append("Via: ").append(SIPParser.getHeader(notifyMsg, "Via", "v")).append("\r\n");
+        ok.append("From: ").append(SIPParser.getHeader(notifyMsg, "From", "f")).append("\r\n");
+        ok.append("To: ").append(SIPParser.getHeader(notifyMsg, "To", "t"));
+        if (!SIPParser.getHeader(notifyMsg, "To", "t").contains("tag=") && session != null) {
+            ok.append(";tag=").append(session.localTag);
+        }
+        ok.append("\r\n");
+        ok.append("Call-ID: ").append(SIPParser.getHeaderValue(notifyMsg, "Call-ID", "i")).append("\r\n");
+        ok.append("CSeq: ").append(SIPParser.getHeaderValue(notifyMsg, "CSeq")).append("\r\n");
+        ok.append("User-Agent: SIP Simulator v4\r\n");
+        ok.append("Content-Length: 0\r\n\r\n");
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(ok.toString());
+            pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
+            pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
+    }
+
+    private void sendOkForOptions(MyPacket inPkt, String optionsMsg) throws Exception {
+        StringBuilder ok = new StringBuilder();
+        ok.append("SIP/2.0 200 OK\r\n");
+        ok.append("Via: ").append(SIPParser.getHeader(optionsMsg, "Via", "v")).append("\r\n");
+        ok.append("From: ").append(SIPParser.getHeader(optionsMsg, "From", "f")).append("\r\n");
+        ok.append("To: ").append(SIPParser.getHeader(optionsMsg, "To", "t")).append(";tag=tagopt").append(System.currentTimeMillis() % 10000).append("\r\n");
+        ok.append("Call-ID: ").append(SIPParser.getHeaderValue(optionsMsg, "Call-ID", "i")).append("\r\n");
+        ok.append("CSeq: ").append(SIPParser.getHeaderValue(optionsMsg, "CSeq")).append("\r\n");
+        ok.append("Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS\r\n");
+        ok.append("Supported: replaces, timer, 100rel\r\n");
+        ok.append("User-Agent: SIP Simulator v4\r\n");
+        ok.append("Content-Length: 0\r\n\r\n");
+
+        if (signalingSocket != null) {
+            MyPacket pkt = new MyPacket(ok.toString());
+            pkt.setAddress(inPkt != null && inPkt.getAddress() != null ? inPkt.getAddress() : InetAddress.getByName(pbxIp));
+            pkt.setPort(inPkt != null && inPkt.getPort() > 0 ? inPkt.getPort() : pbxSipPort);
+            signalingSocket.send(pkt);
+        }
+    }
+
+    private String buildSdpRecvOnly(String ip, int rtpPort, int pt) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("v=0\r\n");
+        sb.append("o=SIPSimulator 90008 90008 IN IP4 ").append(ip).append("\r\n");
+        sb.append("s=SIP Call\r\n");
+        sb.append("c=IN IP4 ").append(ip).append("\r\n");
+        sb.append("t=0 0\r\n");
+
+        if (pt == 9) {
+            sb.append("m=audio ").append(rtpPort).append(" RTP/AVP 9 8 0 101\r\n");
+            sb.append("a=rtpmap:9 G722/8000\r\n");
+            sb.append("a=rtpmap:8 PCMA/8000\r\n");
+        } else if (pt == 0) {
+            sb.append("m=audio ").append(rtpPort).append(" RTP/AVP 0 8 9 101\r\n");
+            sb.append("a=rtpmap:0 PCMU/8000\r\n");
+            sb.append("a=rtpmap:8 PCMA/8000\r\n");
+        } else {
+            sb.append("m=audio ").append(rtpPort).append(" RTP/AVP 8 0 9 101\r\n");
+            sb.append("a=rtpmap:8 PCMA/8000\r\n");
+        }
+
+        sb.append("a=rtpmap:101 telephone-event/8000\r\n");
+        sb.append("a=fmtp:101 0-15\r\n");
+        sb.append("a=recvonly\r\n");
+        sb.append("a=ptime:20\r\n");
+        return sb.toString();
     }
 
     private void sendTrying(CallSession session) throws Exception {

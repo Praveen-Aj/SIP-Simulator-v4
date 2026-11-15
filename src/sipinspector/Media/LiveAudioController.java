@@ -4,6 +4,7 @@
  */
 package sipinspector.Media;
 
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
@@ -712,6 +713,68 @@ public class LiveAudioController {
             return receiverThread.getObservedPayloadTypes();
         }
         return new HashSet<>();
+    }
+
+    /**
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF digit.
+     */
+    public synchronized boolean sendDtmf(char digit) {
+        if (senderThread != null && senderThread.isAlive()) {
+            senderThread.sendDtmf(digit);
+            return true;
+        }
+        if (mediaSocket != null && !mediaSocket.isClosed() && remoteAddress != null && remotePort > 0) {
+            sendDtmfDirect(digit, mediaSocket, remoteAddress, remotePort);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Standalone direct DTMF transmission helper.
+     */
+    public static void sendDtmfDirect(char digit, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
+        int eventId = LiveAudioSenderThread.getDtmfEventId(digit);
+        if (eventId < 0 || socket == null || socket.isClosed()) return;
+
+        int dtmfTs = (int)(System.currentTimeMillis() * 8);
+        int seq = new Random().nextInt(0xFFFF);
+        int ssrc = new Random().nextInt(0x7FFFFFFF);
+        int volume = 10;
+
+        int[] durations = { 160, 320, 480, 800, 800, 800 };
+        boolean[] ends = { false, false, false, true, true, true };
+
+        for (int i = 0; i < durations.length; i++) {
+            boolean marker = (i == 0);
+            byte[] dtmfPayload = new byte[4];
+            dtmfPayload[0] = (byte)(eventId & 0xFF);
+            dtmfPayload[1] = (byte)((ends[i] ? 0x80 : 0x00) | (volume & 0x3F));
+            dtmfPayload[2] = (byte)((durations[i] >> 8) & 0xFF);
+            dtmfPayload[3] = (byte)(durations[i] & 0xFF);
+
+            seq = (seq + 1) & 0xFFFF;
+            byte[] packet = new byte[12 + 4];
+            packet[0] = (byte)0x80;
+            packet[1] = (byte)((marker ? 0x80 : 0x00) | 101);
+            packet[2] = (byte)((seq >> 8) & 0xFF);
+            packet[3] = (byte)(seq & 0xFF);
+            packet[4] = (byte)((dtmfTs >> 24) & 0xFF);
+            packet[5] = (byte)((dtmfTs >> 16) & 0xFF);
+            packet[6] = (byte)((dtmfTs >> 8) & 0xFF);
+            packet[7] = (byte)(dtmfTs & 0xFF);
+            packet[8] = (byte)((ssrc >> 24) & 0xFF);
+            packet[9] = (byte)((ssrc >> 16) & 0xFF);
+            packet[10] = (byte)((ssrc >> 8) & 0xFF);
+            packet[11] = (byte)(ssrc & 0xFF);
+            System.arraycopy(dtmfPayload, 0, packet, 12, 4);
+
+            try {
+                DatagramPacket dgp = new DatagramPacket(packet, packet.length, remoteAddress, remotePort);
+                socket.send(dgp);
+                Thread.sleep(20);
+            } catch (Exception ignored) {}
+        }
     }
     
     /**

@@ -73,6 +73,21 @@ public class OfflineFullRegressionSuite {
         // 11. Active Multi-Dialog Campaign Failure Recovery & Resource Leak Audit
         runner.run("ActiveCampaignFailureRecoveryTest", () -> ActiveCampaignFailureRecoveryTest.main(new String[0]));
 
+        // 12. Phase 7: SIP Feature Completeness (DTMF, Transfer, Replaces, Early Media, Hold/Resume, Identity)
+        runner.run("SipFeatureCompletenessTest", () -> SipFeatureCompletenessTest.main(new String[0]));
+
+        // 13. Phase 7: Transport (UDP/TCP/TLS) & Security Credentials Sanitization Audit
+        runner.run("TransportSecurityAuditTest", () -> {
+            try {
+                TransportSecurityAuditTest.main(new String[0]);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        // 14. Phase 7: SIP Call Engine Lifecycle & Resource Rebind Audit
+        runner.run("CallEngineLifecycleTest", () -> CallEngineLifecycleTest.main(new String[0]));
+
         long elapsed = System.currentTimeMillis() - startTime;
         System.out.println("\n================================================================================");
         System.out.println("   OFFLINE REGRESSION MASTER SUMMARY");
