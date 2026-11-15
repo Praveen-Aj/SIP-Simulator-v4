@@ -1,18 +1,65 @@
-# Build and packaging output
+# ==============================================================================
+# SIP Simulator v4 - Git Ignore Configuration
+# ==============================================================================
+
+# Build & Compilation Outputs
 build/
-*.zip
-*.log
+bin/
+*.class
 installer_output/
 SIP_Simulator_Package/
+dist/
+target/
+*.zip
 
-# Node modules
+# Node.js & Web Client Dependencies / Artifacts
+node_modules/
 web-app/node_modules/
 web-app/client/node_modules/
 deployment/webapp_dist/node_modules/
 deployment/webapp_dist/public/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Temporary / Scratch
+# Logs & Traces
+logs/
+*.log
+*.log.*
+temp_logs/
+
+# Temporary, Scratch & Backup Files
 *.tmp
+*.bak
+*.swp
+*~
 config/uploaded_temp.pcap
+*.pcap.tmp
+
+# Generated Audio Recordings (Runtime captures)
 recordings/tx_*.wav
 recordings/rx_*.wav
+recordings/*.tmp
+
+# Environment & Local Overrides
+.env
+.env.local
+.env.*.local
+
+# IDE & Editor Temporary Directories
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS Metadata Files
+Thumbs.db
+Desktop.ini
+.DS_Store

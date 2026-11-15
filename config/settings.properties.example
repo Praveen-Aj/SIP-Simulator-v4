@@ -1,0 +1,25 @@
+# SIP Simulator v4 - Configuration Settings Template
+# Copy this file to config/settings.properties and adjust parameters for your environment.
+
+# UI Appearance & Theme (e.g. Ocean Blue, Dark, FlatLaf)
+defaultTheme=Ocean Blue
+
+# Logging & Diagnostic Toggles
+logsEnabled=true
+liveAudioEnabled=false
+
+# Scenario Protection (locks template editing in Desktop UI)
+isScenarioProtected=false
+isValuesProtected=false
+
+# Network Emulation Parameters
+sim.delay=0
+sim.loss=0
+sim.malformed=None
+
+# PCAP Playback Engine (jpcap or pure Java pcap fallback)
+pcap.engine=jpcap
+
+# Default SRTP Cryptographic Suite & Key (RFC 4568 SDES Master Key/Salt Base64)
+# Note: AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e is the standard RFC 4568 30-byte test vector
+srtpCryptoLine=a\=crypto\:1 AES_CM_128_HMAC_SHA1_80 inline\:AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e

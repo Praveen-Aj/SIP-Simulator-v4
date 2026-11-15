@@ -1,0 +1,46 @@
+# ==============================================================================
+# SIP Simulator v4 - Git Attributes Configuration
+# Enforces cross-platform line endings and binary file preservation
+# ==============================================================================
+
+# Default text handling (Normalize to LF in repository)
+* text=auto eol=lf
+
+# Explicit LF for Unix/Cross-Platform source code and configs
+*.java text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.properties text eol=lf
+*.xml text eol=lf
+*.sh text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Windows Batch scripts MUST have CRLF line endings
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary file specifications (Do not touch line endings or corrupt byte streams)
+*.jar binary
+*.dll binary
+*.exe binary
+*.so binary
+*.pcap binary
+*.wav binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.jks binary
+*.keystore binary
+*.truststore binary
+*.zip binary
+*.tar.gz binary
