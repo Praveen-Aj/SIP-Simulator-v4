@@ -19,6 +19,7 @@ public class OxeLiveIntegrationTest {
     private static final String PBX_IP = "192.168.0.20";
     private static final int SIP_PORT = 5060;
     private static final int TLS_PORT = 5061;
+    private static String localIp = sipinspector.Call.SipCallEngine.resolveLocalIpTowards(PBX_IP);
 
     public static void main(String[] args) {
         System.setProperty("sip.headless", "true");
@@ -27,11 +28,11 @@ public class OxeLiveIntegrationTest {
 
         System.out.println("================================================================================");
         System.out.println("   SIP Simulator v4 — Alcatel-Lucent OXE Live Integration Validation");
-        System.out.println("   Target PBX: " + PBX_IP + " | Local Host: 192.168.0.9");
+        System.out.println("   Target PBX: " + PBX_IP + " | Local Host: " + localIp);
         System.out.println("================================================================================");
 
         try {
-            InetAddress localAddr = InetAddress.getByName("192.168.0.9");
+            InetAddress localAddr = InetAddress.getByName(localIp);
             InetAddress pbxAddr = InetAddress.getByName(PBX_IP);
 
             // Phase 1: UDP SIP OPTIONS Ping
@@ -68,16 +69,16 @@ public class OxeLiveIntegrationTest {
                 return;
             }
 
-            String callId = UUID.randomUUID().toString() + "@192.168.0.9";
+            String callId = UUID.randomUUID().toString() + "@" + localIp;
             String optionsMsg =
                     "OPTIONS sip:" + PBX_IP + " SIP/2.0\r\n" +
-                    "Via: SIP/2.0/UDP 192.168.0.9;branch=z9hG4bKudp" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/UDP " + localIp + ";branch=z9hG4bKudp" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
-                    "From: <sip:sipinspector@192.168.0.9>;tag=sim" + (int)(Math.random() * 100000) + "\r\n" +
+                    "From: <sip:sipinspector@" + localIp + ">;tag=sim" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sip:" + PBX_IP + ">\r\n" +
                     "Call-ID: " + callId + "\r\n" +
                     "CSeq: 1 OPTIONS\r\n" +
-                    "Contact: <sip:sipinspector@192.168.0.9>\r\n" +
+                    "Contact: <sip:sipinspector@" + localIp + ">\r\n" +
                     "Accept: application/sdp\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE Integration Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -108,16 +109,16 @@ public class OxeLiveIntegrationTest {
 
             // Step 1B: Send REGISTER over UDP
             System.out.println("\nSending SIP REGISTER for user '1000' over UDP to OXE PBX...");
-            String udpRegCallId = "reg-udp-" + UUID.randomUUID().toString() + "@192.168.0.9";
+            String udpRegCallId = "reg-udp-" + UUID.randomUUID().toString() + "@" + localIp;
             String udpRegMsg =
                     "REGISTER sip:" + PBX_IP + ":5060 SIP/2.0\r\n" +
-                    "Via: SIP/2.0/UDP 192.168.0.9:5060;branch=z9hG4bKudpreg" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/UDP " + localIp + ":5060;branch=z9hG4bKudpreg" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
                     "From: <sip:1000@" + PBX_IP + ":5060>;tag=udpreg" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sip:1000@" + PBX_IP + ":5060>\r\n" +
                     "Call-ID: " + udpRegCallId + "\r\n" +
                     "CSeq: 1 REGISTER\r\n" +
-                    "Contact: <sip:1000@192.168.0.9:5060;transport=udp>\r\n" +
+                    "Contact: <sip:1000@" + localIp + ":5060;transport=udp>\r\n" +
                     "Expires: 3600\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE UDP Register Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -162,16 +163,16 @@ public class OxeLiveIntegrationTest {
             }
             System.out.println("TCP Connection Established successfully to " + PBX_IP + ":" + SIP_PORT);
 
-            String callId = UUID.randomUUID().toString() + "@192.168.0.9";
+            String callId = UUID.randomUUID().toString() + "@" + localIp;
             String optionsMsg =
                     "OPTIONS sip:" + PBX_IP + ":5060;transport=tcp SIP/2.0\r\n" +
-                    "Via: SIP/2.0/TCP 192.168.0.9;branch=z9hG4bKtcp" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/TCP " + localIp + ";branch=z9hG4bKtcp" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
-                    "From: <sip:sipinspector@192.168.0.9>;tag=tcp" + (int)(Math.random() * 100000) + "\r\n" +
+                    "From: <sip:sipinspector@" + localIp + ">;tag=tcp" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sip:" + PBX_IP + ":5060>\r\n" +
                     "Call-ID: " + callId + "\r\n" +
                     "CSeq: 101 OPTIONS\r\n" +
-                    "Contact: <sip:sipinspector@192.168.0.9;transport=tcp>\r\n" +
+                    "Contact: <sip:sipinspector@" + localIp + ";transport=tcp>\r\n" +
                     "Accept: application/sdp\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE Integration Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -202,16 +203,16 @@ public class OxeLiveIntegrationTest {
 
             // Step 2B: Send REGISTER over TCP
             System.out.println("\nSending SIP REGISTER for user '1000' over TCP to OXE PBX...");
-            String regCallId = "reg-" + UUID.randomUUID().toString() + "@192.168.0.9";
+            String regCallId = "reg-" + UUID.randomUUID().toString() + "@" + localIp;
             String regMsg =
                     "REGISTER sip:" + PBX_IP + ":5060 SIP/2.0\r\n" +
-                    "Via: SIP/2.0/TCP 192.168.0.9:5060;branch=z9hG4bKreg" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/TCP " + localIp + ":5060;branch=z9hG4bKreg" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
                     "From: <sip:1000@" + PBX_IP + ":5060>;tag=reg" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sip:1000@" + PBX_IP + ":5060>\r\n" +
                     "Call-ID: " + regCallId + "\r\n" +
                     "CSeq: 1 REGISTER\r\n" +
-                    "Contact: <sip:1000@192.168.0.9:5060;transport=tcp>\r\n" +
+                    "Contact: <sip:1000@" + localIp + ":5060;transport=tcp>\r\n" +
                     "Expires: 3600\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE Register Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -263,16 +264,16 @@ public class OxeLiveIntegrationTest {
             System.out.println("Peer Issuer:  " + TLSClientSocket_V6.getLastPeerCertIssuer());
             System.out.println("Peer Validity:" + TLSClientSocket_V6.getLastPeerCertValidity());
 
-            String callId = UUID.randomUUID().toString() + "@192.168.0.9";
+            String callId = UUID.randomUUID().toString() + "@" + localIp;
             String optionsMsg =
                     "OPTIONS sips:" + PBX_IP + ":5061;transport=tls SIP/2.0\r\n" +
-                    "Via: SIP/2.0/TLS 192.168.0.9:5061;branch=z9hG4bKtls" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/TLS " + localIp + ":5061;branch=z9hG4bKtls" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
-                    "From: <sips:sipinspector@192.168.0.9>;tag=tls" + (int)(Math.random() * 100000) + "\r\n" +
+                    "From: <sips:sipinspector@" + localIp + ">;tag=tls" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sips:" + PBX_IP + ":5061>\r\n" +
                     "Call-ID: " + callId + "\r\n" +
                     "CSeq: 201 OPTIONS\r\n" +
-                    "Contact: <sips:sipinspector@192.168.0.9:5061;transport=tls>\r\n" +
+                    "Contact: <sips:sipinspector@" + localIp + ":5061;transport=tls>\r\n" +
                     "Accept: application/sdp\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE TLS Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -302,16 +303,16 @@ public class OxeLiveIntegrationTest {
 
             // Step 3B: Send SIPS REGISTER over TLS
             System.out.println("\nSending SIPS REGISTER for user '1000' over TLS to OXE PBX...");
-            String tlsRegCallId = "reg-tls-" + UUID.randomUUID().toString() + "@192.168.0.9";
+            String tlsRegCallId = "reg-tls-" + UUID.randomUUID().toString() + "@" + localIp;
             String tlsRegMsg =
                     "REGISTER sips:" + PBX_IP + ":5061 SIP/2.0\r\n" +
-                    "Via: SIP/2.0/TLS 192.168.0.9:5061;branch=z9hG4bKtlsreg" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/TLS " + localIp + ":5061;branch=z9hG4bKtlsreg" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
                     "From: <sips:1000@" + PBX_IP + ":5061>;tag=tlsreg" + (int)(Math.random() * 100000) + "\r\n" +
                     "To: <sips:1000@" + PBX_IP + ":5061>\r\n" +
                     "Call-ID: " + tlsRegCallId + "\r\n" +
                     "CSeq: 1 REGISTER\r\n" +
-                    "Contact: <sips:1000@192.168.0.9:5061;transport=tls>\r\n" +
+                    "Contact: <sips:1000@" + localIp + ":5061;transport=tls>\r\n" +
                     "Expires: 3600\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE TLS Register Test)\r\n" +
                     "Content-Length: 0\r\n\r\n";
@@ -356,9 +357,9 @@ public class OxeLiveIntegrationTest {
 
             String sdp =
                     "v=0\r\n" +
-                    "o=OXE 1675390460 1675390460 IN IP4 192.168.0.9\r\n" +
+                    "o=OXE 1675390460 1675390460 IN IP4 " + localIp + "\r\n" +
                     "s=abs\r\n" +
-                    "c=IN IP4 192.168.0.9\r\n" +
+                    "c=IN IP4 " + localIp + "\r\n" +
                     "t=0 0\r\n" +
                     "m=audio 42000 RTP/AVP 8 0 9 101\r\n" +
                     "a=sendrecv\r\n" +
@@ -367,16 +368,16 @@ public class OxeLiveIntegrationTest {
                     "a=rtpmap:9 G722/8000\r\n" +
                     "a=rtpmap:101 telephone-event/8000\r\n";
 
-            String callId = "live-call-" + UUID.randomUUID().toString() + "@192.168.0.9";
+            String callId = "live-call-" + UUID.randomUUID().toString() + "@" + localIp;
             String inviteMsg =
                     "INVITE sip:1001@" + PBX_IP + ":" + SIP_PORT + " SIP/2.0\r\n" +
-                    "Via: SIP/2.0/UDP 192.168.0.9:5060;branch=z9hG4bKinv" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/UDP " + localIp + ":5060;branch=z9hG4bKinv" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
                     "From: <sip:1000@" + PBX_IP + ":" + SIP_PORT + ">;tag=call" + System.currentTimeMillis() + "\r\n" +
                     "To: <sip:1001@" + PBX_IP + ":" + SIP_PORT + ">\r\n" +
                     "Call-ID: " + callId + "\r\n" +
                     "CSeq: 1 INVITE\r\n" +
-                    "Contact: <sip:1000@192.168.0.9:5060;transport=udp>\r\n" +
+                    "Contact: <sip:1000@" + localIp + ":5060;transport=udp>\r\n" +
                     "User-Agent: SIP Simulator v4 (OXE Call Test)\r\n" +
                     "Content-Type: application/sdp\r\n" +
                     "Content-Length: " + sdp.getBytes().length + "\r\n\r\n" +
@@ -419,11 +420,11 @@ public class OxeLiveIntegrationTest {
 
             String deregMsg =
                     "REGISTER sip:" + PBX_IP + ":5060 SIP/2.0\r\n" +
-                    "Via: SIP/2.0/UDP 192.168.0.9:5060;branch=z9hG4bKdereg" + System.currentTimeMillis() + ";rport\r\n" +
+                    "Via: SIP/2.0/UDP " + localIp + ":5060;branch=z9hG4bKdereg" + System.currentTimeMillis() + ";rport\r\n" +
                     "Max-Forwards: 70\r\n" +
                     "From: <sip:1000@" + PBX_IP + ":5060>;tag=dereg1\r\n" +
                     "To: <sip:1000@" + PBX_IP + ":5060>\r\n" +
-                    "Call-ID: dereg-" + UUID.randomUUID() + "@192.168.0.9\r\n" +
+                    "Call-ID: dereg-" + UUID.randomUUID() + "@" + localIp + "\r\n" +
                     "CSeq: 1 REGISTER\r\n" +
                     "Contact: *\r\n" +
                     "Expires: 0\r\n" +

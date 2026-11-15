@@ -371,6 +371,11 @@ public class GlobalSettings {
             props.load(fis);
             fis.close();
 
+            // Load all generic properties dynamically into KeyWordsMap
+            for (String propName : props.stringPropertyNames()) {
+                setSetting(propName, props.getProperty(propName));
+            }
+
             isScenarioProtected = "true".equals(props.getProperty("isScenarioProtected", "false"));
             isValuesProtected = "true".equals(props.getProperty("isValuesProtected", "false"));
             logsEnabled = "true".equals(props.getProperty("logsEnabled", "true"));

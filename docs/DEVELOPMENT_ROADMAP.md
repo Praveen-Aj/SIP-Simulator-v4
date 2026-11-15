@@ -206,6 +206,7 @@ flowchart TD
 | **Phase 5** | **Performance, Multi-Call & Compliance** | **P0** | Multi-call orchestration, CPS rate control, Timer A/B, CANCEL, ITU-T MOS, failure injection, web dashboard. | **COMPLETED** |
 | **Phase 6** | **Live Performance Qualification & Operational Hardening** | **P0** | Live concurrent OXE qualification, G.107 one-way delay refinement, p50/p95/p99 latency metrics, HTML reporting, offline regression harness. | **COMPLETED** |
 | **Phase 7** | **End-to-End Productization & Feature Completeness** | **P0** | DTMF (RFC 2833 & INFO), REFER Transfer (RFC 3515/3891), Hold/Resume, Early Media, Call Waiting, Identity Headers, React Phone tab, 14 offline & live OXE test suites. | **COMPLETED** |
+| **Phase 7.1** | **Source Audit, Protocol Integrity & Portability Remediation** | **P0** | Dynamic DTMF PT (101/120) negotiation, independent hold tracking, 183 early media SDP qualification, removal of hardcoded IPs, 15/15 offline test suites, live OXE validation. | **COMPLETED** |
 
 ---
 
@@ -257,4 +258,33 @@ flowchart TD
 4. **Automated Master Test Suites:**
    - Expanded offline regression suite to 14 suites (100% PASS): added `test.SipFeatureCompletenessTest` (8/8), `test.TransportSecurityAuditTest` (4/4), and `test.CallEngineLifecycleTest` (5/5).
    - Created `test.OxePhase7FeatureValidationTest` (9/9 PASS) verifying live registration, call establishment, live DTMF, hold/resume, admission control, and zero-leak cleanup against physical OXE PBX.
+
+---
+
+## 10. Phase 7.1: Source Audit, Protocol Integrity, Test Reliability & Portability Remediation (Priority: P0)
+
+**Status:** **COMPLETED & VALIDATED**
+
+### Key Accomplishments
+1. **Dynamic DTMF Negotiation (RFC 4733):**
+   - Eliminated hardcoded DTMF payload type 101 assumption.
+   - Implemented dynamic SDP parsing for `a=rtpmap:<pt> telephone-event/8000` supporting arbitrary dynamic payload types (e.g. PT 120 on Alcatel-Lucent OXE).
+   - Threaded dynamic PT negotiation through `LiveAudioController`, `LiveAudioSenderThread`, and `LiveAudioReceiverThread`.
+2. **Early Media & Hold/Resume State Machine Refinement:**
+   - Qualified 183 Session Progress: requires active media description (`m=audio <port>` with port > 0 and unicast IP != `0.0.0.0`) to transition to `EARLY_MEDIA`. If SDP is missing or inactive, state remains in `RINGING`.
+   - Decoupled `isOnHold` (local hold via `a=sendonly`) and `isRemoteHold` (remote hold via `a=recvonly` or `c=0.0.0.0`), preventing state collisions when either or both ends hold/resume the call.
+3. **Portability & Network Interface Decoupling:**
+   - Replaced all hardcoded IP literals (`192.168.0.9`) in `SipCallEngine.java` and `CliCallEngine.java` with dynamic interface resolution (`resolveLocalIpTowards(pbxIp)`).
+   - Added user-configurable overrides in `config/settings.properties`: `sip.localIp`, `sip.localPort`, `sip.pbxIp`, `sip.pbxPort`, `sip.transport`, `rtp.portRangeStart`, `rtp.portRangeEnd`.
+   - Synchronized dynamic properties via `GlobalSettings.java`.
+4. **SIP Signaling & Dialog Integrity:**
+   - Dynamic transport parameterization in `Via` headers for BYE, CANCEL, Re-INVITE, ACK, and non-2xx ACK.
+   - Preserved `ESTABLISHED` dialog integrity on mid-dialog 4xx/5xx/6xx responses (INFO, REFER, Re-INVITE) strictly adhering to RFC 3261 Section 14.1.
+5. **Test Reliability & Zero False-Positive Hardening:**
+   - Eliminated false-positive pass counter increments in test harnesses.
+   - Fixed MicroSIP IPC answer loop flooding in live test runners with a clean one-shot answer latch and 300ms delay.
+   - Created master unit/integration test suite: `test.EngineProtocolIntegrityTest` (6/6 PASS).
+   - Expanded offline regression suite to 15 suites (100% PASS, 0 failures, ~12.5s execution time).
+   - Validated live against physical OXE PBX (`192.168.0.20:5060`) and MicroSIP (`90001`): 9/9 stages passed cleanly with zero socket or thread leaks.
+
 

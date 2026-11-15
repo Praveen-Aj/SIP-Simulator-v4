@@ -67,6 +67,7 @@ public class LiveAudioController {
     private int localMediaPort = 0;
 
     private SrtpContext srtp = null;
+    private volatile int dtmfPayloadType = 101;
     
     private volatile boolean audioRunning = false;
     private volatile boolean initialized = false;
@@ -278,6 +279,7 @@ public class LiveAudioController {
                 srtp,
                 rtcpMonitor
             );
+            receiverThread.setDtmfPayloadType(this.dtmfPayloadType);
             if (rxRecorder != null) {
                 receiverThread.setRecorder(rxRecorder);
             }
@@ -715,27 +717,56 @@ public class LiveAudioController {
         return new HashSet<>();
     }
 
+    public void setDtmfPayloadType(int pt) {
+        if (pt > 0) {
+            this.dtmfPayloadType = pt;
+            if (receiverThread != null) {
+                receiverThread.setDtmfPayloadType(pt);
+            }
+        }
+    }
+
+    public int getDtmfPayloadType() {
+        return dtmfPayloadType;
+    }
+
     /**
-     * Send RFC 2833 / RFC 4733 telephone-event DTMF digit.
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF digit using configured/negotiated PT.
      */
     public synchronized boolean sendDtmf(char digit) {
+        return sendDtmf(digit, this.dtmfPayloadType);
+    }
+
+    /**
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF digit using specified PT.
+     */
+    public synchronized boolean sendDtmf(char digit, int payloadType) {
+        int pt = (payloadType > 0) ? payloadType : this.dtmfPayloadType;
         if (senderThread != null && senderThread.isAlive()) {
-            senderThread.sendDtmf(digit);
+            senderThread.sendDtmf(digit, pt);
             return true;
         }
         if (mediaSocket != null && !mediaSocket.isClosed() && remoteAddress != null && remotePort > 0) {
-            sendDtmfDirect(digit, mediaSocket, remoteAddress, remotePort);
+            sendDtmfDirect(digit, mediaSocket, remoteAddress, remotePort, pt);
             return true;
         }
         return false;
     }
 
     /**
-     * Standalone direct DTMF transmission helper.
+     * Standalone direct DTMF transmission helper (default PT=101).
      */
     public static void sendDtmfDirect(char digit, DatagramSocket socket, InetAddress remoteAddress, int remotePort) {
+        sendDtmfDirect(digit, socket, remoteAddress, remotePort, 101);
+    }
+
+    /**
+     * Standalone direct DTMF transmission helper with explicit payload type.
+     */
+    public static void sendDtmfDirect(char digit, DatagramSocket socket, InetAddress remoteAddress, int remotePort, int payloadType) {
         int eventId = LiveAudioSenderThread.getDtmfEventId(digit);
         if (eventId < 0 || socket == null || socket.isClosed()) return;
+        int pt = (payloadType > 0) ? (payloadType & 0x7F) : 101;
 
         int dtmfTs = (int)(System.currentTimeMillis() * 8);
         int seq = new Random().nextInt(0xFFFF);
@@ -756,7 +787,7 @@ public class LiveAudioController {
             seq = (seq + 1) & 0xFFFF;
             byte[] packet = new byte[12 + 4];
             packet[0] = (byte)0x80;
-            packet[1] = (byte)((marker ? 0x80 : 0x00) | 101);
+            packet[1] = (byte)((marker ? 0x80 : 0x00) | pt);
             packet[2] = (byte)((seq >> 8) & 0xFF);
             packet[3] = (byte)(seq & 0xFF);
             packet[4] = (byte)((dtmfTs >> 24) & 0xFF);

@@ -90,10 +90,13 @@ public class OxeLiveConcurrentCallTest {
             SipCallEngine.CallSession callA = engine.makeCall(SIMULATOR_EXT, MICROSIP_EXT, 8);
             System.out.println("Call A initiated. Call-ID=" + callA.callId + ", RTP Port=" + callA.localRtpPort);
 
+            boolean answeredA = false;
             long waitStart = System.currentTimeMillis();
-            while (System.currentTimeMillis() - waitStart < 12000 && callA.state != CallState.ESTABLISHED) {
-                if (callA.state == CallState.RINGING || callA.state == CallState.PROCEEDING) {
+            while (System.currentTimeMillis() - waitStart < 15000 && callA.state != CallState.ESTABLISHED && callA.state != CallState.FAILED) {
+                if (!answeredA && (callA.state == CallState.RINGING || callA.state == CallState.EARLY_MEDIA)) {
+                    Thread.sleep(300);
                     MicroSipIpc.sendCommand("call.answer", "{}");
+                    answeredA = true;
                 }
                 Thread.sleep(100);
             }

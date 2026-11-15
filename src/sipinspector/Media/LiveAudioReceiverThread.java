@@ -69,6 +69,7 @@ public class LiveAudioReceiverThread extends Thread {
     private long duplicatePackets = 0;
     private long outOfOrderPackets = 0;
     private long sequenceDiscontinuities = 0;
+    private volatile int dtmfPayloadType = 101;
     
     // RTP details
     private double jitter = 0.0;
@@ -129,6 +130,16 @@ public class LiveAudioReceiverThread extends Thread {
      * @param srtp SRTP context (nullable when SAVP disabled)
      */
     private RtcpMonitor rtcpMonitor = null;
+
+    public void setDtmfPayloadType(int pt) {
+        if (pt > 0) {
+            this.dtmfPayloadType = pt;
+        }
+    }
+
+    public int getDtmfPayloadType() {
+        return dtmfPayloadType;
+    }
 
     public LiveAudioReceiverThread(int localPort, int ssrcFilter, DatagramSocket socket, SrtpContext srtp) {
         this(localPort, ssrcFilter, socket, srtp, null);
@@ -297,8 +308,8 @@ public class LiveAudioReceiverThread extends Thread {
                     byte[] payload = new byte[payloadLength];
                     System.arraycopy(data, RTP_HEADER_SIZE, payload, 0, payloadLength);
                     
-                    // DTMF Event check (RFC 2833)
-                    if (payloadType == 101) {
+                    // DTMF Event check (RFC 2833 / RFC 4733 telephone-event)
+                    if (payloadType == dtmfPayloadType || (dtmfPayloadType != 101 && payloadType == 101)) {
                         if (payloadLength >= 1) {
                             int eventId = payload[0] & 0xFF;
                             int dtmfTimestamp = timestamp;

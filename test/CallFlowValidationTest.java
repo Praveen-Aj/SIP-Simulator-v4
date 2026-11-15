@@ -93,9 +93,9 @@ public class CallFlowValidationTest {
         test("SDP Offer/Answer Negotiation & Hold/Resume Attributes", () -> {
             String sdpOffer =
                     "v=0\r\n" +
-                    "o=SIPSimulator 100 100 IN IP4 192.168.0.9\r\n" +
+                    "o=SIPSimulator 100 100 IN IP4 10.0.0.1\r\n" +
                     "s=SIP Call\r\n" +
-                    "c=IN IP4 192.168.0.9\r\n" +
+                    "c=IN IP4 10.0.0.1\r\n" +
                     "t=0 0\r\n" +
                     "m=audio 42000 RTP/AVP 8 0 9 101\r\n" +
                     "a=rtpmap:8 PCMA/8000\r\n" +
@@ -107,9 +107,9 @@ public class CallFlowValidationTest {
 
             String sdpAnswer =
                     "v=0\r\n" +
-                    "o=Peer 200 200 IN IP4 192.168.0.20\r\n" +
+                    "o=Peer 200 200 IN IP4 10.0.0.2\r\n" +
                     "s=SIP Call\r\n" +
-                    "c=IN IP4 192.168.0.20\r\n" +
+                    "c=IN IP4 10.0.0.2\r\n" +
                     "t=0 0\r\n" +
                     "m=audio 42002 RTP/AVP 8 101\r\n" +
                     "a=rtpmap:8 PCMA/8000\r\n" +
@@ -134,7 +134,7 @@ public class CallFlowValidationTest {
             String sdpHoldRfc3264 = sdpOffer.replace("a=sendrecv", "a=sendonly");
             if (!isHoldSdp(sdpHoldRfc3264)) throw new Exception("Expected RFC 3264 a=sendonly to be recognized as HOLD");
 
-            String sdpHoldRfc2543 = sdpOffer.replace("c=IN IP4 192.168.0.9", "c=IN IP4 0.0.0.0");
+            String sdpHoldRfc2543 = sdpOffer.replace("c=IN IP4 10.0.0.1", "c=IN IP4 0.0.0.0");
             if (!isHoldSdp(sdpHoldRfc2543)) throw new Exception("Expected RFC 2543 c=0.0.0.0 to be recognized as HOLD");
 
             // Test Resume SDP (a=sendrecv)

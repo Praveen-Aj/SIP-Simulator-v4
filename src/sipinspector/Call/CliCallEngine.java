@@ -63,7 +63,9 @@ public class CliCallEngine {
                 case "register": {
                     String ext = args.length > 1 ? args[1] : "90008";
                     int exp = args.length > 2 ? Integer.parseInt(args[2]) : 1800;
-                    engine.startEngine("192.168.0.9", 5060, "192.168.0.20", 5060);
+                    String targetPbx = "192.168.0.20";
+                    String hostIp = SipCallEngine.resolveLocalIpTowards(targetPbx);
+                    engine.startEngine(hostIp, 5060, targetPbx, 5060);
                     boolean ok = engine.register(ext, exp);
                     System.out.println("REGISTER " + ext + ": " + (ok ? "SUCCESS" : "FAILED"));
                     engine.stopEngine();
@@ -76,7 +78,9 @@ public class CliCallEngine {
                     int pt = args.length > 3 ? Integer.parseInt(args[3]) : 8;
                     int durationSec = args.length > 4 ? Integer.parseInt(args[4]) : 5;
 
-                    engine.startEngine("192.168.0.9", 5060, "192.168.0.20", 5060);
+                    String targetPbx = "192.168.0.20";
+                    String hostIp = SipCallEngine.resolveLocalIpTowards(targetPbx);
+                    engine.startEngine(hostIp, 5060, targetPbx, 5060);
                     engine.register(caller, 1800);
 
                     System.out.println("Placing call: " + caller + " -> " + callee + " (PT=" + pt + ")");
@@ -140,8 +144,11 @@ public class CliCallEngine {
 
         String pbxIp = GlobalSettings.getRemoteIPAddr();
         if (pbxIp == null || pbxIp.trim().isEmpty()) pbxIp = "192.168.0.20";
-        String localIp = GlobalSettings.getLocalIP();
-        if (localIp == null || localIp.trim().isEmpty() || "192.168.0.9".equals(localIp)) {
+        String localIp = GlobalSettings.getSetting("sip.localIp");
+        if (localIp == null || localIp.trim().isEmpty() || "auto".equalsIgnoreCase(localIp.trim())) {
+            localIp = GlobalSettings.getLocalIP();
+        }
+        if (localIp == null || localIp.trim().isEmpty() || "auto".equalsIgnoreCase(localIp.trim())) {
             localIp = SipCallEngine.resolveLocalIpTowards(pbxIp);
         }
         String ext = GlobalSettings.getUsername();

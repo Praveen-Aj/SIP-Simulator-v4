@@ -25,11 +25,11 @@ The platform has been validated end-to-end against physical enterprise telephony
 - **SRTP Cryptographic Security:**
   AES-CM-128 encryption with HMAC-SHA1-80 authentication via RFC 4568 SDES negotiation.
 - **In-Band & Out-of-Band DTMF:**
-  RTP telephone-events (RFC 2833 / RFC 4733, PT 101, 8kHz clock) with redundant end packets ($E=1$) and SIP INFO (`application/dtmf-relay`).
+  RTP telephone-events (RFC 2833 / RFC 4733) with dynamic payload type negotiation (supporting PT 101, PT 120 on OXE, and dynamic PTs), redundant end packets ($E=1$), and SIP INFO (`application/dtmf-relay`).
 - **Call Transfer & Supplementary Services:**
-  Blind transfer via SIP `REFER` (RFC 3515) and attended transfer with escaped `Replaces` headers (RFC 3891). Call Hold (`a=sendonly`) and Resume (`a=sendrecv`) via Re-INVITE.
+  Blind transfer via SIP `REFER` (RFC 3515) and attended transfer with escaped `Replaces` headers (RFC 3891). Call Hold (`a=sendonly`) and Resume (`a=sendrecv`) via Re-INVITE with independent local and remote hold arbitration.
 - **Early Media & Identity Headers:**
-  Provisional 183 Session Progress with SDP negotiation and background audio streaming. Automated parsing of `P-Asserted-Identity`, `Remote-Party-ID`, `Diversion`, `Privacy`, and caller display names.
+  Provisional 183 Session Progress with SDP media validation (port > 0 and unicast IP verification) and background audio streaming. Automated parsing of `P-Asserted-Identity`, `Remote-Party-ID`, `Diversion`, `Privacy`, and caller display names.
 - **Real-Time ITU-T E-Model G.107 MOS Calculation:**
   Computes transmission rating factor $R$ and Mean Opinion Score ($1.0 \le \text{MOS} \le 4.5$) taking into account packet loss concealment (PLC, $B_{pl}=19.0$), mouth-to-ear delay ($10\text{ms} + 20\text{ms} + 2 \times \text{jitter}$), and packet loss.
 - **Multi-Call Orchestration & Performance Engine:**
@@ -205,6 +205,18 @@ sim.malformed=None
 # PCAP Playback Engine (jpcap or pure Java pcap fallback)
 pcap.engine=jpcap
 
+# SIP Signaling & Dynamic Interface Settings
+# sip.localIp left blank or "auto" uses dynamic routing towards the PBX
+sip.localIp=
+sip.localPort=5060
+sip.pbxIp=192.168.0.20
+sip.pbxPort=5060
+sip.transport=UDP
+
+# RTP Media Port Allocation Range
+rtp.portRangeStart=42000
+rtp.portRangeEnd=50000
+
 # Default SRTP Cryptographic Suite & Key (RFC 4568 SDES Test Vector)
 srtpCryptoLine=a\=crypto\:1 AES_CM_128_HMAC_SHA1_80 inline\:AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e
 ```
@@ -240,6 +252,7 @@ srtpCryptoLine=a\=crypto\:1 AES_CM_128_HMAC_SHA1_80 inline\:AQIDBAUGBwgJCgsMDQ4P
 - [x] **Phase 5:** Performance, Multi-Call & Compliance (Multi-call orchestration, Timer A/B, CANCEL, E-Model MOS).
 - [x] **Phase 6:** Live Performance Qualification (Live concurrent OXE qualification, latency percentiles, HTML reporting).
 - [x] **Phase 7:** End-to-End Productization (RFC 2833/INFO DTMF, REFER transfer, Replaces, Early Media, Hold/Resume, React Phone tab, 14 offline regression suites).
+- [x] **Phase 7.1:** Independent Source Audit, Protocol Integrity, Test Reliability & Portability Remediation (RFC 4733 dynamic DTMF PT negotiation, early media validation, independent hold arbitration, mid-dialog 4xx isolation, removal of hardcoded IPs, false-positive elimination, 15 master offline suites 100% pass, live OXE validation 100% pass).
 - [ ] **Phase 8:** Advanced Enterprise Telecom Extensions & WebRTC Interoperability (Upcoming).
 
 ---

@@ -403,4 +403,48 @@ While offline validation covers codecs, crypto, and parsing, the following gaps 
 | **Transport: TLS** | RFC 3261 §26, RFC 5630 | Fully Implemented | PASS | PASS | Port 5061, SIPS URI schemes, TLSv1.2/1.3, customizable trust manager. |
 | **Security & Privacy** | RFC 3711, RFC 4568 | Fully Implemented | PASS | PASS | SRTP AES-CM-128 encryption, zero plaintext passwords in REST state or logs. |
 
+---
+
+## 11. Phase 7.1 Regression Results & Protocol Integrity Verification
+
+### 11.1 Master Offline Regression Summary (15 Suites)
+- **Execution Script:** `run_offline_tests.bat`
+- **Master Harness:** `test.OfflineFullRegressionSuite`
+- **Status:** **ALL 15 SUITES PASSED CLEANLY (100% PASS, 0 FAILURES)**
+- **Total Execution Time:** ~12.5 seconds
+- **Added Suite #15:** `test.EngineProtocolIntegrityTest` (6/6 PASS)
+
+| # | Test Suite | Scope | Tests | Status |
+|---|---|---|---|---|
+| 1 | `test.OfflineValidationSuite` | Codecs (G.711, G.722), SRTP AES-CM-128, Parser, Tone Synth | 6 | **PASS** |
+| 2 | `test.PortabilityValidationTest` | Dynamic Paths, Space Handling, Central Config, JRE/Node Detection | 10 | **PASS** |
+| 3 | `test.DisplayScalingValidationTest` | DPI Scaling (100%–150%), Window Sizing, Taskbar Bounds | 5 | **PASS** |
+| 4 | `test.TcpSipFramingValidationTest` | TCP Byte-Stream Framing, Double-CRLF, Content-Length Parsing | 11 | **PASS** |
+| 5 | `test.SecurityManagerKeyParsingTest` | SDES Base64 Master Key/Salt Cryptographic Extraction | 8 | **PASS** |
+| 6 | `test.CallFlowValidationTest` | INVITE, Re-INVITE Hold/Resume, Codec Negotiation State | 5 | **PASS** |
+| 7 | `test.MultiCallOrchestrationTest` | Multi-Call Isolation, Even Port Allocation, Session Storage | 4 | **PASS** |
+| 8 | `test.SipTransactionReliabilityTest` | RFC 3261 Timer A/B, Retransmission, Duplicate Suppression | 3 | **PASS** |
+| 9 | `test.ControlledFailureRecoveryTest` | 404, 486, 408 Failure Scenarios & Zero-Leak Auditing | 3 | **PASS** |
+| 10 | `test.PerformanceCampaignEngineTest` | G.107 MOS Precision, Percentiles, HTML/JSON Reporting | 9 | **PASS** |
+| 11 | `test.ActiveCampaignFailureRecoveryTest` | Dialog Isolation, CANCEL, 408 Timer B, Remote BYE | 5 | **PASS** |
+| 12 | `test.SipFeatureCompletenessTest` | RFC 2833/4733 DTMF, INFO DTMF, REFER, Replaces, Early Media, Hold/Resume, Call Waiting, Identity Headers | 8 | **PASS** |
+| 13 | `test.TransportSecurityAuditTest` | UDP/TCP/TLS Port Mapping, SIPS/URI Schemes, Credential Sanitization | 4 | **PASS** |
+| 14 | `test.CallEngineLifecycleTest` | Engine Startup, Graceful Restart, Session Transitions, Controls State, RTP Port Pool | 5 | **PASS** |
+| 15 | `test.EngineProtocolIntegrityTest` | Dynamic DTMF PT (101 vs 120), Early Media SDP qualification, independent hold arbitration, REFER isolation, Re-INVITE rejection isolation, dynamic IP/RTP boundaries | 6 | **PASS** |
+
+### 11.2 Phase 7.1 Live OXE Feature Validation Results
+- **Target PBX:** Alcatel-Lucent OmniPCX Enterprise (`192.168.0.20:5060`)
+- **Endpoints:** Simulator (`90008` @ `192.168.0.8:5060`), MicroSIP (`90001` @ `192.168.0.8:49864`)
+- **Runner:** `java -cp "build;lib/*" test.OxePhase7FeatureValidationTest`
+- **Results:** **9 / 9 PASSED (100%)**
+  - Registration (200 OK) with `Expires: 1800`: **PASS**
+  - Call Establishment (90008 -> 90001) with bidirectional audio: **PASS**
+  - Live RFC 2833 DTMF '5' generation: **PASS**
+  - Mid-dialog SIP INFO rejection isolation (488 handled without tearing down call): **PASS**
+  - Re-INVITE Local Hold (`a=sendonly`) & Resume (`a=sendrecv`): **PASS**
+  - Secondary Call Admission Control check (OXE 488 handled with call isolation): **PASS**
+  - Teardown via BYE (200 OK), MOS 4.39, zero socket/thread leaks: **PASS**
+  - Deregistration (Expires: 0 -> 200 OK): **PASS**
+
+
 

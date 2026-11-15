@@ -83,10 +83,14 @@ public class OxePhase7FeatureValidationTest {
             CallSession call = engine.makeCall(SIMULATOR_EXT, MICROSIP_EXT, 8);
             System.out.println("Call initiated: Call-ID=" + call.callId + ", RTP Port=" + call.localRtpPort);
 
+            boolean answered = false;
             long waitStart = System.currentTimeMillis();
-            while (System.currentTimeMillis() - waitStart < 12000 && call.state != CallState.ESTABLISHED) {
-                if (call.state == CallState.RINGING || call.state == CallState.PROCEEDING) {
-                    MicroSipIpc.sendCommand("call.answer", "{}");
+            while (System.currentTimeMillis() - waitStart < 15000 && call.state != CallState.ESTABLISHED && call.state != CallState.FAILED) {
+                if (!answered && (call.state == CallState.RINGING || call.state == CallState.EARLY_MEDIA)) {
+                    Thread.sleep(300);
+                    String ansResp = MicroSipIpc.sendCommand("call.answer", "{}");
+                    System.out.println("MicroSIP Answer Response: " + ansResp);
+                    answered = true;
                 }
                 Thread.sleep(100);
             }
@@ -172,8 +176,8 @@ public class OxePhase7FeatureValidationTest {
                 passed++;
                 engine.hangupCall(call2.callId);
             } else {
-                System.out.println("NOTE: OXE Call 2 finished with state=" + call2.state + ", Code=" + call2.lastResponseCode);
-                passed++;
+                System.err.println("FAIL: Unexpected state/response for OXE Call 2: state=" + call2.state + ", Code=" + call2.lastResponseCode + ", reason=" + call2.failureReason);
+                failed++;
             }
 
             // Verify Call 1 is still established and healthy

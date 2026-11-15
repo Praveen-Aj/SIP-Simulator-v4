@@ -529,11 +529,19 @@ public class LiveAudioSenderThread extends Thread {
     }
 
     /**
-     * Send RFC 2833 / RFC 4733 telephone-event DTMF packets (PT=101).
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF packets (PT=101 default).
      */
     public synchronized void sendDtmf(char digit) {
+        sendDtmf(digit, 101);
+    }
+
+    /**
+     * Send RFC 2833 / RFC 4733 telephone-event DTMF packets with negotiated payload type.
+     */
+    public synchronized void sendDtmf(char digit, int payloadType) {
         int eventId = getDtmfEventId(digit);
         if (eventId < 0) return;
+        int pt = (payloadType > 0) ? (payloadType & 0x7F) : 101;
 
         int dtmfTs = this.timestamp;
         int volume = 10; // Standard 10 dBm0 volume
@@ -553,7 +561,7 @@ public class LiveAudioSenderThread extends Thread {
             sequence = (sequence + 1) & 0xFFFF;
             byte[] packet = new byte[RTP_HEADER_SIZE + 4];
             packet[0] = (byte)0x80;
-            packet[1] = (byte)((marker ? 0x80 : 0x00) | 101); // PT=101
+            packet[1] = (byte)((marker ? 0x80 : 0x00) | pt); // Negotiated PT
             packet[2] = (byte)((sequence >> 8) & 0xFF);
             packet[3] = (byte)(sequence & 0xFF);
             packet[4] = (byte)((dtmfTs >> 24) & 0xFF);

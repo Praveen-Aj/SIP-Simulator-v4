@@ -54,12 +54,14 @@ public class SipCallEngine {
     private Thread listenerThread = null;
     private volatile boolean running = false;
 
-    private String localIp = "192.168.0.9";
+    private String localIp = null;
     private int localSipPort = 5060;
     private String pbxIp = "192.168.0.20";
     private int pbxSipPort = 5060;
     private String registeredExtension = null;
 
+    private int rtpPortRangeStart = 42000;
+    private int rtpPortRangeEnd = 50000;
     private final Map<String, CallSession> activeSessions = new ConcurrentHashMap<>();
     private final AtomicInteger nextRtpPort = new AtomicInteger(42000);
     private final java.util.concurrent.atomic.AtomicLong callSeq = new java.util.concurrent.atomic.AtomicLong(0);
@@ -113,6 +115,7 @@ public class SipCallEngine {
         public int remoteRtpPort;
         public int payloadType = 8;
         public String codecName = "PCMA";
+        public int dtmfPayloadType = 101;
 
         public volatile boolean isOnHold = false;
         public volatile boolean isRemoteHold = false;
@@ -194,6 +197,7 @@ public class SipCallEngine {
             m.put("state", state.name());
             m.put("codec", codecName);
             m.put("payloadType", payloadType);
+            m.put("dtmfPayloadType", dtmfPayloadType);
             m.put("localRtpPort", localRtpPort);
             m.put("remoteRtpIp", remoteRtpIp);
             m.put("remoteRtpPort", remoteRtpPort);
@@ -225,7 +229,49 @@ public class SipCallEngine {
     }
 
     private SipCallEngine() {
-        // Private constructor
+        loadNetworkConfig();
+    }
+
+    /**
+     * Loads network and RTP configuration from GlobalSettings/settings.properties.
+     */
+    public synchronized void loadNetworkConfig() {
+        try {
+            GlobalSettings.loadSettings();
+        } catch (Exception ignored) {}
+
+        String cfgPbxIp = GlobalSettings.getSetting("sip.pbxIp");
+        if (cfgPbxIp != null && !cfgPbxIp.trim().isEmpty()) {
+            this.pbxIp = cfgPbxIp.trim();
+        }
+        String cfgPbxPort = GlobalSettings.getSetting("sip.pbxPort");
+        if (cfgPbxPort != null && !cfgPbxPort.trim().isEmpty()) {
+            try { this.pbxSipPort = Integer.parseInt(cfgPbxPort.trim()); } catch (Exception ignored) {}
+        }
+        String cfgLocalPort = GlobalSettings.getSetting("sip.localPort");
+        if (cfgLocalPort != null && !cfgLocalPort.trim().isEmpty()) {
+            try { this.localSipPort = Integer.parseInt(cfgLocalPort.trim()); } catch (Exception ignored) {}
+        }
+        String cfgTransport = GlobalSettings.getSetting("sip.transport");
+        if (cfgTransport != null && !cfgTransport.trim().isEmpty()) {
+            this.transportType = cfgTransport.trim().toUpperCase();
+        }
+        String cfgRtpStart = GlobalSettings.getSetting("rtp.portRangeStart");
+        if (cfgRtpStart != null && !cfgRtpStart.trim().isEmpty()) {
+            try { this.rtpPortRangeStart = Integer.parseInt(cfgRtpStart.trim()); } catch (Exception ignored) {}
+        }
+        String cfgRtpEnd = GlobalSettings.getSetting("rtp.portRangeEnd");
+        if (cfgRtpEnd != null && !cfgRtpEnd.trim().isEmpty()) {
+            try { this.rtpPortRangeEnd = Integer.parseInt(cfgRtpEnd.trim()); } catch (Exception ignored) {}
+        }
+        this.nextRtpPort.set(this.rtpPortRangeStart);
+
+        String cfgLocalIp = GlobalSettings.getSetting("sip.localIp");
+        if (cfgLocalIp != null && !cfgLocalIp.trim().isEmpty() && !"auto".equalsIgnoreCase(cfgLocalIp.trim())) {
+            this.localIp = cfgLocalIp.trim();
+        } else {
+            this.localIp = resolveLocalIpTowards(this.pbxIp);
+        }
     }
 
     /**
@@ -386,6 +432,9 @@ public class SipCallEngine {
     }
 
     public String getLocalIp() {
+        if (localIp == null || localIp.isEmpty() || "192.168.0.9".equals(localIp)) {
+            localIp = resolveLocalIpTowards(pbxIp);
+        }
         return localIp;
     }
 
@@ -707,11 +756,11 @@ public class SipCallEngine {
         } else {
             // RFC 2833 / 4733 RTP telephone-event
             if (session.mediaController != null) {
-                return session.mediaController.sendDtmf(digit);
+                return session.mediaController.sendDtmf(digit, session.dtmfPayloadType);
             } else {
                 try {
                     java.net.DatagramSocket s = new java.net.DatagramSocket();
-                    LiveAudioController.sendDtmfDirect(digit, s, InetAddress.getByName(session.remoteRtpIp), session.remoteRtpPort);
+                    LiveAudioController.sendDtmfDirect(digit, s, InetAddress.getByName(session.remoteRtpIp), session.remoteRtpPort, session.dtmfPayloadType);
                     s.close();
                     return true;
                 } catch (Exception ex) {
@@ -856,7 +905,7 @@ public class SipCallEngine {
 
         StringBuilder bye = new StringBuilder();
         bye.append("BYE ").append(targetUri).append(" SIP/2.0\r\n");
-        bye.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKbye").append(System.currentTimeMillis()).append("\r\n");
+        bye.append("Via: SIP/2.0/").append(session.transport != null ? session.transport : transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKbye").append(System.currentTimeMillis()).append("\r\n");
         bye.append("Max-Forwards: 70\r\n");
 
         if (!session.recordRoutes.isEmpty()) {
@@ -912,7 +961,7 @@ public class SipCallEngine {
         session.setState(CallState.TERMINATING);
         StringBuilder cancel = new StringBuilder();
         cancel.append("CANCEL sip:").append(session.callee).append("@").append(pbxIp).append(" SIP/2.0\r\n");
-        cancel.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=").append(session.inviteBranch).append("\r\n");
+        cancel.append("Via: SIP/2.0/").append(session.transport != null ? session.transport : transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=").append(session.inviteBranch).append("\r\n");
         cancel.append("Max-Forwards: 70\r\n");
         cancel.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
         cancel.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">\r\n");
@@ -940,7 +989,7 @@ public class SipCallEngine {
 
         StringBuilder reInv = new StringBuilder();
         reInv.append("INVITE ").append(targetUri).append(" SIP/2.0\r\n");
-        reInv.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKreinv").append(System.currentTimeMillis()).append("\r\n");
+        reInv.append("Via: SIP/2.0/").append(session.transport != null ? session.transport : transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKreinv").append(System.currentTimeMillis()).append("\r\n");
         reInv.append("Max-Forwards: 70\r\n");
 
         if (!session.recordRoutes.isEmpty()) {
@@ -953,7 +1002,7 @@ public class SipCallEngine {
         reInv.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">;tag=").append(session.remoteTag).append("\r\n");
         reInv.append("Call-ID: ").append(session.callId).append("\r\n");
         reInv.append("CSeq: ").append(session.cseq).append(" INVITE\r\n");
-        reInv.append("Contact: <sip:").append(session.caller).append("@").append(localIp).append(":").append(localSipPort).append(";transport=udp>\r\n");
+        reInv.append("Contact: <sip:").append(session.caller).append("@").append(localIp).append(":").append(localSipPort).append(";transport=").append(session.transport != null ? session.transport.toLowerCase() : transportType.toLowerCase()).append(">\r\n");
         reInv.append("Content-Type: application/sdp\r\n");
         reInv.append("Content-Length: ").append(sdp.getBytes().length).append("\r\n\r\n");
         reInv.append(sdp);
@@ -972,7 +1021,7 @@ public class SipCallEngine {
 
         StringBuilder ack = new StringBuilder();
         ack.append("ACK ").append(ackTarget).append(" SIP/2.0\r\n");
-        ack.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKack").append(System.currentTimeMillis()).append("\r\n");
+        ack.append("Via: SIP/2.0/").append(session.transport != null ? session.transport : transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=z9hG4bKack").append(System.currentTimeMillis()).append("\r\n");
         ack.append("Max-Forwards: 70\r\n");
 
         if (!session.recordRoutes.isEmpty()) {
@@ -1011,6 +1060,7 @@ public class SipCallEngine {
             GlobalSettings.setSetting("RTP_Remote_PT", String.valueOf(session.payloadType));
 
             LiveAudioController c = new LiveAudioController();
+            c.setDtmfPayloadType(session.dtmfPayloadType);
             c.initializeForCall(session.callId, session.remoteRtpIp, session.remoteRtpPort,
                     localIp, session.localRtpPort, session.payloadType, false, null);
 
@@ -1321,9 +1371,13 @@ public class SipCallEngine {
                 session.remoteTag = SIPParser.getParamValue(SIPParser.getHeader(msg, "To", "t"), "tag");
                 if (msg.contains("v=0")) {
                     parseSdpBody(session, msg);
-                    session.setState(CallState.EARLY_MEDIA);
-                    if (!session.isOnHold) {
-                        startMediaForSession(session);
+                    if (session.remoteRtpPort > 0 && session.remoteRtpIp != null && !"0.0.0.0".equals(session.remoteRtpIp)) {
+                        session.setState(CallState.EARLY_MEDIA);
+                        if (!session.isOnHold) {
+                            startMediaForSession(session);
+                        }
+                    } else {
+                        session.setState(CallState.RINGING);
                     }
                 } else {
                     session.setState(CallState.RINGING);
@@ -1412,7 +1466,7 @@ public class SipCallEngine {
             String branch = SIPParser.getParamValue(SIPParser.getHeader(failureMsg, "Via", "v"), "branch");
             StringBuilder ack = new StringBuilder();
             ack.append("ACK sip:").append(session.callee).append("@").append(pbxIp).append(" SIP/2.0\r\n");
-            ack.append("Via: SIP/2.0/UDP ").append(localIp).append(":").append(localSipPort).append(";rport;branch=").append(branch != null ? branch : "z9hG4bKack").append("\r\n");
+            ack.append("Via: SIP/2.0/").append(session.transport != null ? session.transport : transportType).append(" ").append(localIp).append(":").append(localSipPort).append(";rport;branch=").append(branch != null ? branch : "z9hG4bKack").append("\r\n");
             ack.append("Max-Forwards: 70\r\n");
             ack.append("From: <sip:").append(session.caller).append("@").append(pbxIp).append(">;tag=").append(session.localTag).append("\r\n");
             ack.append("To: <sip:").append(session.callee).append("@").append(pbxIp).append(">");
@@ -1434,11 +1488,11 @@ public class SipCallEngine {
 
     private void handleReInvite(CallSession session, String msg) {
         parseSdpBody(session, msg);
-        boolean remoteHold = msg.contains("a=sendonly") || msg.contains("c=IN IP4 0.0.0.0");
+        boolean remoteHold = msg.contains("a=sendonly") || msg.contains("c=IN IP4 0.0.0.0") || msg.contains("a=inactive");
         session.isRemoteHold = remoteHold;
 
         if (session.mediaController != null) {
-            if (remoteHold) {
+            if (remoteHold || session.isOnHold) {
                 session.mediaController.pauseAudio();
             } else {
                 session.mediaController.resumeAudio();
@@ -1765,10 +1819,15 @@ public class SipCallEngine {
         signalingSocket.send(pkt);
     }
 
-    private void parseSdpBody(CallSession session, String msg) {
-        for (String line : msg.split("\r?\n")) {
+    public void parseSdpBody(CallSession session, String msg) {
+        if (session == null || msg == null) return;
+        for (String rawLine : msg.split("\r?\n")) {
+            String line = rawLine.trim();
             if (line.startsWith("c=IN IP4 ")) {
                 session.remoteRtpIp = line.substring(9).trim();
+                if ("0.0.0.0".equals(session.remoteRtpIp)) {
+                    session.isRemoteHold = true;
+                }
             } else if (line.startsWith("m=audio ")) {
                 String[] parts = line.split("\\s+");
                 if (parts.length > 1) {
@@ -1785,16 +1844,35 @@ public class SipCallEngine {
                         }
                     } catch (NumberFormatException ignored) {}
                 }
+            } else if (line.toLowerCase().startsWith("a=rtpmap:")) {
+                // e.g. a=rtpmap:101 telephone-event/8000 or a=rtpmap:120 telephone-event/8000
+                String rtpmap = line.substring(9).trim();
+                int spaceIdx = rtpmap.indexOf(' ');
+                if (spaceIdx > 0) {
+                    String ptStr = rtpmap.substring(0, spaceIdx).trim();
+                    String encoding = rtpmap.substring(spaceIdx + 1).trim();
+                    if (encoding.toLowerCase().startsWith("telephone-event/")) {
+                        try {
+                            session.dtmfPayloadType = Integer.parseInt(ptStr);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            } else if (line.equalsIgnoreCase("a=sendonly") || line.equalsIgnoreCase("a=inactive")) {
+                session.isRemoteHold = true;
+            } else if (line.equalsIgnoreCase("a=sendrecv") || line.equalsIgnoreCase("a=recvonly")) {
+                session.isRemoteHold = false;
             }
         }
     }
 
-    private int allocateRtpPort() {
-        for (int i = 0; i < 500; i++) {
+    public int allocateRtpPort() {
+        int range = (rtpPortRangeEnd > rtpPortRangeStart) ? (rtpPortRangeEnd - rtpPortRangeStart) : 8000;
+        int maxAttempts = Math.min(500, range / 2);
+        for (int i = 0; i < maxAttempts; i++) {
             int p = nextRtpPort.getAndAdd(2);
-            if (p > 50000 || p < 42000) {
-                nextRtpPort.set(42000);
-                p = 42000;
+            if (p > rtpPortRangeEnd || p < rtpPortRangeStart) {
+                nextRtpPort.set(rtpPortRangeStart);
+                p = rtpPortRangeStart;
             }
             try {
                 java.net.DatagramSocket s = new java.net.DatagramSocket(p);

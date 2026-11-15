@@ -88,6 +88,9 @@ public class OfflineFullRegressionSuite {
         // 14. Phase 7: SIP Call Engine Lifecycle & Resource Rebind Audit
         runner.run("CallEngineLifecycleTest", () -> CallEngineLifecycleTest.main(new String[0]));
 
+        // 15. Phase 7.1: Engine Protocol Integrity & Remediation Audit
+        runner.run("EngineProtocolIntegrityTest", () -> EngineProtocolIntegrityTest.main(new String[0]));
+
         long elapsed = System.currentTimeMillis() - startTime;
         System.out.println("\n================================================================================");
         System.out.println("   OFFLINE REGRESSION MASTER SUMMARY");

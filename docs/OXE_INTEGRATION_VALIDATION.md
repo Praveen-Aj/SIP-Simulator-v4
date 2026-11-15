@@ -507,3 +507,42 @@ In Phase 7, SIP Simulator v4 was subjected to deep live feature qualification ag
   - Active Audio Receivers: 0
   - Active Audio Senders: 0
   - MOS Score: 4.39 (High Fidelity G.711 A-law)
+
+---
+
+## 10. Phase 7.1 Live Protocol Integrity & Interoperability Validation
+
+Phase 7.1 conducted an independent audit and remediation of protocol integrity, dynamic payload negotiation, test reliability, and network environment portability against the live Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`) and MicroSIP 3.22.16 (`90001`).
+
+### 10.1 Key Interoperability Remediations
+
+1. **Dynamic RFC 4733 DTMF Payload Type Negotiation:**
+   - Previous versions hardcoded RTP payload type 101 for DTMF events.
+   - Certain OXE trunk/subscriber profiles negotiate `a=rtpmap:120 telephone-event/8000`.
+   - `SipCallEngine.parseSdpBody()` was updated to parse the remote SDP for `telephone-event/8000` payload type mapping, dynamically configuring `CallSession.dtmfPayloadType`.
+   - Both `LiveAudioSenderThread` and `LiveAudioReceiverThread` now frame and decode DTMF events using the negotiated payload type, guaranteeing cross-vendor compliance.
+
+2. **MicroSIP IPC Event Queue Stabilization:**
+   - Identified that automated test runners issuing `call.answer` commands in a rapid loop (every 100ms) overwhelmed MicroSIP's PJSIP event loop, causing PJSIP internal timeouts and occasional `487 Request Terminated` aborts.
+   - Replaced polling loops with a deterministic single-shot answer latch with a 300ms post-ringing delay, resulting in 100% stable call answers across all test iterations.
+
+3. **Dynamic Network Routing Resolution:**
+   - Removed hardcoded IP address literals (`192.168.0.9`) from `SipCallEngine.java` and `CliCallEngine.java`.
+   - Local IP is now dynamically resolved towards `pbxIp` using UDP routing probe (`DatagramSocket.connect(InetAddress.getByName(pbxIp), pbxPort)`), correctly selecting `192.168.0.8` on the multi-homed test machine without manual configuration.
+
+### 10.2 Live Test Verification Summary
+
+- **Test Suite:** `test.OxePhase7FeatureValidationTest`
+- **Target PBX:** `192.168.0.20:5060` (Alcatel-Lucent OmniPCX Enterprise)
+- **Local Host:** `192.168.0.8:5060` (Auto-resolved)
+- **Endpoints:** Simulator (`90008`), MicroSIP (`90001`)
+- **Status:** **9 / 9 PASSED (100%)**
+  - **Step 1:** Registration with `Expires: 1800` -> `SIP/2.0 200 OK` (PASS)
+  - **Step 2:** Call Establishment (INVITE -> 100 Trying -> 180 Ringing -> 200 OK -> ACK) & Bidirectional PCMA Audio (PASS)
+  - **Step 3a:** RFC 2833 / RFC 4733 DTMF '5' with dynamic PT negotiation (PASS)
+  - **Step 3b:** Mid-dialog SIP INFO DTMF '9' rejection isolation (OXE 488 received, session preserved) (PASS)
+  - **Step 4a:** Re-INVITE Local Hold (`a=sendonly`) -> `200 OK` received (PASS)
+  - **Step 4b:** Re-INVITE Local Resume (`a=sendrecv`) -> `200 OK` received, media resumed (PASS)
+  - **Step 5:** Secondary Call Admission Control check -> OXE 488 received, Call 1 preserved (PASS)
+  - **Step 6:** Teardown via BYE -> `200 OK` received; TX=430 packets, RX=555 packets, MOS=4.39; zero socket/thread leaks (PASS)
+  - **Step 7:** Deregistration with `Expires: 0` -> `SIP/2.0 200 OK` (PASS)

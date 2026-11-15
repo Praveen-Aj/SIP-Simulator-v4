@@ -20,6 +20,18 @@ sim.malformed=None
 # PCAP Playback Engine (jpcap or pure Java pcap fallback)
 pcap.engine=jpcap
 
+# SIP Signaling & Dynamic Interface Settings
+# sip.localIp left blank or "auto" uses dynamic routing towards the PBX
+sip.localIp=
+sip.localPort=5060
+sip.pbxIp=192.168.0.20
+sip.pbxPort=5060
+sip.transport=UDP
+
+# RTP Media Port Allocation Range
+rtp.portRangeStart=42000
+rtp.portRangeEnd=50000
+
 # Default SRTP Cryptographic Suite & Key (RFC 4568 SDES Master Key/Salt Base64)
 # Note: AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e is the standard RFC 4568 30-byte test vector
 srtpCryptoLine=a\=crypto\:1 AES_CM_128_HMAC_SHA1_80 inline\:AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0e

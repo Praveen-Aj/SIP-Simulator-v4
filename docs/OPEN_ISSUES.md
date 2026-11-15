@@ -284,6 +284,61 @@ Each issue is classified with:
 
 ---
 
+### ISSUE-016: Dynamic DTMF Payload Type Negotiation (RFC 4733 PT 101 vs PT 120)
+- **Severity:** **P1 (High / Protocol Interoperability)**
+- **Status:** **RESOLVED in Phase 7.1**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`, `src/sipinspector/Media/LiveAudioController.java`, `src/sipinspector/Media/LiveAudioSenderThread.java`, `src/sipinspector/Media/LiveAudioReceiverThread.java`
+- **Root Cause:**
+  DTMF telephone-event packet framing hardcoded Payload Type 101. In Alcatel-Lucent OXE PBX profiles advertising `a=rtpmap:120 telephone-event/8000`, DTMF digits were transmitted with PT 101 and dropped by the PBX.
+- **Resolution:**
+  Implemented dynamic telephone-event payload type parsing in `SipCallEngine.parseSdpBody()`. Propagated negotiated PT to sender/receiver threads and overloaded `sendDtmf` / `sendDtmfDirect` to construct RTP packets matching remote SDP.
+
+---
+
+### ISSUE-017: 183 Session Progress Without SDP Treated as Early Media
+- **Severity:** **P2 (Medium / RFC 3960 Compliance)**
+- **Status:** **RESOLVED in Phase 7.1**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`
+- **Root Cause:**
+  The engine checked only `msg.contains("v=0")` before transitioning to `CallState.EARLY_MEDIA`. A 183 message with missing SDP, port 0, or `c=0.0.0.0` spawned premature media threads.
+- **Resolution:**
+  Enforced strict validation of audio media lines (`m=audio <port>` with `port > 0` and non-zero IP). 183 without valid media now remains in `RINGING` without socket initialization.
+
+---
+
+### ISSUE-018: Coupled Local vs Remote Hold State Causes Media Mismatch
+- **Severity:** **P1 (High / RFC 3264 Compliance)**
+- **Status:** **RESOLVED in Phase 7.1**
+- **File:** `src/sipinspector/Call/SipCallEngine.java`
+- **Root Cause:**
+  Local hold (`isOnHold`) and remote hold (`isRemoteHold`) were tracked in overlapping state variables. When remote party took the call off hold via `a=sendrecv`, it erroneously resumed local audio even if local user still had the call on hold.
+- **Resolution:**
+  Decoupled tracking of local `isOnHold` and remote `isRemoteHold`. Media pause/resume evaluates joint arbitration: pause if either is true; resume only if both are false.
+
+---
+
+### ISSUE-019: False Positive in Phase 7 Feature Validation Test
+- **Severity:** **P2 (Medium / Test Reliability)**
+- **Status:** **RESOLVED in Phase 7.1**
+- **File:** `test/OxePhase7FeatureValidationTest.java`
+- **Root Cause:**
+  In Step 5 (OXE Line Admission Policy), the fallback `else` branch printed a note and silently incremented `passed++`, allowing unexpected states or errors to pass unnoticed.
+- **Resolution:**
+  Replaced silent pass with explicit failure assertion (`failed++` and error logging).
+
+---
+
+### ISSUE-020: MicroSIP IPC Command Flooding in Validation Loop
+- **Severity:** **P2 (Medium / Test Automation)**
+- **Status:** **RESOLVED in Phase 7.1**
+- **File:** `test/OxePhase7FeatureValidationTest.java`, `test/OxeLiveConcurrentCallTest.java`
+- **Root Cause:**
+  The call establishment polling loop issued `call.answer` over Windows Named Pipe every 100ms continuously while in `RINGING` state. This flooded PJSIP and caused premature `487 Request Terminated`.
+- **Resolution:**
+  Introduced a one-shot `answered` latch with 300ms delay, allowing MicroSIP to cleanly transition into active state without command flooding.
+
+---
+
 ## 3. Suspected Fragile Areas
 
 ### FRAGILE-001: 32-bit vs 64-bit Architecture Mismatch with `jpcap.dll`
