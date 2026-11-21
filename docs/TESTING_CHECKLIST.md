@@ -4,11 +4,11 @@
 > **Authoritative QA Engineering Framework:**
 > This checklist operates under the governance of the permanent **SIP Simulator v4 QA Engineering Framework**.
 > For comprehensive methodologies, formal test cases, UI/UX evaluation rubrics, and reporting templates, consult:
-> - **Operating Protocol & Quality Gates:** [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md)
-> - **Comprehensive Test Strategy:** [`docs/QA_TEST_STRATEGY.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_STRATEGY.md)
-> - **Master Test Case Repository:** [`docs/QA_TEST_CASES.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_CASES.md)
-> - **UI/UX Evaluation & Scorecard:** [`docs/QA_UI_UX_EVALUATION.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_UI_UX_EVALUATION.md)
-> - **Standard QA Report Template:** [`docs/QA_REPORT_TEMPLATE.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_REPORT_TEMPLATE.md)
+> - **Operating Protocol & Quality Gates:** [`docs/QA_AGENT_PROTOCOL.md`](QA_AGENT_PROTOCOL.md)
+> - **Comprehensive Test Strategy:** [`docs/QA_TEST_STRATEGY.md`](QA_TEST_STRATEGY.md)
+> - **Master Test Case Repository:** [`docs/QA_TEST_CASES.md`](QA_TEST_CASES.md)
+> - **UI/UX Evaluation & Scorecard:** [`docs/QA_UI_UX_EVALUATION.md`](QA_UI_UX_EVALUATION.md)
+> - **Standard QA Report Template:** [`docs/QA_REPORT_TEMPLATE.md`](QA_REPORT_TEMPLATE.md)
 
 ## 📋 **Pre-Deployment Testing**
 
@@ -283,7 +283,7 @@ _____________________________________________________
 
 ## 📞 **Issue Reporting & Defect Schema**
 
-If any test fails, document the defect using the mandatory schema defined in [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md):
+If any test fails, document the defect using the mandatory schema defined in [`docs/QA_AGENT_PROTOCOL.md`](QA_AGENT_PROTOCOL.md):
 1. **Defect ID:** e.g., `DEF-SIG-001`
 2. **Severity:** CRITICAL | HIGH | MEDIUM | LOW
 3. **Category:** Functional | Protocol | Integration | UI/UX | Performance | Security | Missing Feature | Enhancement | Redundant Feature | Documentation

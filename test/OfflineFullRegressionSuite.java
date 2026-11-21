@@ -112,6 +112,9 @@ public class OfflineFullRegressionSuite {
         // 22. Phase 9: Unified Scenario Runner (Workstream H)
         runner.run("UnifiedScenarioRunnerTest", () -> UnifiedScenarioRunnerTest.main(new String[0]));
 
+        // 23. Agent Governance & Documentation Integrity Validation
+        runner.run("GovernanceIntegrityValidationTest", () -> GovernanceIntegrityValidationTest.main(new String[0]));
+
         long elapsed = System.currentTimeMillis() - startTime;
         System.out.println("\n================================================================================");
         System.out.println("   OFFLINE REGRESSION MASTER SUMMARY");

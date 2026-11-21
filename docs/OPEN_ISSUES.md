@@ -613,7 +613,7 @@ The following table summarizes the architectural and environmental limitations i
 
 ## 9. Defect Classification Taxonomy & QA Governance Alignment
 
-All future defect logging, triage, and verification must strictly conform to the authoritative classification taxonomy defined in [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md):
+All future defect logging, triage, and verification must strictly conform to the authoritative classification taxonomy defined in [`docs/QA_AGENT_PROTOCOL.md`](QA_AGENT_PROTOCOL.md):
 
 ### 9.1 Severity Triage Standards
 - **CRITICAL (P0):** Application crash, JVM halt, audio service lockup, memory leak, active call socket starvation, data corruption.

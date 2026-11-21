@@ -179,11 +179,11 @@ All feature branches, major bug fixes, and development milestones are governed b
 ### Non-Negotiable QA Principles
 1. **Independent Verification:** The QA Agent acts as an independent quality gate. DEV Agent self-assessments or passing mock tests alone cannot approve a milestone.
 2. **Authoritative Quality Documents:**
-   - **Protocol & Quality Charter:** [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md)
-   - **Test Strategy & Multi-Tier Verification:** [`docs/QA_TEST_STRATEGY.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_STRATEGY.md)
-   - **Master Test Cases & Workflows:** [`docs/QA_TEST_CASES.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_CASES.md)
-   - **UI/UX Evaluation Rubric:** [`docs/QA_UI_UX_EVALUATION.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_UI_UX_EVALUATION.md)
-   - **Milestone Audit Report Template:** [`docs/QA_REPORT_TEMPLATE.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_REPORT_TEMPLATE.md)
+   - **Protocol & Quality Charter:** [`docs/QA_AGENT_PROTOCOL.md`](QA_AGENT_PROTOCOL.md)
+   - **Test Strategy & Multi-Tier Verification:** [`docs/QA_TEST_STRATEGY.md`](QA_TEST_STRATEGY.md)
+   - **Master Test Cases & Workflows:** [`docs/QA_TEST_CASES.md`](QA_TEST_CASES.md)
+   - **UI/UX Evaluation Rubric:** [`docs/QA_UI_UX_EVALUATION.md`](QA_UI_UX_EVALUATION.md)
+   - **Milestone Audit Report Template:** [`docs/QA_REPORT_TEMPLATE.md`](QA_REPORT_TEMPLATE.md)
 3. **Four Verdict Standard:** Every release candidate must receive a formal verdict: `PASS`, `PASS WITH LIMITATIONS`, `FAIL`, or `BLOCKED`. A release is rejected if any Critical (P0) or blocking High (P1) defect remains open.
 4. **Rejection of Anti-Patterns:** Code presence, mock test passes, manual state setting, and unverified API responses are explicitly rejected as proof of functionality. Validated protocol execution traces are mandatory.
 

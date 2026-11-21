@@ -185,7 +185,7 @@ Per release engineering standards, the nine operational dimensions of the platfo
 
 ## 5. Active Architectural & Environmental Limitations
 
-The following active limitations remain documented in [`docs/OPEN_ISSUES.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/OPEN_ISSUES.md#L559-L591):
+The following active limitations remain documented in [`docs/OPEN_ISSUES.md`](OPEN_ISSUES.md):
 
 1. **LIM-01 (Dual Execution Engines):** Desktop Swing GUI (`SIP_Simulator_v4.jar`) and Web Dashboard Daemon (`server.js`) run as separate OS processes and do NOT share in-memory state or active dialog sessions.
 2. **LIM-02 (Local SIP Port Exclusivity):** Both Desktop GUI and Web scenarios default to port 5060. Running both simultaneously on the same IP interface causes a port bind conflict (`BindException`).
