@@ -2,7 +2,7 @@
 
 A high-performance SIP (Session Initiation Protocol) simulation, automated testing, audio qualification, and diagnostic platform designed for telecom engineers, VoIP developers, and PBX administrators.
 
-SIP Simulator v4 combines a robust **Java 8 Desktop Client** (Swing, FlatLaf, MigLayout) for local protocol simulation and packet crafting with a synchronized **React 18 + Vite Web Dashboard** and **Express REST Daemon** for multi-call orchestration, live ladder trace analysis, and remote telephony management.
+SIP Simulator v4 combines a robust **Java 8 Desktop Client** (Swing, FlatLaf, MigLayout) for local protocol simulation and packet crafting with a synchronized **React 19 + Vite 8 Web Dashboard** and **Express REST Daemon** for multi-call orchestration, live ladder trace analysis, and remote telephony management.
 
 ---
 
@@ -53,7 +53,7 @@ The platform has been validated end-to-end against physical enterprise telephony
 flowchart TD
     subgraph UI ["User Interfaces"]
         SwingGUI["Java Swing Desktop UI<br/>(FlatLaf / MigLayout)"]
-        ReactUI["React 18 Web Dashboard<br/>(Vite / Lucide Icons)"]
+        ReactUI["React 19 Web Dashboard<br/>(Vite 8 SPA)"]
     end
 
     subgraph Server ["Integration Layer"]
@@ -103,8 +103,8 @@ flowchart TD
 | **Desktop UI** | Java Swing | FlatLaf 3.2.5, MigLayout 3.7.3.1 |
 | **Audio Subsystem** | DirectSound / Java Sound | 8kHz / 16kHz PCM, Direct WAV capture |
 | **Packet Engine** | JPCAP & Pure Java | Pure Java PCAP parser fallback |
-| **Backend Daemon** | Node.js & Express | Node.js 18+ / Express 4.18 |
-| **Frontend UI** | React & Vite | React 18, Vite 5, Lucide Icons |
+| **Backend Daemon** | Node.js & Express | Node.js 18+ / Express 4.19.2 |
+| **Frontend UI** | React & Vite | React 19.2.6, Vite 8.0.16 |
 | **Tested PBX** | Alcatel-Lucent OXE | OmniPCX Enterprise R101.1 n4.524.2 |
 | **Reference Client** | MicroSIP | MicroSIP 3.22.16 (Named Pipe IPC) |
 

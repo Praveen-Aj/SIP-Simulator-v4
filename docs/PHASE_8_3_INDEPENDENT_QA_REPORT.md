@@ -247,7 +247,7 @@ An item-by-item audit of documentation changes introduced in commit `9c3535d` wa
 | **3. Are live OXE results clearly distinguished from offline results?** | Offline regression results (Section 9.1) and Live OXE PBX validation (Section 9.2) are partitioned under distinct numbered headings in `REGRESSION_TEST_REPORT.md`. | **VERIFIED** |
 | **4. Does README describe separate desktop and web engines?** | `README.md` Section 3 contains an explicit note titled "Desktop vs. Web Execution Architecture (Independent Engines)", detailing that the Swing GUI and Node daemon run independent engines. | **VERIFIED** |
 | **5. Are port conflicts documented accurately?** | `README.md` explicitly warns of `java.net.BindException: Address already in use` when attempting to bind port 5060 concurrently, recommending alternate ports (5065/5070) or sequential usage. | **VERIFIED** |
-| **6. Are dependency versions correct?** | Java 8 (`-source 1.8 -target 1.8`), Node Express backend, React 18, Vite 5, Tailwind CSS, FlatLaf 3.4.1. | **VERIFIED** |
+| **6. Are dependency versions correct?** | Java 8 (`-source 1.8 -target 1.8`), Node Express backend (`express ^4.19.2`), React 19 (`react ^19.2.6`), Vite 8 (`vite ^8.0.12`), FlatLaf 3.2.5. | **VERIFIED** |
 | **7. Are historical results preserved?** | Phase 1-7 regression sections and Phase 8.1 QA report are preserved intact; Phase 8.2 remediation is appended. | **VERIFIED** |
 | **8. Are unresolved limitations documented?** | `docs/OPEN_ISSUES.md` documents active architectural limitations LIM-01 through LIM-06. | **VERIFIED** |
 | **9. Does roadmap accurately represent work?** | `docs/DEVELOPMENT_ROADMAP.md` reflects Phase 8.1 audit and Phase 8.2 remediation as completed milestones. | **VERIFIED** |

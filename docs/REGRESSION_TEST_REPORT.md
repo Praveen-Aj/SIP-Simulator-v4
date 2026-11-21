@@ -39,7 +39,7 @@ This document establishes the official **Regression Baseline** for SIP Simulator
 | **Display Bounds & Scaling** | Geometry & DPI Suite | `java -cp "build;lib/*" test.DisplayScalingValidationTest` | **6/6 PASS** | Screen-aware bounds, taskbar clearance, ultrawide clamp, high-DPI scaling across 6 resolution profiles |
 | **Portability Validation Suite** | Cross-Machine Suite | `java -cp "build;lib/*" test.PortabilityValidationTest` | **10/10 PASS** | CodeSource root discovery, CWD independence, URI paths with spaces, settings round-trip, runtime Java/Node discovery, on-demand dirs |
 | **GUI Rendering & Snapshots** | Swing Offscreen Render | `java -cp "build;lib/*" test.GuiScreenCaptureTest` | **5/5 PASS** | Component layout rendering at 768p and 1080p, responsive dialogs (Shortcuts, Templates, Diff) via UIUtils |
-| **React Web Client Build** | Frontend Static Build | `npm --prefix web-app/client run build` | **PASS** | React 18, Vite, TypeScript/JSX compilation, SequenceLadder, ScenarioEditor, CampaignManager, LogsExplorer |
+| **React Web Client Build** | Frontend Static Build | `npm --prefix web-app/client run build` | **PASS** | React 19.2.6, Vite 8.0.16, TypeScript/JSX compilation, SequenceLadder, ScenarioEditor, CampaignManager, LogsExplorer |
 | **Node.js Express Backend** | Syntax & Import Verification | `node -c web-app/server.js` | **PASS** | Express REST API syntax, targeted PID child process management, graceful shutdown handlers |
 
 ---
@@ -554,3 +554,55 @@ While offline validation covers codecs, crypto, and parsing, the following gaps 
 ### 9.3 React Web Client Production Build
 - **Build Command:** `cmd /c "cd web-app\client && npm run build"`
 - **Output:** Built cleanly in 538ms, 0 errors, 17 modules transformed. Production assets generated in `web-app/public/`.
+
+---
+
+## 10. Phase 8.3 & Phase 8.4 Release-Readiness Verification Suite
+
+**Execution Date:** November 21, 2026  
+**Purpose:** Pre-release verification, dependency alignment, and live PBX qualification  
+**Harness:** `test.OfflineFullRegressionSuite`, `test.OxeLiveIntegrationTest`  
+**Host Environment:** Windows 11 (Resolved Dynamic Wi-Fi IP: `192.168.0.8`)  
+**Target Hardware:** Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`)  
+**Java Runtime:** OpenJDK 21 LTS (targeting `-source 1.8 -target 1.8`)  
+
+### 10.1 Master Offline Regression Test Suite (16 / 16 PASSED)
+- **Command:** `cmd /c run_offline_tests.bat`
+- **Total Test Suites Executed:** 16
+- **Passed Suites:** 16 (100%)
+- **Failed Suites:** 0
+- **Total Elapsed Time:** 13.43 seconds
+- **Suites Validated:**
+  1. `OfflineValidationSuite`: PASS (G.711u/a, G.722, SRTP, SIPParser, ToneSynthesizer, ValuesLoader)
+  2. `PortabilityValidationTest`: PASS (Dynamic paths, CWD independence, root detection)
+  3. `DisplayScalingValidationTest`: PASS (6 DPI & display geometry profiles)
+  4. `TcpSipFramingValidationTest`: PASS (11 stream accumulation and framing checks)
+  5. `SecurityManagerKeyParsingTest`: PASS (Pure Java ASN.1 PKCS#1 and PKCS#8 parser)
+  6. `CallFlowValidationTest`: PASS (RFC 3261 FSM, SDP offer/answer, RTCP, Re-INVITE)
+  7. `MultiCallOrchestrationTest`: PASS (Multi-dialog isolation, separate RTP sockets)
+  8. `SipTransactionReliabilityTest`: PASS (Timer A backoff, Timer B expiry, duplicate suppression)
+  9. `ControlledFailureRecoveryTest`: PASS (404, 408, CANCEL teardown, zero leaks)
+  10. `PerformanceCampaignEngineTest`: PASS (Multi-call campaigns, ITU-T G.107 MOS)
+  11. `ActiveCampaignFailureRecoveryTest`: PASS (Multi-dialog abort, resource teardown)
+  12. `SipFeatureCompletenessTest`: PASS (RFC 2833 / INFO DTMF, REFER, Replaces)
+  13. `TransportSecurityAuditTest`: PASS (UDP/TCP/TLS transport params, credential sanitization)
+  14. `CallEngineLifecycleTest`: PASS (Engine start/stop/restart, RTP port isolation)
+  15. `EngineProtocolIntegrityTest`: PASS (Dynamic DTMF PT 101/120, early media 183 SDP, hold/resume)
+  16. `Phase8WorkspaceIntelligenceTest`: PASS (DEF-01 through DEF-09 behavioral validation)
+
+### 10.2 React Web Client & Node Backend Qualification
+- **React Client Build (`cmd /c "cd web-app\client && npm run build"`):**
+  - **Frameworks:** React 19.2.6, Vite 8.0.16
+  - **Result:** Built cleanly in 493ms with 0 errors (17 modules transformed, production assets generated).
+- **Node.js Express Backend Syntax (`cmd /c "node --check web-app\server.js"`):**
+  - **Result:** Clean AST parse with exit code 0.
+
+### 10.3 Live Physical OXE PBX Verification (`test.OxeLiveIntegrationTest`)
+- **Target PBX:** Alcatel-Lucent OmniPCX Enterprise R101.1 n4.524.2 (`192.168.0.20:5060`)
+- **Local Host IP:** `192.168.0.8:5060`
+- **Results:**
+  - `[STEP 1]` UDP SIP OPTIONS Ping & REGISTER: **PASS** (Received 200 OK, `expires=3600`)
+  - `[STEP 2]` TCP SIP OPTIONS Ping & REGISTER: **PASS** (Framed cleanly by `SipStreamFramer`, Received 200 OK)
+  - `[STEP 3]` TLS 5061 Handshake & SIPS REGISTER: **PASS** (TLSv1.2 `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384`, Received 200 OK)
+  - `[STEP 4]` Live Call Signaling: **PASS** (INVITE -> 100 Trying transaction response confirmed from OXE PBX)
+  - `[STEP 5]` Clean Deregistration Teardown: **PASS** (REGISTER `Expires: 0` -> 200 OK)

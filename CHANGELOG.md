@@ -4,6 +4,17 @@ All notable changes for the SIP Simulator project (originally SIP Inspector) are
 
 ---
 
+## [8.3] - November 2026
+
+### Independent QA Revalidation & Product Acceptance
+- **Defect Remediation Verification:** Independently verified resolution of all 9 defects (DEF-01 through DEF-09) against commit `9c3535d` (`docs/PHASE_8_3_INDEPENDENT_QA_REPORT.md`).
+- **Regression Suite Execution:** Re-verified all 16 master offline test suites (100% clean PASS in 12.68s) targeting Java 8.
+- **Web Frontend & Backend Qualification:** Validated React 19 + Vite 8 production build (493ms) and Node.js Express server syntax (`node --check server.js`).
+- **Live OXE Signaling & Response Formatting:** Confirmed live UDP/TCP/TLS OPTIONS and REGISTER 200 OK exchange with Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`). Confirmed clean single Via response formatting on unsolicited NOTIFY.
+- **Architectural & Environmental Baseline:** Formally documented architectural limitations (LIM-01 through LIM-06) and environmental separation of the MicroSIP named pipe IPC dependency.
+
+---
+
 ## [8.2] - November 2026
 
 ### QA Defect Remediation & Engineering Consistency

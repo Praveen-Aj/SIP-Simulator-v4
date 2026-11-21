@@ -553,3 +553,39 @@ The following defects were independently identified during the Phase 8.1 QA Audi
   - Made `CampaignsTab.classifyFailureEvidence(item, lines, hardError)` public static.
   - Rewrote the test to pass simulated raw console log traces (`488 Not Acceptable Here`, `408 Request Timeout`, `401 Unauthorized`, `RTP timeout`, internal exceptions) into the classifier and assert the resulting `failureClassification`, `failureStage`, `causeCertainty`, and `failureResponseCode`.
 - **Test Evidence:** `Phase8WorkspaceIntelligenceTest.testCampaignFailureIntelligenceAndCallIdRegex()` (PASS).
+
+---
+
+## 8. Active Architectural & Environmental Limitations
+
+The following active limitations are documented as design constraints and operational boundaries of the SIP Simulator v4 platform:
+
+### LIM-01: Dual Execution Engines (Process Separation)
+- **Classification:** Architectural Design Constraint
+- **Description:** The Java Swing Desktop GUI (`SIP_Simulator_v4.jar`) and the Web Dashboard Daemon (`web-app/server.js`) run as separate OS processes with distinct SIP engines. The Swing GUI runs an in-process engine (`SipCallEngine`), while the Web daemon spawns standalone CLI leg child processes (`CliCallEngine` and `CliSipLegTest`).
+- **Impact:** In-memory registration state, active dialog maps, and live statistics are NOT shared across the Desktop GUI and the Web Dashboard. Actions taken in the Web UI do not reflect in the Desktop tables and vice versa.
+
+### LIM-02: Local SIP Port Exclusivity (Port 5060 Collision)
+- **Classification:** Networking Boundary
+- **Description:** By default, both the Desktop GUI and Web test scenarios target local UDP/TCP port `5060`.
+- **Impact:** Attempting to run both the Desktop Swing application and Web test campaigns simultaneously on the same host interface causes `java.net.BindException: Address already in use`. Users must either run one interface at a time or configure alternate SIP ports (e.g., `5065` / `5070`).
+
+### LIM-03: Interactive MicroSIP Dependency for Automated Answering
+- **Classification:** Test Automation Environmental Dependency
+- **Description:** Automated live call answering via MicroSIP relies on an IPC named pipe (`\\.\pipe\microsip_ipc`).
+- **Impact:** On Windows, MicroSIP requires an active interactive desktop user session to initialize the named pipe. In headless service environments or unattended background task runners, automated auto-answer fails, causing call establishment to time out (producing `183 Session Progress` followed by `487 Request Terminated`).
+
+### LIM-04: RTP Audio Codec Scope
+- **Classification:** Media Subsystem Scope
+- **Description:** The media pipeline natively supports G.711 A-law (PCMA, PT=8), G.711 µ-law (PCMU, PT=0), and G.722 wideband ADPCM (PT=9).
+- **Impact:** Modern cellular and WebRTC codecs such as Opus, AMR, and AMR-WB are not yet implemented. Calls offering only Opus or AMR will be rejected with `488 Not Acceptable Here`.
+
+### LIM-05: TLS Mid-Dialog Renegotiation
+- **Classification:** Protocol Security Scope
+- **Description:** The custom TLS socket engine (`TLSClientSocket_V6.java`) establishes secure TLSv1.2/TLSv1.3 sessions on port 5061.
+- **Impact:** Client-initiated or server-initiated SSL/TLS renegotiation during an active in-dialog session is not supported and may result in socket closure.
+
+### LIM-06: Single-Workstation Thread Pool CPS Ceiling
+- **Classification:** Performance Capacity Boundary
+- **Description:** On standard multi-core developer workstations, the thread-per-leg execution architecture scales comfortably to 50–100 calls per second (CPS).
+- **Impact:** Beyond ~150 CPS, OS thread context-switching overhead causes packet transmission jitter. Dedicated high-performance load generation (>500 CPS) requires distributed multi-host agents.
