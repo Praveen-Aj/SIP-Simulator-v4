@@ -63,3 +63,15 @@ Use the Cascade Customizations pane so assistants always follow the latest guida
 - “Use Cascade rules/workflows before starting tasks.”
 
 > Once these are entered, Cascade will remind every contributor about mandatory builds, scenario tracking, and backup rules.
+
+---
+
+## 8. Independent QA Quality Gate & Verification
+
+All code modifications and milestone deliveries are subject to the independent quality governance established in [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md):
+- **Independence:** QA operates as an independent verification gate. DEV claims must be reproduced with executable evidence.
+- **Test Strategy:** Testing adheres to the 4-tier model (Unit, Offline Integration, Local Endpoint, Physical OXE PBX) documented in [`docs/QA_TEST_STRATEGY.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_STRATEGY.md).
+- **Master Test Cases:** Every feature and fix must validate against structured test cases in [`docs/QA_TEST_CASES.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_CASES.md).
+- **No Production Code Changes During QA:** QA audits must not modify production code in `src/` or `web-app/`. Remediations are strictly performed by DEV.
+- **Reporting:** Milestone audits must use the standard 18-section format in [`docs/QA_REPORT_TEMPLATE.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_REPORT_TEMPLATE.md).
+

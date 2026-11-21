@@ -462,3 +462,36 @@ An independent quality assurance audit revalidated the Phase 8.2 remediation aga
 - **Live Physical OXE PBX Integration (`test.OxeLiveHeadlessIntegrationTest`):** **100% PASS** with Native Headless Endpoint (Extension 90008 registered, Call placed to 90001, 3-way handshake established, DTMF sent, BYE clean teardown, 0 MicroSIP dependency).
 - **React Web Client (`npm run build`):** Built cleanly in 748ms with 0 errors.
 - **Node.js Express Backend (`node --check server.js`):** Clean AST parse with exit code 0.
+
+---
+
+## 17. Phase 9.1: QA Engineering Governance & Independent Verification Framework
+
+**Status:** **ESTABLISHED & DELIVERED (November 21, 2026)**  
+**Milestone Focus:** Independent Quality Governance, Authoritative Testing Framework, UI/UX Scorecard, and Defect Triage Standards.
+
+### Key Framework Deliverables
+1. **QA Agent Operating Protocol (`docs/QA_AGENT_PROTOCOL.md`):**
+   - Established independent quality gate charter and code-modification prohibition during QA assignments.
+   - Defined 4-tier acceptance criteria (`PASS`, `PASS WITH LIMITATIONS`, `FAIL`, `BLOCKED`).
+   - Defined strict rules rejecting anti-patterns (class presence, dummy mocks, manual state setting, API facade success).
+   - Established 10-category defect classification system and mandatory defect reporting schema.
+
+2. **Comprehensive QA Test Strategy (`docs/QA_TEST_STRATEGY.md`):**
+   - Documented 8 testing levels (Unit, Integration, Functional, E2E, Regression, Performance, Security, Compatibility).
+   - Formulated strict 4-tier telecom testing hierarchy (Unit $\to$ Offline Integration $\to$ Local Endpoint $\to$ Physical OXE PBX).
+   - Established protocols for SIP signalling, SDP offer/answer, codecs, RTP/RTCP, DTMF, hold/resume, transfers, and custom headers.
+   - Defined adversarial exploratory testing procedures for 9 real-world telecom failure modes.
+
+3. **Master Test Case Repository (`docs/QA_TEST_CASES.md`):**
+   - Authoritative workflow-based test case specifications covering Signalling (`TC-SIG-001` to `009`), Media (`TC-MED-001` to `005`), Desktop UI (`TC-DSK-001` to `005`), Web UI (`TC-WEB-001` to `005`), and Load & Concurrency (`TC-LOD-001` to `003`).
+   - Every test includes unambiguous, step-by-step instructions, preconditions, test data, and verification hooks.
+
+4. **UI/UX Evaluation & Usability Scorecard (`docs/QA_UI_UX_EVALUATION.md`):**
+   - Completed full component inventory for all 9 Web UI tabs and Swing Desktop menus, dialogs, and tabbed panes.
+   - Executed mandatory 8-question product evaluation per tab/module with architectural recommendations.
+   - Established weighted UX evaluation rubric across 8 quality dimensions with baseline scores (Desktop: 82.1%, Web: 84.9%).
+
+5. **Standard Milestone Audit Report Template (`docs/QA_REPORT_TEMPLATE.md`):**
+   - Delivered authoritative 18-section template required for all subsequent milestone QA audit reports.
+

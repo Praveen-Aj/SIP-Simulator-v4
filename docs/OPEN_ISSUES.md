@@ -608,3 +608,31 @@ The following table summarizes the architectural and environmental limitations i
 - **Implementation:** Created `DistributedCampaignCoordinator` and `LoadAgentNode`.
 - **Capability:** Workload slicing (target CPS and total calls) partitioned evenly across registered worker nodes with remainder handling. Unique Call-ID namespacing per node (`<nodeId>-call-...`). Aggregated real-time metrics (p50, p95, p99, combined MOS) and cluster failure triage.
 - **Test Evidence:** `DistributedLoadCampaignTest` (3/3 passed).
+
+---
+
+## 9. Defect Classification Taxonomy & QA Governance Alignment
+
+All future defect logging, triage, and verification must strictly conform to the authoritative classification taxonomy defined in [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md):
+
+### 9.1 Severity Triage Standards
+- **CRITICAL (P0):** Application crash, JVM halt, audio service lockup, memory leak, active call socket starvation, data corruption.
+- **HIGH (P1):** Core protocol or signaling failure, dialog desynchronization, 500 Internal Server Error in REST API, false-positive test passes.
+- **MEDIUM (P2):** Minor feature flaw with workaround, inaccurate metric/percentile calculations, non-blocking UI layout truncation.
+- **LOW (P3):** Cosmetic defects, minor visual misalignment, font scaling, documentation typos.
+
+### 9.2 Mandatory Defect Record Schema
+Every newly recorded defect must provide:
+```markdown
+### [DEFECT-ID] Concise Descriptive Title
+- Severity: CRITICAL | HIGH | MEDIUM | LOW
+- Category: Functional | Protocol | Integration | UI/UX | Performance | Security | Missing Feature | Enhancement | Redundant Feature | Documentation
+- Affected Component: Source file, class, UI tab, or REST route
+- Preconditions: Environment state
+- Reproduction Steps: Numbered, unambiguous instructions
+- Expected Behaviour: RFC or specification requirement
+- Actual Behaviour: Observed failure symptoms
+- Evidence: SIP ladder trace, exception stack trace, or log snippet
+- Impact & Recommended Remediation: Technical consequences and guidance for DEV Agent
+```
+

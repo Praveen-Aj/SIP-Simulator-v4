@@ -1,4 +1,14 @@
-# 🧪 SIP Simulator - Testing Checklist
+# 🧪 SIP Simulator - Testing Checklist & QA Governance
+
+> [!IMPORTANT]
+> **Authoritative QA Engineering Framework:**
+> This checklist operates under the governance of the permanent **SIP Simulator v4 QA Engineering Framework**.
+> For comprehensive methodologies, formal test cases, UI/UX evaluation rubrics, and reporting templates, consult:
+> - **Operating Protocol & Quality Gates:** [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md)
+> - **Comprehensive Test Strategy:** [`docs/QA_TEST_STRATEGY.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_STRATEGY.md)
+> - **Master Test Case Repository:** [`docs/QA_TEST_CASES.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_TEST_CASES.md)
+> - **UI/UX Evaluation & Scorecard:** [`docs/QA_UI_UX_EVALUATION.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_UI_UX_EVALUATION.md)
+> - **Standard QA Report Template:** [`docs/QA_REPORT_TEMPLATE.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_REPORT_TEMPLATE.md)
 
 ## 📋 **Pre-Deployment Testing**
 
@@ -253,15 +263,16 @@ C:\My Documents\SIP Simulator Test\
 
 ---
 
-## 🚀 **Distribution Approval**
+## 🚀 **Distribution Approval & Quality Verdict**
 
-**Tested By:** ___________________
+**Tested By (QA Lead):** ___________________
 
 **Date:** ___________________
 
-**Approved for Distribution:** [ ] YES  [ ] NO
+**QA Acceptance Verdict (per `docs/QA_AGENT_PROTOCOL.md`):**  
+[ ] PASS  [ ] PASS WITH LIMITATIONS  [ ] FAIL  [ ] BLOCKED
 
-**Notes:**
+**Notes & Limitations:**
 ```
 _____________________________________________________
 _____________________________________________________
@@ -270,15 +281,19 @@ _____________________________________________________
 
 ---
 
-## 📞 **Issue Reporting**
+## 📞 **Issue Reporting & Defect Schema**
 
-If any test fails, document:
-1. **Test Name:** Which test failed
-2. **Steps to Reproduce:** Exact steps
-3. **Expected Result:** What should happen
-4. **Actual Result:** What actually happened
-5. **Environment:** OS version, path, etc.
-6. **Screenshots:** If applicable
+If any test fails, document the defect using the mandatory schema defined in [`docs/QA_AGENT_PROTOCOL.md`](file:///c:/Users/Praveen/Downloads/Python%20Scripts/SIP%20Simulator_v4/docs/QA_AGENT_PROTOCOL.md):
+1. **Defect ID:** e.g., `DEF-SIG-001`
+2. **Severity:** CRITICAL | HIGH | MEDIUM | LOW
+3. **Category:** Functional | Protocol | Integration | UI/UX | Performance | Security | Missing Feature | Enhancement | Redundant Feature | Documentation
+4. **Affected Component:** Class, file, or tab name
+5. **Preconditions:** Initial environment state
+6. **Reproduction Steps:** Step-by-step reproducible instructions
+7. **Expected Behaviour:** What RFC standard or specification defines
+8. **Actual Behaviour:** What the system actually did
+9. **Evidence:** SIP ladder trace, exception stack trace, or screenshot
+10. **Impact & Recommended Remediation:** Technical consequence and guidance for DEV Agent
 
 ---
 
