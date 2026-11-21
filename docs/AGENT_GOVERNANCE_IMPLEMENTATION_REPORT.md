@@ -7,8 +7,8 @@
 **Auditor / Engineer:** DEV & QA Governance Architect  
 **Repository:** `Praveen-Aj/SIP-Simulator-v4`  
 **Branch:** `stability/feature-validation`  
-**Candidate Commit:** Pending Governance Commit  
-**Baseline Parent SHA:** `767576acc99575077b0594efc11dde207c55086a`  
+**Governance Commit Baseline:** `39df6a2d219ce49c4839dd0062a1564e1333012b`  
+**Parent Framework SHA:** `767576acc99575077b0594efc11dde207c55086a`  
 
 ---
 
@@ -241,11 +241,13 @@ A real read-only QA Agent governance trial was executed against the repository:
 ================================================================================
    AGENT GOVERNANCE & INTEGRITY VALIDATION TEST
 ================================================================================
-[TEST 1/5] Root Level Instruction Files Presence... PASSED
-[TEST 2/5] Mandatory QA & Development Document Suite Presence... PASSED (10 documents verified)
-[TEST 3/5] Markdown Link Portability (No machine-specific file:/// links)... PASSED
-[TEST 4/5] CLAUDE.md Clean Delegation to AGENTS.md... PASSED
-[TEST 5/5] AGENTS.md Declaration Templates & Rules Integrity... PASSED
+[TEST 1/6] Root Level Instruction Files Presence... PASSED
+[TEST 2/6] Mandatory QA & Development Document Suite Presence... PASSED (10 documents verified)
+[TEST 3/6] Generic Machine-Path Detection Self-Test on Vector Matrix... PASSED (19 vectors tested)
+[TEST 4/6] Repository-Wide Markdown Link Portability Audit... PASSED (142 links verified across 81 files)
+[TEST 5/6] CLAUDE.md Clean Delegation to AGENTS.md... PASSED
+[TEST 6/6] AGENTS.md Declaration Templates & Rules Integrity... PASSED
+
 >>> ALL AGENT GOVERNANCE INTEGRITY CHECKS PASSED CLEANLY!
 ```
 
@@ -318,3 +320,19 @@ ALL OFFLINE REGRESSION SUITES PASSED CLEANLY!
   - 100% of machine-specific `file:///` URLs eliminated and verified by automated test.
   - 23/23 offline regression test suites passed cleanly.
   - Real DEV and QA governance trials completed with evidence-backed findings.
+
+---
+
+## 17. Remediation of Independent QA Findings (Post-Commit 39df6a2)
+
+Following the independent QA audit of commit `39df6a2`, which resulted in a verdict of `PASS WITH LIMITATIONS`, the DEV Agent executed targeted remediations:
+
+### Finding Remediated: Hardening Generic Machine-Path Detection
+- **Original Limitation:** `GovernanceIntegrityValidationTest` previously only matched literal strings `(file:///C:/Users` and `(file:///c:/Users`. It did not generically detect other drive letters (`D:`, `E:`, etc.), bare absolute paths (`C:\Users\...`, `D:\Projects\...`), or markdown links containing arbitrary absolute paths.
+- **Remediation Implemented:**
+  - Implemented `GENERIC_MACHINE_LINK_PATTERN` regex matching `file:///`, `file://`, absolute Windows drive prefixes (`[A-Za-z]:[/\\\\]`), and user/project directories across all drive letters.
+  - Implemented `isMachineSpecificLink()` helper function.
+  - Added `[TEST 3/6]`: Synthetic vector matrix testing 12 invalid test vectors (`file:///C:/...`, `file:///D:/...`, `file:///E:/...`, `file:///c:/...`, `C:\Users\...`, `D:\Users\...`, `C:/Projects/...`, `D:/Projects/...`, `file://D:/...`, `E:\Projects\...`) and 7 valid relative vectors (`docs/...`, `../AGENTS.md`, `https://...`). All 19 test vectors validated.
+  - Expanded `[TEST 4/6]`: Scanned all 81 markdown files across `docs/` and repository root, validating 142 markdown links with zero machine-specific path violations.
+  - Preserved strict Java 8 compatibility and zero production code modifications.
+
