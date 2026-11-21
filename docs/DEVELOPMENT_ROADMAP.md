@@ -410,3 +410,55 @@ An independent quality assurance audit revalidated the Phase 8.2 remediation aga
 2. **Dependency Version Reconciliation:** Aligned documentation with actual project dependencies (`React 19.2.6`, `Vite 8.0.16`, `FlatLaf 3.2.5`, `Express 4.19.2`).
 3. **Evidence-Based Categorization:** Formally partitioned verification into 9 explicit categories: offline tests, Java 8 build, React build, Node check, live signaling, live call flows, audible audio caveats, long-duration stability, and multi-call PBX limits.
 4. **Architectural Limitations Integration:** Embedded LIM-01 through LIM-06 in `docs/OPEN_ISSUES.md`.
+
+---
+
+## 16. Phase 9: Platform Modernization, Open-Issue Closure & Advanced Telecom Capabilities
+
+**Status:** **COMPLETED, VERIFIED & COMMITTED**  
+**Target Java:** Java 8 (`-source 1.8 -target 1.8`)  
+**Working Branch:** `stability/feature-validation`  
+
+### Key Accomplishments & Workstreams Delivered
+
+1. **Workstream A: Unified SIP Execution Architecture (LIM-01 Resolved):**
+   - Designed and implemented `sipinspector.Core.UnifiedSipEngineService` singleton and `sipinspector.Controller.EngineServiceBridge`.
+   - Unified the Desktop Swing UI (`SIPInspectorMainFrame`) and Web Management Daemon (`CliCallEngine.java`) onto a single in-memory signaling and call engine.
+   - Added REST endpoints: `POST /api/engine/start`, `POST /api/engine/stop`, `GET /api/engine/ports`, `POST /api/call/transfer/blind`, `POST /api/call/transfer/attended`.
+
+2. **Workstream B: SIP Port & Network Resource Management (LIM-02 Resolved):**
+   - Implemented `sipinspector.Socket.SipTransportManager` to manage socket reuse, check port availability before binding, and prevent port 5060 collisions across processes.
+   - Implemented `sipinspector.Socket.RtpPortManager` with thread-safe allocation of even-numbered UDP ports for RTP media streams and reservation of odd-numbered ports (port + 1) for RTCP control.
+
+3. **Workstream C: Native Headless SIP Endpoint (LIM-03 Resolved):**
+   - Implemented `sipinspector.Endpoint.HeadlessSipEndpoint` providing an RFC 3261 UAS and UAC with automated call answering (100 Trying $\to$ 180 Ringing $\to$ 200 OK with SDP), dedicated RTP media loopback/tone streaming, handling of ACK, BYE, CANCEL, Re-INVITE, INFO, and DTMF.
+   - Validated live unattended call establishment and teardown with physical Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`), eliminating mandatory dependency on MicroSIP interactive GUI sessions.
+
+4. **Workstream D: Audio Codec Expansion & AMR IP Evaluation (LIM-04 Resolved):**
+   - Implemented extensible `AudioCodec` interface and centralized `CodecRegistry`.
+   - Implemented `PcmaCodec` (PT 8), `PcmuCodec` (PT 0), `G722AudioCodec` (PT 9, 8kHz RTP clock / 16kHz audio line), and `OpusAudioCodec` (RFC 7587 dynamic PT 111, 48000 Hz RTP clock, TOC packetizer/depacketizer, SDP `fmtp` formatting).
+   - Implemented `AmrCodecEvaluator` documenting AMR-NB / AMR-WB standard essential patent pools (VoiceAge / Via Licensing), legal risk assessment, and clean-room external library recommendation.
+
+5. **Workstream E: TLS Session Reliability (LIM-05 Resolved):**
+   - Implemented `sipinspector.Socket.TlsSessionManager` providing persistent TLS connection pooling keyed by destination host:port and Call-ID.
+   - Enabled seamless in-dialog transmission (Re-INVITE, BYE, INFO) across established authenticated TLS sockets without renegotiation or connection drops.
+
+6. **Workstream F: Distributed Multi-Node Load Generation (LIM-06 Resolved):**
+   - Implemented `DistributedCampaignCoordinator` and `LoadAgentNode`.
+   - Supports worker node registration, automatic workload partitioning (target CPS and total calls) with remainder handling, unique Call-ID namespacing per node, aggregated real-time metrics (p50, p95, p99 latency, combined MOS), and cluster-wide failure triage.
+
+7. **Workstream G: OXE Telecom Interoperability:**
+   - Added support in `SipCallEngine.java` for custom telecom headers: User-to-User (UUI), Diversion, History-Info, Privacy, and P-Asserted-Identity (PAI).
+   - Added Blind and Attended transfer (`REFER` with `Replaces`) and `NOTIFY` subscription state processing (`Event: refer`).
+   - Added scenario template `scenarios/OXE_Telecom_Features_Suite.txt` and `values/OXE_Telecom_Features_Suite_values.txt`.
+
+8. **Workstream H: Scenario Engine Consolidation & Workstream I: Swing Decoupling:**
+   - Implemented headless `sipinspector.Scenario.UnifiedScenarioRunner` executing scenario files with parameter substitution, expected responses, assertions, and execution callbacks without requiring any Swing JFrame or modal dialogs.
+   - Decoupled `SIPInspectorMainFrame.java` using `MainFrameController.java` and `EngineServiceBridge.java`.
+
+### Full Verification Summary
+- **Core Java 8 Build (`cmd /c build.bat`):** 100% Clean build.
+- **Offline Full Regression Suite (`cmd /c run_offline_tests.bat`):** **22 / 22 Suites PASSED** (100% Pass in 12.64s).
+- **Live Physical OXE PBX Integration (`test.OxeLiveHeadlessIntegrationTest`):** **100% PASS** with Native Headless Endpoint (Extension 90008 registered, Call placed to 90001, 3-way handshake established, DTMF sent, BYE clean teardown, 0 MicroSIP dependency).
+- **React Web Client (`npm run build`):** Built cleanly in 748ms with 0 errors.
+- **Node.js Express Backend (`node --check server.js`):** Clean AST parse with exit code 0.

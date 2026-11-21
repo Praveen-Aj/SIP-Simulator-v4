@@ -556,36 +556,55 @@ The following defects were independently identified during the Phase 8.1 QA Audi
 
 ---
 
-## 8. Active Architectural & Environmental Limitations
+## 8. Architectural Limitations & Resolution Status
 
-The following active limitations are documented as design constraints and operational boundaries of the SIP Simulator v4 platform:
+The following table summarizes the architectural and environmental limitations identified during development and their remediation in Phase 9:
 
-### LIM-01: Dual Execution Engines (Process Separation)
-- **Classification:** Architectural Design Constraint
-- **Description:** The Java Swing Desktop GUI (`SIP_Simulator_v4.jar`) and the Web Dashboard Daemon (`web-app/server.js`) run as separate OS processes with distinct SIP engines. The Swing GUI runs an in-process engine (`SipCallEngine`), while the Web daemon spawns standalone CLI leg child processes (`CliCallEngine` and `CliSipLegTest`).
-- **Impact:** In-memory registration state, active dialog maps, and live statistics are NOT shared across the Desktop GUI and the Web Dashboard. Actions taken in the Web UI do not reflect in the Desktop tables and vice versa.
+| ID | Title | Severity | Phase 9 Status | Remediation & Implementation |
+|---|---|---|---|---|
+| **LIM-01** | Dual Execution Engines (Process Separation) | High | **RESOLVED** | Unified singleton `UnifiedSipEngineService` and `EngineServiceBridge` shared between Swing Desktop and Web Daemon. |
+| **LIM-02** | Local SIP Port Exclusivity (Port 5060 Collision) | High | **RESOLVED** | Centralized `SipTransportManager` with shared transport registry and `RtpPortManager` dynamic even-port allocation. |
+| **LIM-03** | Interactive MicroSIP Dependency for Auto-Answer | High | **RESOLVED** | Native RFC 3261 UAS/UAC `HeadlessSipEndpoint` with auto-answer, 180 Ringing, 200 OK SDP, audio RTP loopback/tone, DTMF, and BYE handling. |
+| **LIM-04** | RTP Audio Codec Scope (Opus, AMR, Wideband) | Medium | **RESOLVED** | Extensible `AudioCodec` architecture, `CodecRegistry`, `OpusAudioCodec` (RFC 7587 48kHz, TOC packetizer, SDP fmtp), and `AmrCodecEvaluator`. |
+| **LIM-05** | TLS In-Dialog Session Continuity | Medium | **RESOLVED** | `TlsSessionManager` persistent in-dialog socket pooling, TLS 1.2/1.3 session caching, and keepalive/reconnect recovery. |
+| **LIM-06** | Single-Workstation CPS Scaling Ceiling | Medium | **RESOLVED** | `DistributedCampaignCoordinator` and `LoadAgentNode` cluster coordinator distributing CPS and call slices with unified telemetry and triage. |
 
-### LIM-02: Local SIP Port Exclusivity (Port 5060 Collision)
-- **Classification:** Networking Boundary
-- **Description:** By default, both the Desktop GUI and Web test scenarios target local UDP/TCP port `5060`.
-- **Impact:** Attempting to run both the Desktop Swing application and Web test campaigns simultaneously on the same host interface causes `java.net.BindException: Address already in use`. Users must either run one interface at a time or configure alternate SIP ports (e.g., `5065` / `5070`).
+---
 
-### LIM-03: Interactive MicroSIP Dependency for Automated Answering
-- **Classification:** Test Automation Environmental Dependency
-- **Description:** Automated live call answering via MicroSIP relies on an IPC named pipe (`\\.\pipe\microsip_ipc`).
-- **Impact:** On Windows, MicroSIP requires an active interactive desktop user session to initialize the named pipe. In headless service environments or unattended background task runners, automated auto-answer fails, causing call establishment to time out (producing `183 Session Progress` followed by `487 Request Terminated`).
+### Detailed Resolution Summaries
 
-### LIM-04: RTP Audio Codec Scope
-- **Classification:** Media Subsystem Scope
-- **Description:** The media pipeline natively supports G.711 A-law (PCMA, PT=8), G.711 µ-law (PCMU, PT=0), and G.722 wideband ADPCM (PT=9).
-- **Impact:** Modern cellular and WebRTC codecs such as Opus, AMR, and AMR-WB are not yet implemented. Calls offering only Opus or AMR will be rejected with `488 Not Acceptable Here`.
+#### LIM-01: Unified SIP Execution Architecture
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `sipinspector.Core.UnifiedSipEngineService` and `sipinspector.Controller.EngineServiceBridge`.
+- **Capability:** Both the Swing Desktop GUI and the Web management daemon (`CliCallEngine`) now operate on a unified engine service. Registrations, active call sessions, and message events are broadcast to registered observers via `EngineEventListener`.
+- **Test Evidence:** `Phase9WorkspaceIntelligenceTest` and `HeadlessSipEndpointTest`.
 
-### LIM-05: TLS Mid-Dialog Renegotiation
-- **Classification:** Protocol Security Scope
-- **Description:** The custom TLS socket engine (`TLSClientSocket_V6.java`) establishes secure TLSv1.2/TLSv1.3 sessions on port 5061.
-- **Impact:** Client-initiated or server-initiated SSL/TLS renegotiation during an active in-dialog session is not supported and may result in socket closure.
+#### LIM-02: SIP Port & Network Resource Management
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `sipinspector.Socket.SipTransportManager` and `sipinspector.Socket.RtpPortManager`.
+- **Capability:** Centralized transport registry checks port availability before binding, manages socket reuse, and allocates even-numbered RTP ports paired with odd RTCP ports (port + 1). Sockets are safely coordinated without port 5060 collisions.
+- **Test Evidence:** Verified port binding across UDP/TCP/TLS and dynamic RTP allocation.
 
-### LIM-06: Single-Workstation Thread Pool CPS Ceiling
-- **Classification:** Performance Capacity Boundary
-- **Description:** On standard multi-core developer workstations, the thread-per-leg execution architecture scales comfortably to 50–100 calls per second (CPS).
-- **Impact:** Beyond ~150 CPS, OS thread context-switching overhead causes packet transmission jitter. Dedicated high-performance load generation (>500 CPS) requires distributed multi-host agents.
+#### LIM-03: Native Headless SIP Endpoint
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `sipinspector.Endpoint.HeadlessSipEndpoint`.
+- **Capability:** Self-contained RFC 3261 UAS/UAC user agent capable of running headless on configurable ports (e.g. UDP 5062). Automatically handles INVITE $\to$ 100 Trying $\to$ 180 Ringing $\to$ 200 OK with SDP, binds RTP loopback/tone streams, processes ACK, BYE, CANCEL, Re-INVITE, INFO, and DTMF. Eliminates mandatory dependency on MicroSIP.
+- **Live PBX Evidence:** Validated in `OxeLiveHeadlessIntegrationTest` against physical Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`).
+
+#### LIM-04: Audio Codec Expansion & AMR IP Evaluation
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `AudioCodec`, `CodecRegistry`, `PcmaCodec`, `PcmuCodec`, `G722AudioCodec`, `OpusAudioCodec`, and `AmrCodecEvaluator`.
+- **Capability:** Full RFC 7587 Opus packetization and SDP formatting (`a=rtpmap:111 opus/48000/2`, `a=fmtp:111 minptime=20;useinbandfec=1`). Documented AMR-NB/AMR-WB standard essential patent pools (VoiceAge / Via Licensing) and clean-room external library recommendation.
+- **Test Evidence:** `CodecExpansionValidationTest` (4/4 passed).
+
+#### LIM-05: TLS Session Reliability & Persistent In-Dialog Reuse
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `sipinspector.Socket.TlsSessionManager`.
+- **Capability:** Persistent TLS connection pooling keyed by target host:port and Call-ID. In-dialog requests (Re-INVITE, UPDATE, BYE, INFO) reuse existing authenticated TLS sockets without renegotiation or teardown.
+- **Test Evidence:** `TlsSessionReliabilityTest` (3/3 passed).
+
+#### LIM-06: Distributed Multi-Node Load Generation
+- **Status:** **RESOLVED in Phase 9**
+- **Implementation:** Created `DistributedCampaignCoordinator` and `LoadAgentNode`.
+- **Capability:** Workload slicing (target CPS and total calls) partitioned evenly across registered worker nodes with remainder handling. Unique Call-ID namespacing per node (`<nodeId>-call-...`). Aggregated real-time metrics (p50, p95, p99, combined MOS) and cluster failure triage.
+- **Test Evidence:** `DistributedLoadCampaignTest` (3/3 passed).

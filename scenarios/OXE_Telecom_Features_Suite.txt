@@ -1,0 +1,69 @@
+# OXE Telecom Features Scenario Suite
+# Demonstrates UUI (User-to-User Information), Diversion, History-Info, and P-Asserted-Identity
+#
+[SEND]
+INVITE sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];rport;branch=z9hG4bK[branch]
+Max-Forwards: 70
+From: "[field0]" <sip:[field0]@[remote_ip]>;tag=[from_tag]
+To: "[field1]" <sip:[field1]@[remote_ip]>
+Call-ID: [call_id]
+CSeq: 1 INVITE
+Contact: <sip:[field0]@[local_ip]:[local_port]>
+Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS
+Supported: replaces, timer
+P-Asserted-Identity: "[field0]" <sip:[field0]@[remote_ip]>
+Privacy: none
+User-to-User: 04C301020304;encoding=hex
+Diversion: <sip:90002@[remote_ip]>;reason=no-answer;screen=no;privacy=off
+History-Info: <sip:90001@[remote_ip]>;index=1, <sip:90002@[remote_ip]>;index=1.1
+User-Agent: SIP Simulator v4 - Phase 9
+Content-Type: application/sdp
+Content-Length: [sdp_length]
+
+v=0
+o=SIPSimulator 90008 90008 IN IP4 [local_ip]
+s=SIP Telecom Call
+c=IN IP4 [local_ip]
+t=0 0
+m=audio [rtp_port] RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=fmtp:101 0-15
+a=sendrecv
+
+[RECEIVE]
+SIP/2.0 100 Trying
+
+[RECEIVE]
+SIP/2.0 180 Ringing
+
+[RECEIVE]
+SIP/2.0 200 OK
+
+[SEND]
+ACK sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];rport;branch=z9hG4bK[branch_ack]
+Max-Forwards: 70
+From: "[field0]" <sip:[field0]@[remote_ip]>;tag=[from_tag]
+To: "[field1]" <sip:[field1]@[remote_ip]>;tag=[to_tag]
+Call-ID: [call_id]
+CSeq: 1 ACK
+Contact: <sip:[field0]@[local_ip]:[local_port]>
+Content-Length: 0
+
+PAUSE 1000
+
+[SEND]
+BYE sip:[field1]@[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/UDP [local_ip]:[local_port];rport;branch=z9hG4bK[branch_bye]
+Max-Forwards: 70
+From: "[field0]" <sip:[field0]@[remote_ip]>;tag=[from_tag]
+To: "[field1]" <sip:[field1]@[remote_ip]>;tag=[to_tag]
+Call-ID: [call_id]
+CSeq: 2 BYE
+User-Agent: SIP Simulator v4
+Content-Length: 0
+
+[RECEIVE]
+SIP/2.0 200 OK

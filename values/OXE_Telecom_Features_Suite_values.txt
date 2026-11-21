@@ -1,0 +1,4 @@
+// Values for OXE Telecom Features Scenario Suite
+// field0 = caller extension
+// field1 = callee extension
+90008;90001

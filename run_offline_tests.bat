@@ -18,7 +18,7 @@ echo Using Java: %JAVA_CMD%
 
 echo.
 echo Compiling tests...
-javac -source 1.8 -target 1.8 -cp "build;lib/*" -d build test/*.java
+javac -source 1.8 -target 1.8 -cp "build;lib/*;src" -d build test/*.java
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Test compilation failed!
     exit /b %ERRORLEVEL%

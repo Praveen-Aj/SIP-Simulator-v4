@@ -16,7 +16,7 @@ mkdir build
 
 REM Compile all Java files
 echo Compiling source files...
-javac -encoding UTF-8 -source 1.8 -target 1.8 -cp "lib/*;src" -d build -sourcepath src src\sipinspector\Main.java src\sipinspector\Call\SipCallEngine.java src\sipinspector\Call\CliCallEngine.java src\sipinspector\Media\CallState.java src\sipinspector\Media\RtcpMonitor.java src\sipinspector\Media\CliSipRegisterTest.java src\sipinspector\Media\CliSipLegTest.java src\sipinspector\Utils\AssertionUnitTest.java
+javac -encoding UTF-8 -source 1.8 -target 1.8 -cp "lib/*;src" -d build -sourcepath src src\sipinspector\Main.java src\sipinspector\Call\SipCallEngine.java src\sipinspector\Call\CliCallEngine.java src\sipinspector\Media\CallState.java src\sipinspector\Media\RtcpMonitor.java src\sipinspector\Media\CliSipRegisterTest.java src\sipinspector\Media\CliSipLegTest.java src\sipinspector\Utils\AssertionUnitTest.java src\sipinspector\Core\*.java src\sipinspector\Socket\*.java src\sipinspector\Endpoint\*.java src\sipinspector\Media\Codec\*.java src\sipinspector\Campaign\Distributed\*.java src\sipinspector\Scenario\UnifiedScenarioRunner.java src\sipinspector\Controller\*.java
 
 if %ERRORLEVEL% NEQ 0 (
     echo.

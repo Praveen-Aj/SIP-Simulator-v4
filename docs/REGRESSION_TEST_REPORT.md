@@ -606,3 +606,62 @@ While offline validation covers codecs, crypto, and parsing, the following gaps 
   - `[STEP 3]` TLS 5061 Handshake & SIPS REGISTER: **PASS** (TLSv1.2 `TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384`, Received 200 OK)
   - `[STEP 4]` Live Call Signaling: **PASS** (INVITE -> 100 Trying transaction response confirmed from OXE PBX)
   - `[STEP 5]` Clean Deregistration Teardown: **PASS** (REGISTER `Expires: 0` -> 200 OK)
+
+---
+
+## 11. Phase 9 Platform Modernization & Open-Issue Closure Verification Suite
+
+**Execution Date:** November 21, 2026  
+**Purpose:** Phase 9 full implementation qualification, open-issue closure (LIM-01 to LIM-06), headless endpoint validation, codec expansion, TLS session persistence, distributed load clustering, and live OXE PBX verification.  
+**Harness:** `test.OfflineFullRegressionSuite`, `test.OxeLiveHeadlessIntegrationTest`  
+**Host Environment:** Windows 11 (Resolved Dynamic Local IP: `192.168.0.8`)  
+**Target Hardware:** Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`)  
+**Java Runtime:** OpenJDK 21 LTS (targeting `-source 1.8 -target 1.8`)  
+
+### 11.1 Master Offline Regression Test Suite (22 / 22 PASSED)
+- **Command:** `cmd /c run_offline_tests.bat`
+- **Total Test Suites Executed:** 22
+- **Passed Suites:** 22 (100%)
+- **Failed Suites:** 0
+- **Total Elapsed Time:** 12.64 seconds
+- **Suites Validated:**
+  1. `OfflineValidationSuite`: **PASS** (G.711u/a, G.722, SRTP, SIPParser, ToneSynthesizer, ValuesLoader)
+  2. `PortabilityValidationTest`: **PASS** (Dynamic paths, CWD independence, root detection)
+  3. `DisplayScalingValidationTest`: **PASS** (6 DPI & display geometry profiles)
+  4. `TcpSipFramingValidationTest`: **PASS** (11 stream accumulation and framing checks)
+  5. `SecurityManagerKeyParsingTest`: **PASS** (Pure Java ASN.1 PKCS#1 and PKCS#8 parser)
+  6. `CallFlowValidationTest`: **PASS** (RFC 3261 FSM, SDP offer/answer, RTCP, Re-INVITE)
+  7. `MultiCallOrchestrationTest`: **PASS** (Multi-dialog isolation, separate RTP sockets)
+  8. `SipTransactionReliabilityTest`: **PASS** (Timer A backoff, Timer B expiry, duplicate suppression)
+  9. `ControlledFailureRecoveryTest`: **PASS** (404, 408, CANCEL teardown, zero leaks)
+  10. `PerformanceCampaignEngineTest`: **PASS** (Multi-call campaigns, ITU-T G.107 MOS)
+  11. `ActiveCampaignFailureRecoveryTest`: **PASS** (Multi-dialog abort, resource teardown)
+  12. `SipFeatureCompletenessTest`: **PASS** (RFC 2833 / INFO DTMF, REFER, Replaces)
+  13. `TransportSecurityAuditTest`: **PASS** (UDP/TCP/TLS transport params, credential sanitization)
+  14. `CallEngineLifecycleTest`: **PASS** (Engine start/stop/restart, RTP port isolation)
+  15. `EngineProtocolIntegrityTest`: **PASS** (Dynamic DTMF PT 101/120, early media 183 SDP, hold/resume)
+  16. `Phase8WorkspaceIntelligenceTest`: **PASS** (DEF-01 through DEF-09 behavioral validation)
+  17. `HeadlessSipEndpointTest`: **PASS** (LIM-03 Native RFC 3261 UAS auto-answer, RTP loopback, DTMF, OPTIONS)
+  18. `CodecExpansionValidationTest`: **PASS** (LIM-04 CodecRegistry, Opus RFC 7587 48kHz, G.722, PCMA/PCMU, AMR IP report)
+  19. `TlsSessionReliabilityTest`: **PASS** (LIM-05 Persistent TLS pooling, Call-ID in-dialog reuse, connection purge)
+  20. `DistributedLoadCampaignTest`: **PASS** (LIM-06 Coordinator workload slicing, node namespacing, cluster metrics, triage)
+  21. `OxeTelecomInteroperabilityTest`: **PASS** (UUI, Diversion, History-Info, Privacy, PAI, Blind & Attended transfer)
+  22. `UnifiedScenarioRunnerTest`: **PASS** (Workstream H Headless scenario parsing, variable substitution, assertions)
+
+### 11.2 Live Physical OXE PBX & Native Headless Endpoint Integration (`test.OxeLiveHeadlessIntegrationTest`)
+- **Target PBX:** Alcatel-Lucent OmniPCX Enterprise R101.1 n4.524.2 (`192.168.0.20:5060`)
+- **Endpoint A:** SIP Simulator v4 Extension `90008` (`192.168.0.8:5060`)
+- **Endpoint B:** Native Headless SIP Endpoint Extension `90001` (`192.168.0.8:5062`)
+- **Results:**
+  - `[STEP 1]` Simulator Engine A startup on `192.168.0.8:5060`: **PASS**
+  - `[STEP 2]` Register extension 90008 with OXE PBX: **PASS** (Received `SIP/2.0 200 OK`)
+  - `[STEP 3]` Outbound Call Setup 90008 -> 90001 (`192.168.0.8:5062`): **PASS** (INVITE dispatched, Call-ID generated)
+  - `[STEP 4]` Headless Endpoint Auto-Answer & 3-Way Handshake: **PASS** (100 Trying $\to$ 180 Ringing $\to$ 200 OK with SDP, RTP port 42002 bound, ACK transmitted)
+  - `[STEP 5]` In-Dialog DTMF Signal Transmission: **PASS** (DTMF digit '7' transmitted via SIP INFO, 200 OK acknowledged)
+  - `[STEP 6]` In-Dialog BYE Teardown: **PASS** (BYE transmitted by Endpoint A, 200 OK returned by Endpoint B, RTP media terminated cleanly)
+  - `[STEP 7]` Clean PBX Deregistration: **PASS** (REGISTER `Expires: 0` $\to$ 200 OK confirmed from OXE PBX)
+- **Result:** **100% PASS — Zero MicroSIP Dependency (LIM-03 Cleared)**
+
+### 11.3 Web Dashboard & Express Daemon Qualification
+- **React Client Build (`cd web-app\client && npm run build`):** Built cleanly in 748ms, 0 errors, 17 modules transformed. Production bundle generated in `web-app/public/`.
+- **Node Backend Check (`node --check web-app\server.js`):** AST syntax validation exited cleanly with code 0.

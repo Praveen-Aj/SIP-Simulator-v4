@@ -40,7 +40,16 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class SipCallEngine {
 
+    public interface CallStateCallback {
+        void onCallStateChanged(CallSession session);
+    }
+
     private static volatile SipCallEngine instance = null;
+    private static CallStateCallback globalStateCallback = null;
+
+    public void setStateCallback(CallStateCallback cb) {
+        globalStateCallback = cb;
+    }
 
     public static synchronized SipCallEngine getInstance() {
         if (instance == null) {
@@ -178,6 +187,11 @@ public class SipCallEngine {
                     establishedTimeMs = System.currentTimeMillis();
                 } else if (next.isTerminal() && endTimeMs == 0) {
                     endTimeMs = System.currentTimeMillis();
+                }
+                if (globalStateCallback != null) {
+                    try {
+                        globalStateCallback.onCallStateChanged(this);
+                    } catch (Exception ignored) {}
                 }
                 return true;
             } else {
@@ -544,6 +558,22 @@ public class SipCallEngine {
         return register(extension, 0);
     }
 
+    public boolean isRegistered() {
+        return registeredExtension != null && !registeredExtension.isEmpty();
+    }
+
+    public boolean blindTransfer(String callId, String targetExtension) throws Exception {
+        return transferCall(callId, targetExtension, null);
+    }
+
+    public boolean attendedTransfer(String callId, String targetExtension, String replacesCallId, String toTag, String fromTag) throws Exception {
+        return transferCall(callId, targetExtension, replacesCallId);
+    }
+
+    public CallSession getSession(String callId) {
+        return getCallSession(callId);
+    }
+
     /**
      * Initiate an outbound call (INVITE) to callee.
      */
@@ -552,6 +582,10 @@ public class SipCallEngine {
     }
 
     public synchronized CallSession makeCall(String caller, String callee, int requestedPt, String targetIp, int targetPort) throws Exception {
+        return makeCall(caller, callee, requestedPt, targetIp, targetPort, null);
+    }
+
+    public synchronized CallSession makeCall(String caller, String callee, int requestedPt, String targetIp, int targetPort, Map<String, String> customHeaders) throws Exception {
         if (!running) {
             startEngine(localIp, localSipPort, pbxIp, pbxSipPort);
         }
@@ -568,7 +602,7 @@ public class SipCallEngine {
         session.targetPort = targetPort;
         session.payloadType = requestedPt > 0 ? requestedPt : 8;
         session.codecName = LiveAudioCodec.isSupported(requestedPt) ?
-                LiveAudioCodec.create(requestedPt).rtpmapName() : "PCMA";
+                LiveAudioCodec.create(requestedPt).rtpmapName() : (requestedPt == 111 ? "opus" : "PCMA");
         session.startTimeMs = System.currentTimeMillis();
         session.lastInviteTransmitMs = session.startTimeMs;
         session.inviteRetransmitIntervalMs = 500;
@@ -582,6 +616,15 @@ public class SipCallEngine {
         session.inviteBranch = "z9hG4bKinv" + System.currentTimeMillis() + "_" + seqNum;
         session.transport = transportType;
 
+        StringBuilder extraHeaders = new StringBuilder();
+        if (customHeaders != null && !customHeaders.isEmpty()) {
+            for (Map.Entry<String, String> entry : customHeaders.entrySet()) {
+                if (entry.getKey() != null && entry.getValue() != null) {
+                    extraHeaders.append(entry.getKey()).append(": ").append(entry.getValue()).append("\r\n");
+                }
+            }
+        }
+
         String inviteMsg =
                 "INVITE sip:" + callee + "@" + targetIp + " SIP/2.0\r\n" +
                 "Via: SIP/2.0/" + transportType + " " + localIp + ":" + localSipPort + ";rport;branch=" + session.inviteBranch + "\r\n" +
@@ -594,6 +637,7 @@ public class SipCallEngine {
                 "Allow: PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS\r\n" +
                 "Supported: replaces, timer, 100rel\r\n" +
                 "P-Asserted-Identity: \"" + caller + "\" <sip:" + caller + "@" + targetIp + ">\r\n" +
+                extraHeaders.toString() +
                 "User-Agent: SIP Simulator v4\r\n" +
                 "Content-Type: application/sdp\r\n" +
                 "Content-Length: " + sdpOffer.getBytes().length + "\r\n\r\n" +
@@ -932,10 +976,16 @@ public class SipCallEngine {
         bye.append("Content-Length: 0\r\n\r\n");
 
         if (signalingSocket != null) {
-            MyPacket pkt = new MyPacket(bye.toString());
-            pkt.setAddress(InetAddress.getByName(pbxIp));
-            pkt.setPort(pbxSipPort);
-            signalingSocket.send(pkt);
+            try {
+                MyPacket pkt = new MyPacket(bye.toString());
+                pkt.setAddress(InetAddress.getByName(session.targetIp != null ? session.targetIp : pbxIp));
+                pkt.setPort(session.targetPort > 0 ? session.targetPort : pbxSipPort);
+                signalingSocket.send(pkt);
+            } catch (Exception ex) {
+                if (TLSDebugLogger.isEnabled()) {
+                    TLSDebugLogger.log("[CALL ENGINE] Warning sending BYE: " + ex.getMessage());
+                }
+            }
         }
 
         stopMediaForSession(session);
@@ -1093,6 +1143,9 @@ public class SipCallEngine {
                 session.mediaController.stopAudio();
             } catch (Exception ignored) {}
             session.mediaController = null;
+        }
+        if (session.localRtpPort > 0) {
+            sipinspector.Socket.RtpPortManager.getInstance().releaseRtpPort(session.localRtpPort);
         }
     }
 
@@ -1877,23 +1930,7 @@ public class SipCallEngine {
     }
 
     public int allocateRtpPort() {
-        int range = (rtpPortRangeEnd > rtpPortRangeStart) ? (rtpPortRangeEnd - rtpPortRangeStart) : 8000;
-        int maxAttempts = Math.min(500, range / 2);
-        for (int i = 0; i < maxAttempts; i++) {
-            int p = nextRtpPort.getAndAdd(2);
-            if (p > rtpPortRangeEnd || p < rtpPortRangeStart) {
-                nextRtpPort.set(rtpPortRangeStart);
-                p = rtpPortRangeStart;
-            }
-            try {
-                java.net.DatagramSocket s = new java.net.DatagramSocket(p);
-                s.close();
-                return p;
-            } catch (Exception ignored) {
-                // Port occupied, advance to next
-            }
-        }
-        return nextRtpPort.getAndAdd(2);
+        return sipinspector.Socket.RtpPortManager.getInstance().allocateRtpPort();
     }
 
     private String buildSdpOffer(String ip, int rtpPort, int pt) {
@@ -1904,7 +1941,14 @@ public class SipCallEngine {
         sb.append("c=IN IP4 ").append(ip).append("\r\n");
         sb.append("t=0 0\r\n");
 
-        if (pt == 9) {
+        if (pt == 111) {
+            sb.append("m=audio ").append(rtpPort).append(" RTP/AVP 111 8 0 9 101\r\n");
+            sb.append("a=rtpmap:111 opus/48000/2\r\n");
+            sb.append("a=fmtp:111 minptime=10;useinbandfec=1\r\n");
+            sb.append("a=rtpmap:8 PCMA/8000\r\n");
+            sb.append("a=rtpmap:0 PCMU/8000\r\n");
+            sb.append("a=rtpmap:9 G722/8000\r\n");
+        } else if (pt == 9) {
             sb.append("m=audio ").append(rtpPort).append(" RTP/AVP 9 8 0 101\r\n");
             sb.append("a=rtpmap:9 G722/8000\r\n");
             sb.append("a=rtpmap:8 PCMA/8000\r\n");

@@ -4,6 +4,43 @@ All notable changes for the SIP Simulator project (originally SIP Inspector) are
 
 ---
 
+## [9.0] - November 2026
+
+### Platform Modernization, Open-Issue Closure & Advanced Telecom Capabilities
+- **Workstream A — Unified SIP Execution Architecture (LIM-01 Resolved):**
+  - Implemented `sipinspector.Core.UnifiedSipEngineService` singleton and `sipinspector.Controller.EngineServiceBridge`.
+  - Unified runtime state across Desktop Swing UI and Web management daemon (`CliCallEngine.java`), sharing registration status, active call sessions, and message events via `EngineEventListener`.
+  - Added REST management endpoints: `POST /api/engine/start`, `POST /api/engine/stop`, `GET /api/engine/ports`, `POST /api/call/transfer/blind`, `POST /api/call/transfer/attended`.
+- **Workstream B — SIP Port & Network Resource Management (LIM-02 Resolved):**
+  - Implemented `sipinspector.Socket.SipTransportManager` to coordinate socket binding, prevent port 5060 collision, and manage transport lifecycle across UDP, TCP, and TLS.
+  - Implemented `sipinspector.Socket.RtpPortManager` to safely allocate even-numbered UDP ports for RTP and reserve odd-numbered ports (port + 1) for RTCP control telemetry.
+- **Workstream C — Native Headless SIP Endpoint (LIM-03 Resolved):**
+  - Implemented `sipinspector.Endpoint.HeadlessSipEndpoint` providing an RFC 3261 UAS and UAC with automated call answering (100 Trying $\to$ 180 Ringing $\to$ 200 OK with SDP), dedicated RTP media loopback/tone streaming, handling of ACK, BYE, CANCEL, Re-INVITE, INFO, and DTMF.
+  - Validated live unattended call establishment and teardown with physical Alcatel-Lucent OmniPCX Enterprise PBX (`192.168.0.20:5060`), eliminating mandatory dependency on MicroSIP interactive GUI sessions.
+- **Workstream D — Audio Codec Expansion & AMR IP Evaluation (LIM-04 Resolved):**
+  - Implemented extensible `AudioCodec` interface and centralized `CodecRegistry`.
+  - Implemented `PcmaCodec` (PT 8), `PcmuCodec` (PT 0), `G722AudioCodec` (PT 9, 8kHz RTP clock / 16kHz audio line), and `OpusAudioCodec` (RFC 7587 dynamic PT 111, 48000 Hz RTP clock, TOC packetizer/depacketizer, SDP `fmtp` formatting).
+  - Implemented `AmrCodecEvaluator` documenting AMR-NB / AMR-WB standard essential patent pools (VoiceAge / Via Licensing), legal risk assessment, and clean-room external library recommendation.
+- **Workstream E — TLS Session Reliability (LIM-05 Resolved):**
+  - Implemented `sipinspector.Socket.TlsSessionManager` providing persistent TLS connection pooling keyed by destination host:port and Call-ID.
+  - Enabled seamless in-dialog transmission (Re-INVITE, BYE, INFO) across established authenticated TLS sockets without renegotiation or connection drops.
+- **Workstream F — Distributed Multi-Node Load Generation (LIM-06 Resolved):**
+  - Implemented `DistributedCampaignCoordinator` and `LoadAgentNode`.
+  - Supports worker node registration, automatic workload partitioning (target CPS and total calls) with remainder handling, unique Call-ID namespacing per node, aggregated real-time metrics (p50, p95, p99 latency, combined MOS), and cluster-wide failure triage.
+- **Workstream G — OXE Telecom Interoperability:**
+  - Added support in `SipCallEngine.java` for custom telecom headers: User-to-User (UUI), Diversion, History-Info, Privacy, and P-Asserted-Identity (PAI).
+  - Added Blind and Attended transfer (`REFER` with `Replaces`) and `NOTIFY` subscription state processing (`Event: refer`).
+  - Added scenario template `scenarios/OXE_Telecom_Features_Suite.txt` and `values/OXE_Telecom_Features_Suite_values.txt`.
+- **Workstream H — Scenario Engine Consolidation:**
+  - Implemented headless `sipinspector.Scenario.UnifiedScenarioRunner` executing scenario files with parameter substitution, expected responses, assertions, and execution callbacks without requiring any Swing JFrame or modal dialogs.
+- **Workstream I — Swing Architecture Refactoring:**
+  - Decoupled `SIPInspectorMainFrame.java` using `MainFrameController.java` and `EngineServiceBridge.java`.
+- **Master Regression Harness:**
+  - Expanded `OfflineFullRegressionSuite` to 22 test suites (100% PASS, 0 FAIL, 12.64s elapsed time).
+  - Validated React 19 + Vite 8 frontend production build (748ms) and Node backend syntax.
+
+---
+
 ## [8.3] - November 2026
 
 ### Independent QA Revalidation & Product Acceptance

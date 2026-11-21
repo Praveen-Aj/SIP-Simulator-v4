@@ -94,6 +94,24 @@ public class OfflineFullRegressionSuite {
         // 16. Phase 8: Engineering Workspace Consolidation & Diagnostic Intelligence
         runner.run("Phase8WorkspaceIntelligenceTest", () -> Phase8WorkspaceIntelligenceTest.main(new String[0]));
 
+        // 17. Phase 9: Native Headless SIP Endpoint (LIM-03)
+        runner.run("HeadlessSipEndpointTest", () -> HeadlessSipEndpointTest.main(new String[0]));
+
+        // 18. Phase 9: Codec Expansion & AMR IP Evaluation (LIM-04)
+        runner.run("CodecExpansionValidationTest", () -> CodecExpansionValidationTest.main(new String[0]));
+
+        // 19. Phase 9: TLS Session Reliability & In-Dialog Reuse (LIM-05)
+        runner.run("TlsSessionReliabilityTest", () -> TlsSessionReliabilityTest.main(new String[0]));
+
+        // 20. Phase 9: Distributed Load Generation Coordinator & Agents (LIM-06)
+        runner.run("DistributedLoadCampaignTest", () -> DistributedLoadCampaignTest.main(new String[0]));
+
+        // 21. Phase 9: OXE Telecom Interoperability & Custom Headers
+        runner.run("OxeTelecomInteroperabilityTest", () -> OxeTelecomInteroperabilityTest.main(new String[0]));
+
+        // 22. Phase 9: Unified Scenario Runner (Workstream H)
+        runner.run("UnifiedScenarioRunnerTest", () -> UnifiedScenarioRunnerTest.main(new String[0]));
+
         long elapsed = System.currentTimeMillis() - startTime;
         System.out.println("\n================================================================================");
         System.out.println("   OFFLINE REGRESSION MASTER SUMMARY");

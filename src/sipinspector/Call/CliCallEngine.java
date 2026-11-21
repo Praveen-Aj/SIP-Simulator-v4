@@ -625,6 +625,130 @@ public class CliCallEngine {
             }
         });
 
+        // 12.5. Engine Start Endpoint
+        server.createContext("/api/engine/start", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String lip = extractJsonField(body, "localIp");
+                String lportStr = extractJsonField(body, "localPort");
+                String pip = extractJsonField(body, "pbxIp");
+                String pportStr = extractJsonField(body, "pbxPort");
+                String transport = extractJsonField(body, "transport");
+                if (lip == null || lip.isEmpty()) lip = engine.getLocalIp();
+                int lport = (lportStr != null && !lportStr.isEmpty()) ? Integer.parseInt(lportStr) : engine.getLocalSipPort();
+                if (pip == null || pip.isEmpty()) pip = engine.getPbxIp();
+                int pport = (pportStr != null && !pportStr.isEmpty()) ? Integer.parseInt(pportStr) : engine.getPbxSipPort();
+                if (transport == null || transport.isEmpty()) transport = engine.getTransportType();
+
+                boolean ok = engine.startEngine(lip, lport, pip, pport, transport);
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("success", ok);
+                resp.put("running", engine.isRunning());
+                resp.put("localIp", engine.getLocalIp());
+                resp.put("localPort", engine.getLocalSipPort());
+                sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+            }
+        });
+
+        // 12.6. Engine Stop Endpoint
+        server.createContext("/api/engine/stop", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                engine.stopEngine();
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("success", true);
+                resp.put("running", engine.isRunning());
+                sendJsonResponse(exchange, 200, toJson(resp));
+            }
+        });
+
+        // 12.7. RTP Port Allocation & Management Endpoint
+        server.createContext("/api/engine/ports", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                Map<String, Object> resp = new LinkedHashMap<>();
+                resp.put("activeAllocatedPorts", sipinspector.Socket.RtpPortManager.getInstance().getActiveAllocatedCount());
+                resp.put("portRangeStart", sipinspector.Socket.RtpPortManager.getInstance().getPortRangeStart());
+                resp.put("portRangeEnd", sipinspector.Socket.RtpPortManager.getInstance().getPortRangeEnd());
+                resp.put("allocatedPorts", sipinspector.Socket.RtpPortManager.getInstance().getAllocatedPorts());
+                sendJsonResponse(exchange, 200, toJson(resp));
+            }
+        });
+
+        // 12.8. Blind Transfer Endpoint
+        server.createContext("/api/call/transfer/blind", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                String target = extractJsonField(body, "target");
+                if (callId == null || callId.isEmpty() || target == null || target.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId and target required\"}");
+                    return;
+                }
+                try {
+                    boolean ok = engine.transferCall(callId, target, null);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    resp.put("target", target);
+                    resp.put("type", "blind");
+                    sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
+        // 12.9. Attended Transfer Endpoint
+        server.createContext("/api/call/transfer/attended", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if (handleCors(exchange)) return;
+                if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    sendJsonResponse(exchange, 405, "{\"error\":\"Method Not Allowed\"}");
+                    return;
+                }
+                String body = readBody(exchange);
+                String callId = extractJsonField(body, "callId");
+                String target = extractJsonField(body, "target");
+                String replacesCallId = extractJsonField(body, "replacesCallId");
+                if (callId == null || callId.isEmpty() || target == null || target.isEmpty() || replacesCallId == null || replacesCallId.isEmpty()) {
+                    sendJsonResponse(exchange, 400, "{\"success\":false,\"error\":\"callId, target and replacesCallId required\"}");
+                    return;
+                }
+                try {
+                    boolean ok = engine.transferCall(callId, target, replacesCallId);
+                    Map<String, Object> resp = new LinkedHashMap<>();
+                    resp.put("success", ok);
+                    resp.put("callId", callId);
+                    resp.put("target", target);
+                    resp.put("replacesCallId", replacesCallId);
+                    resp.put("type", "attended");
+                    sendJsonResponse(exchange, ok ? 200 : 500, toJson(resp));
+                } catch (Exception e) {
+                    sendJsonResponse(exchange, 500, "{\"success\":false,\"error\":\"" + escapeJson(e.getMessage()) + "\"}");
+                }
+            }
+        });
+
         // 13. Start Performance Campaign
         server.createContext("/api/perf/start", new HttpHandler() {
             @Override
